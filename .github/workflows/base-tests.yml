@@ -13,7 +13,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-      - uses: AnHeuermann/setup-openmodelica@v0.1.0
+      - uses: AnHeuermann/setup-openmodelica@v0.1.1
       - uses: julia-actions/setup-julia@v1
         with:
           version: ${{ matrix.julia-version }}
