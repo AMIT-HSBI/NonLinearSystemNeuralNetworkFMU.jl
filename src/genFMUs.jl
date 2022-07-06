@@ -83,7 +83,7 @@ end
 """
 Generate 2.0 Model Exchange FMU for Modelica model using omc.
 """
-function generateFMU(;model_name::String, path_to_mo::String, path_to_omc::String, tempDir::String, clean::Bool = false)
+function generateFMU(;modelName::String, pathToMo::String, pathToOmc::String, tempDir::String, clean::Bool = false)
 
   if !isdir(tempDir)
     mkdir(tempDir)
@@ -95,11 +95,11 @@ function generateFMU(;model_name::String, path_to_mo::String, path_to_omc::Strin
   logFilePath = joinpath(tempDir,"callsFMI.log")
   logFile = open(logFilePath, "w")
 
-  omc = OMJulia.OMCSession(path_to_omc)
+  omc = OMJulia.OMCSession(pathToOmc)
   try
     msg = OMJulia.sendExpression(omc, "getVersion()")
     write(logFile, msg*"\n")
-    OMJulia.sendExpression(omc, "loadFile(\"$(path_to_mo)\")")
+    OMJulia.sendExpression(omc, "loadFile(\"$(pathToMo)\")")
     msg = OMJulia.sendExpression(omc, "getErrorString()")
     write(logFile, msg*"\n")
     OMJulia.sendExpression(omc, "cd(\"$(tempDir)\")")
@@ -111,7 +111,7 @@ function generateFMU(;model_name::String, path_to_mo::String, path_to_omc::Strin
     write(logFile, msg*"\n")
 
     @info "buildFMU"
-    msg = OMJulia.sendExpression(omc, "buildModelFMU($(model_name), version=\"2.0\", fmuType=\"me\")")
+    msg = OMJulia.sendExpression(omc, "buildModelFMU($(modelName), version=\"2.0\", fmuType=\"me\")")
     write(logFile, msg*"\n")
     msg = OMJulia.sendExpression(omc, "getErrorString()")
     write(logFile, msg*"\n")
@@ -120,11 +120,11 @@ function generateFMU(;model_name::String, path_to_mo::String, path_to_omc::Strin
     OMJulia.sendExpression(omc, "quit()",parsed=false)
   end
 
-  if !isfile(joinpath(tempDir, model_name*".fmu"))
+  if !isfile(joinpath(tempDir, modelName*".fmu"))
     error("Could not generate FMU! Check log file:\n$(abspath(logFilePath))")
   end
 
-  return joinpath(tempDir, model_name*".fmu")
+  return joinpath(tempDir, modelName*".fmu")
 end
 
 
@@ -155,25 +155,25 @@ end
 """
 Create extendedFMU with special_interface
 """
-function addEqInterface2FMU(;model_name::String,
-                             path_to_fmu::String,
-                             path_to_fmi_header::String,
+function addEqInterface2FMU(;modelName::String,
+                             pathToFmu::String,
+                             pathToFmiHeader::String,
                              eqIndices::Array{Int64},
                              tempDir::String)
 
   @info "Unzip FMU"
-  path_to_fmu = abspath(path_to_fmu)
+  pathToFmu = abspath(pathToFmu)
   fmuPath = abspath(joinpath(tempDir,"FMU"))
-  run(`bash -c "unzip -q -o $(path_to_fmu) -d $(fmuPath)"`)
+  run(`bash -c "unzip -q -o $(pathToFmu) -d $(fmuPath)"`)
 
   # make special_interface in FMU/sources/fmi-export
   @info "Add special C sources"
-  modelname = replace(model_name, "."=>"_")
+  modelname = replace(modelName, "."=>"_")
   createSpecialInterface(modelname, abspath(tempDir), eqIndices)
 
   # Configure in FMU/sources while adding FMI headers to `CPPFLAGS`
   @info "Configure"
-  run(`bash -c "cd $(fmuPath)/sources ; ./configure CPPFLAGS="-I$(path_to_fmi_header)" NEED_CMINPACK=1"`)
+  run(`bash -c "cd $(fmuPath)/sources ; ./configure CPPFLAGS="-I$(pathToFmiHeader)" NEED_CMINPACK=1"`)
 
   # update Makefile
   updateMakefile(joinpath(fmuPath,"sources/Makefile"))
@@ -182,5 +182,5 @@ function addEqInterface2FMU(;model_name::String,
   @info "Compiling FMU"
   run(`bash -c "cd $(fmuPath)/sources ; make -sj -C $(fmuPath)/sources/ $(modelname)_FMU"`)
 
-  return joinpath(tempDir, model_name*".fmu")
+  return joinpath(tempDir, modelName*".fmu")
 end
