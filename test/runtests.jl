@@ -1,6 +1,9 @@
 using Test
 using NonLinearSystemNeuralNetworkFMU
 
+include("profiling_tests.jl")
+include("gen_fmus_test.jl")
+
 path_to_omc = ""
 if Sys.iswindows()
   path_to_omc = string(strip(read(`where omc.exe`, String)))
@@ -15,5 +18,5 @@ end
 
 path_to_fmi_header = abspath(joinpath(@__DIR__, "..", "FMI-Standard-2.0.3","headers"))
 
-include("profiling_tests.jl")
-include("gen_fmus_test.jl")
+runProfilingTests()
+runGenFmusTest()
