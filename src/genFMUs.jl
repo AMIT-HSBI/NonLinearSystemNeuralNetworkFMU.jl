@@ -53,7 +53,7 @@ function createSpecialInterface(modelname::String, tempDir::String, eqIndices::A
       threadData_t *threadData = comp->threadData;
 
       useStream[LOG_NLS] = 0 /* false */;
-      useStream[LOG_NLS_V] = 0 /* true */;
+      useStream[LOG_NLS_V] = 0 /* false */;
       FILTERED_LOG(comp, fmi2OK, LOG_FMI2_CALL, \"myfmi2evaluateEq: Evaluating equation %u\", eqNumber)
 
       switch (eqNumber)
