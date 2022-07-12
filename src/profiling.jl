@@ -49,15 +49,31 @@ function simulateWithProfiling(;modelName,
   return (profJsonFile, infoJsonFile, resultFile)
 end
 
+function isnonlinearequation(eq::Dict{String, Any}, id::Number)
+  return eq["tag"] == "tornsystem" && eq["display"] == "non-linear"
+end
+
 
 """
-Read JSON profiling file and find slowest equation that need more then `threshold` of total simulation time.
-"""
-function findSlowEquations(jsonFile; threshold = 0.03)
-  profileFile = JSON.parsefile(jsonFile)
+    findSlowEquations(profJsonFile, infoJsonFile; threshold)
 
+Read JSON profiling file and find slowest non-linear loop equatiosn that need more then `threshold` of total simulation time.
+
+# Arguments
+
+  * `profJsonFile::String`: Path to profiling JSON file.
+  * `infoJsonFile::String`: Path to info JSON file.
+
+# Keywords
+  * `threshold`: Lower bound on time consumption of equation.
+                 0 <= threshold <= 1
+"""
+function findSlowEquations(profJsonFile::String, infoJsonFile::String; threshold = 0.03)
+  infoFile = JSON.parsefile(infoJsonFile)
+  equations = infoFile["equations"]
+
+  profileFile = JSON.parsefile(profJsonFile)
   totalTime = profileFile["totalTime"]
-
   profileBlocks = profileFile["profileBlocks"]
   profileBlocks = sort(profileBlocks, by=x->x["time"], rev=true)
 
@@ -72,9 +88,10 @@ function findSlowEquations(jsonFile; threshold = 0.03)
     i += 1
     block = profileBlocks[i]
     fraction = block["time"] / totalTime
-    bigger = fraction >= threshold
-    if bigger
-      push!(slowesEq, EqInfo(block["id"], block["ncall"], block["time"], block["maxTime"], fraction) )
+    bigger = fraction > threshold
+    id = block["id"]
+    if bigger && isnonlinearequation(equations[id+1], id)
+      push!(slowesEq, EqInfo(block["id"], block["ncall"], block["time"], block["maxTime"], fraction))
     end
   end
 
@@ -183,11 +200,14 @@ end
 
 Find equations of Modelica model that are slower then threashold.
 
-`modelName` is full name of the Modelica model.
-`pathToMo` is the path to the *.mo file containing the model.
-`pathToOmc` is the path to omc used for simulating the model.
-`workingDir` is the working directory for omc.
-`threshold` slowest equations that need more then `threshold` of total simulation time.
+# Arguments
+  - `modelName::String`:  Name of the Modelica model.
+  - `pathToMo::String`:   Path to the *.mo file containing the model.
+  - `pathToOm::Stringc`:  Path to omc used for simulating the model.
+  - `workingDir::String`: Working directory for omc.
+
+# Keywords
+  - `threshold`: Slowest equations that need more then `threshold` of total simulation time.
 """
 function profiling(modelName::String, pathToMo::String, pathToOmc::String, workingDir::String; threshold = 0.01)
 
@@ -198,7 +218,7 @@ function profiling(modelName::String, pathToMo::String, pathToOmc::String, worki
                                                           tempDir = omcWorkingDir,
                                                           outputFormat="mat")
 
-  slowestEqs = findSlowEquations(profJsonFile; threshold=threshold)
+  slowestEqs = findSlowEquations(profJsonFile, infoJsonFile; threshold=threshold)
 
   profilingInfo = Array{ProfilingInfo}(undef, length(slowestEqs))
 

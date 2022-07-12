@@ -6,16 +6,21 @@ function runProfilingTests()
     workingDir = abspath(@__DIR__)
 
     @testset "Find slowes equations" begin
-      profilingInfo = NonLinearSystemNeuralNetworkFMU.profiling(modelName, pathToMo, pathToOmc, workingDir)
-      @test length(profilingInfo) == 1
+      profilingInfo = NonLinearSystemNeuralNetworkFMU.profiling(modelName, pathToMo, pathToOmc, workingDir; threshold=0)
+      @test length(profilingInfo) == 2
+      # NLS from simulation system
       @test profilingInfo[1].eqInfo.id == 14
       @test profilingInfo[1].iterationVariables == ["y"]
       @test sort(profilingInfo[1].usingVars) == ["r","s"]
+      # NLS from initialization system
+      @test profilingInfo[2].eqInfo.id == 6
+      @test profilingInfo[2].iterationVariables == ["y"]
+      @test sort(profilingInfo[2].usingVars) == ["r","s"]
       rm(joinpath(workingDir,modelName), recursive=true)
     end
 
     @testset "Min-max for usingVars" begin
-      profilingInfo = NonLinearSystemNeuralNetworkFMU.profiling(modelName, pathToMo, pathToOmc, workingDir)
+      profilingInfo = NonLinearSystemNeuralNetworkFMU.profiling(modelName, pathToMo, pathToOmc, workingDir; threshold=0)
       (min, max)  = NonLinearSystemNeuralNetworkFMU.minMaxValuesReSim(profilingInfo[1].usingVars, modelName, pathToMo, pathToOmc, workingDir)
       # s = sqrt((2-time)*0.9), time = 0..2
       # r = 1..3
