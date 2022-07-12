@@ -1,9 +1,9 @@
 """
 Simulate Modelica model with profiling enabled using given omc.
 """
-function simulateWithProfiling(;model_name,
-                                path_to_mo,
-                                path_to_omc,
+function simulateWithProfiling(;modelName,
+                                pathToMo,
+                                pathToOmc,
                                 tempDir,
                                 outputFormat = "mat",
                                 clean = false)
@@ -18,11 +18,11 @@ function simulateWithProfiling(;model_name,
   logFilePath = joinpath(tempDir,"calls.log")
   logFile = open(logFilePath, "w")
 
-  omc = OMJulia.OMCSession(path_to_omc)
+  omc = OMJulia.OMCSession(pathToOmc)
   try
     msg = OMJulia.sendExpression(omc, "getVersion()")
     write(logFile, msg*"\n")
-    OMJulia.sendExpression(omc, "loadFile(\"$(path_to_mo)\")")
+    OMJulia.sendExpression(omc, "loadFile(\"$(pathToMo)\")")
     msg = OMJulia.sendExpression(omc, "getErrorString()")
     write(logFile, msg*"\n")
     OMJulia.sendExpression(omc, "cd(\"$(tempDir)\")")
@@ -34,7 +34,7 @@ function simulateWithProfiling(;model_name,
     write(logFile, msg*"\n")
 
     @info "simulate"
-    msg = OMJulia.sendExpression(omc, "simulate($(model_name), outputFormat=\"$(outputFormat)\", simflags=\"-lv=LOG_STATS -clock=CPU -cpu -w\")")
+    msg = OMJulia.sendExpression(omc, "simulate($(modelName), outputFormat=\"$(outputFormat)\", simflags=\"-lv=LOG_STATS -clock=CPU -cpu -w\")")
     write(logFile, msg["messages"]*"\n")
     msg = OMJulia.sendExpression(omc, "getErrorString()")
     write(logFile, msg*"\n")
@@ -43,21 +43,37 @@ function simulateWithProfiling(;model_name,
     OMJulia.sendExpression(omc, "quit()", parsed=false)
   end
 
-  prof_json_file = abspath(joinpath(tempDir, model_name*"_prof.json"))
-  info_json_file = abspath(joinpath(tempDir, model_name*"_info.json"))
-  result_file = abspath(joinpath(tempDir, model_name*"_res."*outputFormat))
-  return (prof_json_file, info_json_file, result_file)
+  profJsonFile = abspath(joinpath(tempDir, modelName*"_prof.json"))
+  infoJsonFile = abspath(joinpath(tempDir, modelName*"_info.json"))
+  resultFile = abspath(joinpath(tempDir, modelName*"_res."*outputFormat))
+  return (profJsonFile, infoJsonFile, resultFile)
+end
+
+function isnonlinearequation(eq::Dict{String, Any}, id::Number)
+  return eq["tag"] == "tornsystem" && eq["display"] == "non-linear"
 end
 
 
 """
-Read JSON profiling file and find slowest equation that need more then `threshold` of total simulation time.
+    findSlowEquations(profJsonFile, infoJsonFile; threshold)
+
+Read JSON profiling file and find slowest non-linear loop equatiosn that need more then `threshold` of total simulation time.
+
+# Arguments
+
+  * `profJsonFile::String`: Path to profiling JSON file.
+  * `infoJsonFile::String`: Path to info JSON file.
+
+# Keywords
+  * `threshold`: Lower bound on time consumption of equation.
+                 0 <= threshold <= 1
 """
-function findSlowEquations(json_file; threshold = 0.03)
-  profileFile = JSON.parsefile(json_file)
+function findSlowEquations(profJsonFile::String, infoJsonFile::String; threshold = 0.03)
+  infoFile = JSON.parsefile(infoJsonFile)
+  equations = infoFile["equations"]
 
+  profileFile = JSON.parsefile(profJsonFile)
   totalTime = profileFile["totalTime"]
-
   profileBlocks = profileFile["profileBlocks"]
   profileBlocks = sort(profileBlocks, by=x->x["time"], rev=true)
 
@@ -72,9 +88,10 @@ function findSlowEquations(json_file; threshold = 0.03)
     i += 1
     block = profileBlocks[i]
     fraction = block["time"] / totalTime
-    bigger = fraction >= threshold
-    if bigger
-      push!(slowesEq, EqInfo(block["id"], block["ncall"], block["time"], block["maxTime"], fraction) )
+    bigger = fraction > threshold
+    id = block["id"]
+    if bigger && isnonlinearequation(equations[id+1], id)
+      push!(slowesEq, EqInfo(block["id"], block["ncall"], block["time"], block["maxTime"], fraction))
     end
   end
 
@@ -85,7 +102,7 @@ end
 """
 Return variables that are defined by equation with `eqIndex`.
 """
-function findUsedVars(infoFile, eqIndex; filter_parameters = true)
+function findUsedVars(infoFile, eqIndex; filterParameters = true)
   equations = infoFile["equations"]
   eq = (equations[eqIndex+1])
 
@@ -104,7 +121,7 @@ function findUsedVars(infoFile, eqIndex; filter_parameters = true)
   end
 
   # Check if used variable is parameter
-  if filter_parameters && usingVars !==nothing
+  if filterParameters && usingVars !==nothing
     parameters = String[]
     variables = infoFile["variables"]
     for usedVar in usingVars
@@ -126,8 +143,8 @@ end
 """
 Read JSON info file and find all variables needed for equation with index `eqIndex`.
 """
-function findDependentVars(json_file, eqIndex)
-  infoFile = JSON.parsefile(json_file)
+function findDependentVars(jsonFile, eqIndex)
+  infoFile = JSON.parsefile(jsonFile)
 
   equations = infoFile["equations"]
   eq = (equations[eqIndex+1])
@@ -164,8 +181,8 @@ end
 """
 Find smallest and biggest value for each variable using the CSV result file ± epsilon.
 """
-function minMaxValues(variables::Array{String}; epsilon=0.05, result_file)
-  df = DataFrames.DataFrame(CSV.File(result_file))
+function minMaxValues(variables::Array{String}; epsilon=0.05, resultFile)
+  df = DataFrames.DataFrame(CSV.File(resultFile))
 
   min = Array{Float64}(undef, length(variables))
   max = Array{Float64}(undef, length(variables))
@@ -179,31 +196,34 @@ end
 
 
 """
-    profiling(model_name, path_to_mo, path_to_omc, working_dir; threshold = 0.03)
+    profiling(modelName, pathToMo, pathToOmc, workingDir; threshold = 0.03)
 
 Find equations of Modelica model that are slower then threashold.
 
-`model_name` is full name of the Modelica model.
-`path_to_mo` is the path to the *.mo file containing the model.
-`path_to_omc` is the path to omc used for simulating the model.
-`working_dir` is the working directory for omc.
-`threshold` slowest equations that need more then `threshold` of total simulation time.
+# Arguments
+  - `modelName::String`:  Name of the Modelica model.
+  - `pathToMo::String`:   Path to the *.mo file containing the model.
+  - `pathToOm::Stringc`:  Path to omc used for simulating the model.
+  - `workingDir::String`: Working directory for omc.
+
+# Keywords
+  - `threshold`: Slowest equations that need more then `threshold` of total simulation time.
 """
-function profiling(model_name::String, path_to_mo::String, path_to_omc::String, working_dir::String; threshold = 0.01)
+function profiling(modelName::String, pathToMo::String, pathToOmc::String, workingDir::String; threshold = 0.01)
 
-  omc_working_dir = abspath(joinpath(working_dir, model_name))
-  (prof_json_file, info_json_file, _) = simulateWithProfiling(model_name=model_name,
-                                                              path_to_mo=path_to_mo,
-                                                              path_to_omc=path_to_omc,
-                                                              tempDir = omc_working_dir,
-                                                              outputFormat="mat")
+  omcWorkingDir = abspath(joinpath(workingDir, modelName))
+  (profJsonFile, infoJsonFile, _) = simulateWithProfiling(modelName=modelName,
+                                                          pathToMo=pathToMo,
+                                                          pathToOmc=pathToOmc,
+                                                          tempDir = omcWorkingDir,
+                                                          outputFormat="mat")
 
-  slowestEqs = findSlowEquations(prof_json_file; threshold=threshold)
+  slowestEqs = findSlowEquations(profJsonFile, infoJsonFile; threshold=threshold)
 
   profilingInfo = Array{ProfilingInfo}(undef, length(slowestEqs))
 
   for (i,slowEq) in enumerate(slowestEqs)
-    (iterationVariables, loopEquations, usingVars) = findDependentVars(info_json_file, slowestEqs[1].id)
+    (iterationVariables, loopEquations, usingVars) = findDependentVars(infoJsonFile, slowestEqs[1].id)
     profilingInfo[i] = ProfilingInfo(slowEq, iterationVariables, loopEquations, usingVars)
   end
 
@@ -211,17 +231,17 @@ function profiling(model_name::String, path_to_mo::String, path_to_omc::String, 
 end
 
 
-function minMaxValuesReSim(vars::Array{String}, model_name::String, path_to_mo::String, path_to_omc::String, working_dir::String)
+function minMaxValuesReSim(vars::Array{String}, modelName::String, pathToMo::String, pathToOmc::String, workingDir::String)
 
   # FIXME don't simulate twice and use mat instead
   # But the MAT.jl doesn't work with v4 mat files.....
-  omc_working_dir = abspath(joinpath(working_dir, model_name))
-  (_,_,result_file_csv) = simulateWithProfiling(model_name=model_name,
-                                                path_to_mo=path_to_mo,
-                                                path_to_omc=path_to_omc,
-                                                tempDir = omc_working_dir,
+  omcWorkingDir = abspath(joinpath(workingDir, modelName))
+  (_,_,result_file_csv) = simulateWithProfiling(modelName=modelName,
+                                                pathToMo=pathToMo,
+                                                pathToOmc=pathToOmc,
+                                                tempDir = omcWorkingDir,
                                                 outputFormat="csv")
-  (min, max) = minMaxValues(vars, epsilon=0.05, result_file=result_file_csv)
+  (min, max) = minMaxValues(vars, epsilon=0.05, resultFile=result_file_csv)
 
   return (min, max) 
 end

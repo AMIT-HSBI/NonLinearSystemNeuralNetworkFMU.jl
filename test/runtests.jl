@@ -1,19 +1,24 @@
 using Test
 using NonLinearSystemNeuralNetworkFMU
 
-path_to_omc = ""
+include("profilingTests.jl")
+include("genFmusTest.jl")
+include("genDataTest.jl")
+
+pathToOmc = ""
 if Sys.iswindows()
-  path_to_omc = string(strip(read(`where omc.exe`, String)))
+  pathToOmc = string(strip(read(`where omc.exe`, String)))
 else
-  path_to_omc = string(strip(read(`which omc`, String)))
+  pathToOmc = string(strip(read(`which omc`, String)))
 end
-if !isfile(path_to_omc)
+if !isfile(pathToOmc)
   error("omc not found")
 else
-  @info "Using omc: $path_to_omc"
+  @info "Using omc: $pathToOmc"
 end
 
-path_to_fmi_header = abspath(joinpath(@__DIR__, "..", "FMI-Standard-2.0.3","headers"))
+pathToFmiHeader = abspath(joinpath(@__DIR__, "..", "FMI-Standard-2.0.3","headers"))
 
-include("profiling_tests.jl")
-include("gen_fmus_test.jl")
+runProfilingTests()
+runGenFmusTest()
+runGenDataTest()
