@@ -1,3 +1,8 @@
+#
+# Copyright (c) 2022 Andreas Heuermann
+# Licensed under the MIT license. See LICENSE.md file in the project root for details.
+#
+
 module NonLinearSystemNeuralNetworkFMU
 
 import Printf

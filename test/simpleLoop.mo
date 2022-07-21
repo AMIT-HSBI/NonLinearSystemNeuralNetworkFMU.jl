@@ -1,3 +1,8 @@
+//
+// Copyright (c) 2022 Philip Hannebohm
+// Licensed under the MIT license. See LICENSE.md file in the project root for details.
+//
+
 model simpleLoop
   Real r(min = 0);
   Real s(min = -sqrt(2), max = sqrt(2));
