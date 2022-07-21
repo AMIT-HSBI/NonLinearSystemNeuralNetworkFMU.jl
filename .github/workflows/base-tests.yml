@@ -15,8 +15,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: AnHeuermann/setup-openmodelica@main
         with:
-          version: '1.19'
-          releaseType: 'stable'
+          version: 'stable'
       - uses: julia-actions/setup-julia@v1
         with:
           version: ${{ matrix.julia-version }}
