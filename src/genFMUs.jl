@@ -7,81 +7,51 @@
 Create C files for extendedFMU with special_interface to call single equations
 """
 function createSpecialInterface(modelname::String, tempDir::String, eqIndices::Array{Int64})
-  # create `special_interface.h`
-  sihFilePath = joinpath(tempDir,"FMU", "sources", "fmi-export", "special_interface.h")
-  sihFile = open(sihFilePath, "w")
-  write(sihFile,"""
-    #include \"../simulation_data.h\"
-    #include \"../simulation/solver/solver_main.h\"
-    #include \"../$(modelname)_model.h\"
-    #include \"fmu2_model_interface.h\"
-    #include \"fmu_read_flags.h\"
-
-    fmi2Status myfmi2evaluateEq(fmi2Component c, const size_t eqNumber);
-    """)
-  close(sihFile)
-
-  # create `special_interface.c`
-  sicFilePath = joinpath(tempDir,"FMU/sources/fmi-export/special_interface.c")
-  sicFile = open(sicFilePath, "w")
-  write(sicFile,
-    """
-    #include \"../simulation_data.h\"
-    #include \"../simulation/solver/solver_main.h\"
-    #include \"../$(modelname)_model.h\"
-    #include \"fmu2_model_interface.h\"
-    #include \"fmu_read_flags.h\"
-
-    fmi2Boolean isCategoryLogged(ModelInstance *comp, int categoryIndex);
-
-    static fmi2String logCategoriesNames[] = {\"logEvents\", \"logSingularLinearSystems\", \"logNonlinearSystems\", \"logDynamicStateSelection\", \"logStatusWarning\", \"logStatusDiscard\", \"logStatusError\", \"logStatusFatal\", \"logStatusPending\", \"logAll\", \"logFmi2Call\"};
-
-    #ifndef FILTERED_LOG
-      #define FILTERED_LOG(instance, status, categoryIndex, message, ...) if (isCategoryLogged(instance, categoryIndex)) { \\
-          instance->functions->logger(instance->functions->componentEnvironment, instance->instanceName, status, \\
-              logCategoriesNames[categoryIndex], message, ##__VA_ARGS__); }
-    #endif
-
-    /* forwarded equations */
-    """)
-  for eqIndex in eqIndices
-    write(sicFile,
-      "extern void $(modelname)_eqFunction_$(eqIndex)(DATA* data, threadData_t *threadData);\n")
+  # Open template
+  path = joinpath(@__DIR__,"templates", "special_interface.tpl.h")
+  hFileContent = open(path) do file
+    read(file, String)
   end
-  write(sicFile,
-    """
-    fmi2Status myfmi2evaluateEq(fmi2Component c, const size_t eqNumber)
-    {
-      ModelInstance *comp = (ModelInstance *)c;
-      DATA* data = comp->fmuData;
-      threadData_t *threadData = comp->threadData;
 
-      useStream[LOG_NLS] = 0 /* false */;
-      useStream[LOG_NLS_V] = 0 /* false */;
-      FILTERED_LOG(comp, fmi2OK, LOG_FMI2_CALL, \"myfmi2evaluateEq: Evaluating equation %u\", eqNumber)
+  # Replace placeholders
+  hFileContent = replace(hFileContent, "<<MODELNAME>>"=>modelname)
 
-      switch (eqNumber)
-      {
-    """)
+  # Create `special_interface.h`
+  path = joinpath(tempDir,"FMU", "sources", "fmi-export", "special_interface.h")
+  open(path, "w") do file
+    write(file, hFileContent)
+  end
+
+  # Open template
+  path = joinpath(@__DIR__,"templates", "special_interface.tpl.c")
+  cFileContent = open(path) do file
+    read(file, String)
+  end
+
+  # Replace placeholders
+  cFileContent = replace(cFileContent, "<<MODELNAME>>"=>modelname)
+  forwardEquationBlock = ""
   for eqIndex in eqIndices
-    write(sicFile,
-    """
+    forwardEquationBlock = forwardEquationBlock *
+      """extern void $(modelname)_eqFunction_$(eqIndex)(DATA* data, threadData_t *threadData);"""
+  end
+  cFileContent = replace(cFileContent, "<<FORWARD_EQUATION_BLOCK>>"=>forwardEquationBlock)
+  equationCases = ""
+  for eqIndex in eqIndices
+    equationCases = equationCases *
+      """
         case $(eqIndex):
           $(modelname)_eqFunction_$(eqIndex)(data, threadData);
-          comp->_need_update = 0;
           break;
-    """)
+      """
   end
-  write(sicFile,
-    """
-      default:
-        return fmi2Error;
-        break;
-      }
+  cFileContent = replace(cFileContent, "<<EQUATION_CASES>>"=>equationCases)
 
-      return fmi2OK;
-    }""")
-  close(sicFile)
+  # Create `special_interface.c`
+  path = joinpath(tempDir,"FMU", "sources", "fmi-export", "special_interface.c")
+  open(path, "w") do file
+    write(file, cFileContent)
+  end
 end
 
 """
