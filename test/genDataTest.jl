@@ -12,7 +12,7 @@ function runGenDataTest()
     min = [0.0, 0.95]
     max = [1.5, 3.15]
     fileName = abspath(joinpath(@__DIR__, "data", "simpleLoop_eq14.csv"))
-    N = 3
+    N = 100
 
     NonLinearSystemNeuralNetworkFMU.generateTrainingData(pathToFMU, fileName,
                                                          eqIndex, inputVars,
@@ -32,6 +32,7 @@ function runGenDataTest()
         @test r^2 ≈ x^2 + y^2
       end
     end
-    @test nLines == N
+    # At least 80% successfull data generation
+    @test nLines >= N*0.8 && nLines <= N
   end
 end

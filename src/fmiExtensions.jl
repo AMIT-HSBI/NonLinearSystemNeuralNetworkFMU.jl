@@ -3,6 +3,14 @@
 # Licensed under the MIT license. See LICENSE.md file in the project root for details.
 #
 
+fmi2Status = UInt32
+fmi2OK = Cuint(0)
+fmi2Warning = Cuint(1)
+fmi2Discard = Cuint(2)
+fmi2Error = Cuint(3)
+fmi2Fatal = Cuint(4)
+fmi2Pending = Cuint(5)
+
 """
 fmiEvaluateEq(fmu, eqNumber)
 
@@ -17,11 +25,11 @@ for given equation number.
 # Returns
   - Returns status of Libdl.ccall for `:myfmi2evaluateEq`.
 """
-function fmiEvaluateEq(fmu::FMIImport.FMU2, eqNumber::Integer)
+function fmiEvaluateEq(fmu::FMIImport.FMU2, eqNumber::Integer)::fmi2Status
   return fmiEvaluateEq(fmu.components[1], eqNumber)
 end
 
-function fmiEvaluateEq(comp::FMICore.FMU2Component, eq::Integer)
+function fmiEvaluateEq(comp::FMICore.FMU2Component, eq::Integer)::fmi2Status
 
   @assert eq>=0 "Equation index has to be non-negative!"
 
