@@ -26,6 +26,7 @@ All input-output pairs are saved in `fname`.
   - `N::Integer = 1000`: Number of input-output pairs to generate.
 """
 function generateTrainingData(fmuPath::String, fname::String, eqId::Int64, inputVars::Array{String}, min::AbstractVector{<:Number}, max::AbstractVector{<:Number}, outputVars::Array{String}; N::Integer=1000)
+  #ENV["JULIA_DEBUG"] = "FMICore"
   nInputs = length(inputVars)
   nOutputs = length(outputVars)
   nVars = nInputs+nOutputs
@@ -39,7 +40,7 @@ function generateTrainingData(fmuPath::String, fname::String, eqId::Int64, input
   fmu = FMI.fmiLoad(fmuPath)
   try
     # Load FMU and initialize
-    FMI.fmiInstantiate!(fmu, loggingOn = false)
+    FMI.fmiInstantiate!(fmu; loggingOn = false, externalCallbacks=false)
 
     FMI.fmiSetupExperiment(fmu, 0.0, 1.0)
     FMI.fmiEnterInitializationMode(fmu)
@@ -57,7 +58,10 @@ function generateTrainingData(fmuPath::String, fname::String, eqId::Int64, input
       FMIImport.fmi2SetReal(fmu, row_vr, row)
 
       # Evaluate
-      fmiEvaluateEq(fmu, eqId)
+      status = fmiEvaluateEq(fmu, eqId)
+      if status != fmi2OK
+        continue
+      end
 
       # Get output values
       row[nInputs+1:end] .= FMIImport.fmi2GetReal(fmu, row_vr[nInputs+1:end])

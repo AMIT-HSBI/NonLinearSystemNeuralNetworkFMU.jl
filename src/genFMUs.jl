@@ -102,7 +102,7 @@ function generateFMU(;modelName::String, pathToMo::String, pathToOmc::String, te
 end
 
 
-function updateMakefile(path_to_makefile::String)
+function updateMakefile(path_to_makefile::String; noClean::Bool = true, debug::Bool = true)
   newStr = ""
   open(path_to_makefile, "r") do file
     filestr = read(file, String)
@@ -117,9 +117,19 @@ function updateMakefile(path_to_makefile::String)
     # TODO: Add whitespace
     newStr = newStr[1:id2]*" \\\n"*"  fmi-export/special_interface.c"*newStr[id2+1:end]
 
-    # Deactivate distclean rule
-    id2 = last(findfirst("distclean: clean", newStr)) + 1
-    newStr = newStr[1:id2]*"#"*newStr[id2+1:end]
+    if noClean
+      # Deactivate distclean rule
+      id2 = last(findfirst("distclean: clean", newStr)) + 1
+      newStr = newStr[1:id2]*"#"*newStr[id2+1:end]
+
+      # Deactivate clean rule
+      id2 = last(findnext("clean:", newStr, id2)) + 1
+      newStr = newStr[1:id2]*"#"*newStr[id2+1:end]
+    end
+
+    if debug
+      newStr = replace(newStr, "-O2"=>"-O0")
+    end
   end
 
   write(path_to_makefile, newStr)
