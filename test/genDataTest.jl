@@ -32,6 +32,7 @@ function runGenDataTest()
         @test r^2 ≈ x^2 + y^2
       end
     end
-    @test nLines == N
+    # At least 80% successfull data generation
+    @test nLines >= N*0.8 && nLines <= N
   end
 end
