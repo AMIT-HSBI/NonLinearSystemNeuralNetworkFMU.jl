@@ -8,7 +8,6 @@ import CSV
 import DataFrames
 import Flux
 import StatsBase
-import Plots
 
 """
     readData(filename, nInputs; ratio=0.8)
@@ -64,15 +63,16 @@ function filterData(data_in, data_out)
   return (filtered_data_in, filtered_data_out)
 end
 
+#=
 function plotData(data_in, data_out)
   s = [x[1] for x in data_in];
   r = [x[2] for x in data_in];
   y = [x[1] for x in data_out];
   x = r.*s.-y
 
-  #Plots.scatter(x,y, xlims=[-1.1,1.1], ylims=[0,2.2])
   Plots.scatter(x,y, aspect_ratio=1.0)
 end
+=#
 
 """
     trainSurrogate!(model, dataloader, test_in, test_out, savename; losstol=1e-6, nepochs=100, eta=1e-3)
@@ -139,12 +139,22 @@ function trainSurrogate!(model, dataloader::Flux.DataLoader, train_in, train_out
   @info "Best loss = $(minL)\n\tAfter $(epoch) epochs"
 end
 
+"""
+    getNN()
+
+Load NN model from nn/simpleLoop_eq14.bson.
+"""
 function getNN()
   outname = abspath(joinpath(@__DIR__, "nn", "simpleLoop_eq14.bson"))
   dict = BSON.load(outname)
   return dict[first(keys(dict))]
 end
 
+"""
+    testLoss(test_in, test_out)
+
+Compute and display loss for test data.
+"""
 function testLoss(test_in, test_out)
   model = getNN()
   loss(x,y) = Flux.mse(model(x),y)
