@@ -9,6 +9,7 @@ using NonLinearSystemNeuralNetworkFMU
 include("profilingTests.jl")
 include("genFmusTest.jl")
 include("genDataTest.jl")
+include("trainNNTest.jl")
 
 pathToOmc = ""
 if Sys.iswindows()
@@ -27,3 +28,4 @@ pathToFmiHeader = abspath(joinpath(@__DIR__, "..", "FMI-Standard-2.0.3","headers
 runProfilingTests()
 runGenFmusTest()
 runGenDataTest()
+runTrainNNTest()
