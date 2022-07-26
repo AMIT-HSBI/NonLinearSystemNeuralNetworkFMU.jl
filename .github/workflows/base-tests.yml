@@ -6,6 +6,10 @@ on:
       - main
   pull_request:
 
+env:
+  BUILD_TYPE: RelWithDebInfo
+  ORT_DIR: ${{github.workspace}}/onnxruntime-linux-x64-1.11.0/
+
 jobs:
   test:
     runs-on: ${{ matrix.os }}
@@ -21,6 +25,18 @@ jobs:
       - uses: AnHeuermann/setup-openmodelica@main
         with:
           version: 'stable'
+
+      - name: Install ONNX Runtime
+        run: |
+          wget -q https://github.com/microsoft/onnxruntime/releases/download/v1.11.0/onnxruntime-linux-x64-1.11.0.tgz
+          tar -xf onnxruntime-linux-x64-1.11.0.tgz
+
+      - name: Configure CMake
+        run: cmake -S src/onnxWrapper -B src/onnxWrapper/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DORT_DIR=${{env.ORT_DIR}}
+
+      - name: Build C Sources
+        run: cmake --build src/onnxWrapper/build --config ${{env.BUILD_TYPE}} --target all install
+
       - uses: julia-actions/setup-julia@v1
         with:
           version: ${{ matrix.julia-version }}
