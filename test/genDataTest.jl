@@ -12,7 +12,7 @@ function runGenDataTest()
     min = [0.0, 0.95]
     max = [1.5, 3.15]
     fileName = abspath(joinpath(@__DIR__, "data", "simpleLoop_eq14.csv"))
-    N = 100
+    N = 10000
 
     NonLinearSystemNeuralNetworkFMU.generateTrainingData(pathToFMU, fileName,
                                                          eqIndex, inputVars,

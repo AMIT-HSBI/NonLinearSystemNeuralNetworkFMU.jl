@@ -8,6 +8,7 @@ import CSV
 import DataFrames
 import Flux
 import StatsBase
+import Plots
 
 """
     readData(filename, nInputs; ratio=0.8)
@@ -19,12 +20,17 @@ import StatsBase
 # Keywords
   - `ratio=0.8`: Ratio between training and testing data points.
                  Defaults to 80% training and 20% testing.
+  - `shuffle::Bool=true`: Shufle training and testing from data.
 """
-function readData(filename::String, nInputs::Integer; ratio=0.8)
+function readData(filename::String, nInputs::Integer; ratio=0.8, shuffle::Bool=true)
   m = Matrix{Float32}(CSV.read(filename, DataFrames.DataFrame))
   n = length(m[:,1])
   num_train = Integer(round(n*ratio))
-  trainIters = StatsBase.sample(1:n, num_train, replace = false)
+  if shuffle
+    trainIters = StatsBase.sample(1:n, num_train, replace = false)
+  else
+    trainIters = 1:num_train
+  end
   testIters = setdiff(1:n, trainIters)
 
   train_in  = [m[i, 1:nInputs]     for i in trainIters]
@@ -32,6 +38,40 @@ function readData(filename::String, nInputs::Integer; ratio=0.8)
   test_in   = [m[i, 1:nInputs]     for i in testIters]
   test_out  = [m[i, nInputs+1:end] for i in testIters]
   return train_in, train_out, test_in, test_out
+end
+
+"""
+Filter data for `x = r*s-y <= y` to get uniqe data points.
+"""
+function isLeft(s,r,y)
+  x = r*s-y
+  return x <= y
+end
+
+"""
+Filter training data to only contain unambiguous data points
+by using only the top left intersection points.
+"""
+function filterData(data_in, data_out)
+  s = [x[2] for x in data_in];
+  r = [x[2] for x in data_in];
+  y = [x[1] for x in data_out];
+
+  keep = findall(i->(i==true), isLeft.(s, r, y))
+
+  filtered_data_in = data_in[keep]
+  filtered_data_out = data_out[keep]
+  return (filtered_data_in, filtered_data_out)
+end
+
+function plotData(data_in, data_out)
+  s = [x[1] for x in data_in];
+  r = [x[2] for x in data_in];
+  y = [x[1] for x in data_out];
+  x = r.*s.-y
+
+  #Plots.scatter(x,y, xlims=[-1.1,1.1], ylims=[0,2.2])
+  Plots.scatter(x,y, aspect_ratio=1.0)
 end
 
 """
@@ -99,6 +139,19 @@ function trainSurrogate!(model, dataloader::Flux.DataLoader, train_in, train_out
   @info "Best loss = $(minL)\n\tAfter $(epoch) epochs"
 end
 
+function getNN()
+  outname = abspath(joinpath(@__DIR__, "nn", "simpleLoop_eq14.bson"))
+  dict = BSON.load(outname)
+  return dict[first(keys(dict))]
+end
+
+function testLoss(test_in, test_out)
+  model = getNN()
+  loss(x,y) = Flux.mse(model(x),y)
+  disp_loss() = sum(loss.(test_in,test_out))/length(test_in)
+  @info "Test loss=$(disp_loss())"
+end
+
 function runTrainNNTest()
   fileName = abspath(joinpath(@__DIR__, "data", "simpleLoop_eq14.csv"))
   nInputs = 2
@@ -106,14 +159,16 @@ function runTrainNNTest()
   outname = abspath(joinpath(@__DIR__, "nn", "simpleLoop_eq14.bson"))
 
   (train_in, train_out, test_in, test_out) = readData(fileName, nInputs)
+  (train_in, train_out) = filterData(train_in, train_out)
+  (test_in, test_out) = filterData(test_in, test_out)
+
   dataloader = Flux.DataLoader((train_in, train_out), batchsize=64, shuffle=true)
 
   model = Flux.Chain(Flux.Dense(nInputs, 5, tanh),
                      Flux.Dense(5, 5, tanh),
                      Flux.Dense(5, nOutputs))
 
-  trainSurrogate!(model, dataloader, test_in, test_out, outname; nepochs=100)
-end
+  trainSurrogate!(model, dataloader, train_in, train_out, outname; nepochs=100)
 
-# dict = BSON.load("test/nn/simpleLoop_eq14.bson")
-# model = dict[first(keys(dict))]
+  testLoss(test_in, test_out)
+end
