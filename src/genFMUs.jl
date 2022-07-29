@@ -66,6 +66,10 @@ function generateFMU(;modelName::String, pathToMo::String, pathToOmc::String, te
     mkdir(tempDir)
   end
 
+  if Sys.iswindows()
+    pathToMo = replace(pathToMo, "\\"=> "\\\\")
+  end
+
   logFilePath = joinpath(tempDir,"callsFMI.log")
   logFile = open(logFilePath, "w")
 
