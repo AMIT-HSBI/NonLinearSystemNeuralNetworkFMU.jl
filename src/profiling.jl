@@ -20,6 +20,11 @@ function simulateWithProfiling(;modelName,
     mkdir(tempDir)
   end
 
+  if Sys.iswindows()
+    pathToMo = replace(pathToMo, "\\"=> "\\\\")
+    tempDir = replace(tempDir, "\\"=> "\\\\")
+  end
+
   logFilePath = joinpath(tempDir,"calls.log")
   logFile = open(logFilePath, "w")
 
@@ -100,6 +105,9 @@ function findSlowEquations(profJsonFile::String, infoJsonFile::String; threshold
     end
   end
 
+  # Workaround for Windows until https://github.com/JuliaIO/JSON.jl/issues/347 is fixed.
+  GC.gc()
+
   return slowesEq
 end
 
@@ -178,6 +186,9 @@ function findDependentVars(jsonFile, eqIndex)
   for v in vcat(innerVars, iterationVariables)
     deleteat!(usingVars, findall(x->x==v, usingVars))
   end
+
+  # Workaround for Windows until https://github.com/JuliaIO/JSON.jl/issues/347 is fixed.
+  GC.gc()
 
   return (unique(iterationVariables), loopEquations, unique(usingVars))
 end
