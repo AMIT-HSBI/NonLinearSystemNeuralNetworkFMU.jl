@@ -15,7 +15,6 @@ import FMI
 import FMICore
 import FMIImport
 import ProgressMeter
-import ZipFile
 
 include("types.jl")
 export EqInfo

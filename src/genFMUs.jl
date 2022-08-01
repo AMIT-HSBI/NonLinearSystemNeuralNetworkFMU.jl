@@ -151,39 +151,6 @@ function updateMakefile(path_to_makefile::String; clean::Bool = false, debug::Bo
   write(path_to_makefile, newStr)
 end
 
-# Function inspired by FMIImport.fmi2Unzip
-# See: https://github.com/ThummeTo/FMIImport.jl/blob/2eb951018e0d2530349a17e6040f1f82ecfb220f/src/FMI2_ext.jl#L13-L79
-"""
-    unzip(zipFile, targetDir)
-
-# Arguments
-  - `zipFile::String`: Path to zip file.
-  - `targetDir::String`: Directory to extract into.
-
-"""
-function unzip(zipFile::String, targetDir::String)
-  # Create target directory
-  if !isdir(targetDir)
-    mkpath(targetDir)
-  end
-
-  # Unzip all files
-  archive = ZipFile.Reader(abspath(zipFile))
-  for file in archive.files
-    fileAbsPath = normpath(joinpath(targetDir, file.name))
-
-    if endswith(file.name,"/") || endswith(file.name,"\\")
-      mkpath(fileAbsPath)
-    else
-      mkpath(dirname(fileAbsPath))
-      write(fileAbsPath, read(file))
-      @assert(isfile(fileAbsPath), "Couldn't create $(file)")
-    end
-  end
-  close(archive)
-end
-
-
 """
 Create extendedFMU with special_interface
 """
@@ -197,7 +164,11 @@ function addEqInterface2FMU(;modelName::String,
   pathToFmu = abspath(pathToFmu)
   @assert(isfile(pathToFmu), "FMU $(pathToFmu) not found.")
   fmuPath = abspath(joinpath(tempDir,"FMU"))
-  unzip(pathToFmu, fmuPath)
+  if Sys.iswindows()
+    omrun(`unzip -q -o $(pathToFmu) -d $(fmuPath)`)
+  else
+    run(Cmd(`unzip -q -o $(pathToFmu) -d $(fmuPath)`))
+  end
 
   # make special_interface in FMU/sources/fmi-export
   @info "Add special C sources"
