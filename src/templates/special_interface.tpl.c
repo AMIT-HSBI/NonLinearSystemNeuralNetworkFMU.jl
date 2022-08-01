@@ -11,6 +11,7 @@
 #include "../<<MODELNAME>>_model.h"
 #include "fmu2_model_interface.h"
 #include "fmu_read_flags.h"
+#include "special_interface.h"
 
 fmi2Boolean isCategoryLogged(ModelInstance *comp, int categoryIndex);
 

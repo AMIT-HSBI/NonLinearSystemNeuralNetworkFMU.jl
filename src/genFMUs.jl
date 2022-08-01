@@ -126,9 +126,12 @@ function updateMakefile(path_to_makefile::String; clean::Bool = false, debug::Bo
     newStr = filestr[1:id1]*" -Ifmi-export"*filestr[id1+1:end]
 
     # Add fmi-export/special_interface.c to CFILES
-    id2 = first(findfirst("OFILES=\$(CFILES:.c=.o)", newStr)) - 2
-    # TODO: Add whitespace
-    newStr = newStr[1:id2]*" \\\n"*"  fmi-export/special_interface.c"*newStr[id2+1:end]
+    id2 = first(findfirst("OFILES=\$(CFILES:.c=.o)", newStr)) - 1
+    if Sys.iswindows()
+      newStr = newStr[1:id2-2]*" \\\r\n         fmi-export/special_interface.c\r\n"*newStr[id2+1:end]
+    else
+      newStr = newStr[1:id2-1]*" \\\n         fmi-export/special_interface.c\n"*newStr[id2+1:end]
+    end
 
     if !clean
       # Deactivate distclean rule
