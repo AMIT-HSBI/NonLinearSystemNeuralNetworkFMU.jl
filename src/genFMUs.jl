@@ -3,6 +3,14 @@
 # Licensed under the MIT license. See LICENSE.md file in the project root for details.
 #
 
+function omrun(cmd::Cmd; dir=pwd()::String)
+
+  path = ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "mingw64", "bin"))
+  path *= ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "usr", "bin"))
+
+  run(Cmd(cmd, env=("PATH" => path,), dir = dir))
+end
+
 """
 Create C files for extendedFMU with special_interface to call single equations
 """
@@ -68,6 +76,7 @@ function generateFMU(;modelName::String, pathToMo::String, pathToOmc::String, te
 
   if Sys.iswindows()
     pathToMo = replace(pathToMo, "\\"=> "\\\\")
+    tempDir = replace(tempDir, "\\"=> "\\\\")
   end
 
   logFilePath = joinpath(tempDir,"callsFMI.log")
@@ -106,7 +115,7 @@ function generateFMU(;modelName::String, pathToMo::String, pathToOmc::String, te
 end
 
 
-function updateMakefile(path_to_makefile::String; noClean::Bool = true, debug::Bool = true)
+function updateMakefile(path_to_makefile::String; clean::Bool = false, debug::Bool = true)
   newStr = ""
   open(path_to_makefile, "r") do file
     filestr = read(file, String)
@@ -121,7 +130,7 @@ function updateMakefile(path_to_makefile::String; noClean::Bool = true, debug::B
     # TODO: Add whitespace
     newStr = newStr[1:id2]*" \\\n"*"  fmi-export/special_interface.c"*newStr[id2+1:end]
 
-    if noClean
+    if !clean
       # Deactivate distclean rule
       id2 = last(findfirst("distclean: clean", newStr)) + 1
       newStr = newStr[1:id2]*"#"*newStr[id2+1:end]
@@ -139,6 +148,38 @@ function updateMakefile(path_to_makefile::String; noClean::Bool = true, debug::B
   write(path_to_makefile, newStr)
 end
 
+# Function inspired by FMIImport.fmi2Unzip
+# See: https://github.com/ThummeTo/FMIImport.jl/blob/2eb951018e0d2530349a17e6040f1f82ecfb220f/src/FMI2_ext.jl#L13-L79
+"""
+    unzip(zipFile, targetDir)
+
+# Arguments
+  - `zipFile::String`: Path to zip file.
+  - `targetDir::String`: Directory to extract into.
+
+"""
+function unzip(zipFile::String, targetDir::String)
+  # Create target directory
+  if !isdir(targetDir)
+    mkpath(targetDir)
+  end
+
+  # Unzip all files
+  archive = ZipFile.Reader(abspath(zipFile))
+  for file in archive.files
+    fileAbsPath = normpath(joinpath(targetDir, file.name))
+
+    if endswith(file.name,"/") || endswith(file.name,"\\")
+      mkpath(fileAbsPath)
+    else
+      mkpath(dirname(fileAbsPath))
+      write(fileAbsPath, read(file))
+      @assert(isfile(fileAbsPath), "Couldn't create $(file)")
+    end
+  end
+  close(archive)
+end
+
 
 """
 Create extendedFMU with special_interface
@@ -151,8 +192,9 @@ function addEqInterface2FMU(;modelName::String,
 
   @info "Unzip FMU"
   pathToFmu = abspath(pathToFmu)
+  @assert(isfile(pathToFmu), "FMU $(pathToFmu) not found.")
   fmuPath = abspath(joinpath(tempDir,"FMU"))
-  run(`bash -c "unzip -q -o $(pathToFmu) -d $(fmuPath)"`)
+  unzip(pathToFmu, fmuPath)
 
   # make special_interface in FMU/sources/fmi-export
   @info "Add special C sources"
@@ -161,14 +203,24 @@ function addEqInterface2FMU(;modelName::String,
 
   # Configure in FMU/sources while adding FMI headers to `CPPFLAGS`
   @info "Configure"
-  run(`bash -c "cd $(fmuPath)/sources ; ./configure CPPFLAGS="-I$(pathToFmiHeader)" NEED_CMINPACK=1"`)
+  if !Sys.iswindows()
+    run(Cmd(`./configure CPPFLAGS="-I$(pathToFmiHeader)" NEED_CMINPACK=1`, dir = "$(fmuPath)/sources"))
+  end
 
-  # update Makefile
-  updateMakefile(joinpath(fmuPath,"sources/Makefile"))
+  # Update Makefile
+  if Sys.iswindows()
+    updateMakefile(joinpath(fmuPath,"sources/Makefile"), clean=true)
+  else
+    updateMakefile(joinpath(fmuPath,"sources/Makefile"))
+  end
 
   # run make
   @info "Compiling FMU"
-  run(`bash -c "cd $(fmuPath)/sources ; make -sj -C $(fmuPath)/sources/ $(modelname)_FMU"`)
+  if Sys.iswindows()
+    omrun(`make -sj $(modelname)_FMU`, dir = "$(fmuPath)/sources")
+  else
+    run(Cmd(`make -sj $(modelname)_FMU`, dir = "$(fmuPath)/sources"))
+  end
 
   return joinpath(tempDir, modelName*".fmu")
 end

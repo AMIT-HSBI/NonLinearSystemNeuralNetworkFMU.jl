@@ -224,6 +224,7 @@ Find equations of Modelica model that are slower then threashold.
 
 # Keywords
   - `threshold`: Slowest equations that need more then `threshold` of total simulation time.
+
 """
 function profiling(modelName::String, pathToMo::String, pathToOmc::String, workingDir::String; threshold = 0.01)
 
