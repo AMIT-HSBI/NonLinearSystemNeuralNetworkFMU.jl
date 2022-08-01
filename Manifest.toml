@@ -618,9 +618,9 @@ version = "0.3.20"
 
 [[deps.OMJulia]]
 deps = ["Compat", "DataFrames", "DataStructures", "LightXML", "Random", "ZMQ"]
-git-tree-sha1 = "38f02951c2d021f8e7c3134edb066eadb0ebde2e"
+git-tree-sha1 = "0334cbde61e4310fcbfbca57a66ef9209bc09c90"
 repo-rev = "master"
-repo-url = "https://github.com/OpenModelica/OMJulia.jl.git"
+repo-url = "https://github.com/OpenModelica/OMJulia.jl"
 uuid = "0f4fe800-344e-11e9-2949-fb537ad918e1"
 version = "0.2.0"
 

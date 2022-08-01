@@ -9,5 +9,14 @@
 #include "../<<MODELNAME>>_model.h"
 #include "fmu2_model_interface.h"
 #include "fmu_read_flags.h"
+#include "fmi2Functions.h"
 
-fmi2Status myfmi2evaluateEq(fmi2Component c, const size_t eqNumber);
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+FMI2_Export fmi2Status myfmi2evaluateEq(fmi2Component c, const size_t eqNumber);
+
+#ifdef __cplusplus
+}  /* end of extern "C" { */
+#endif

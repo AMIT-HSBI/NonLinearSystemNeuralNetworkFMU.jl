@@ -24,13 +24,15 @@ function runGenDataTest()
     # Check if s,r,y solve algebraic loop
     open(fileName,"r") do f
       @test readline(f) === "s,r,y"
-      while !eof(f)
+      isequal = true
+      while !eof(f) && isequal
         nLines += 1
         line = readline(f)
         s,r,y = parse.(Float64,split(line,","))
         x = r*s -y
-        @test r^2 ≈ x^2 + y^2
+        isequal = r^2 ≈ x^2 + y^2
       end
+      @test isequal
     end
     # At least 80% successfull data generation
     @test nLines >= N*0.8 && nLines <= N
