@@ -48,9 +48,11 @@ void verify_input_output_count(const OrtApi* g_ort, OrtSession* session) {
  * @param modelName                 Name of ONNX model.
  * @param nInputs                   Number of inputs to ONNX model.
  * @param nOutputs                  Number of outputs of ONNX model.
+ * @param input_name                Name of input node of ONNX model.
+ * @param output_name               Name of output node of ONNX model.
  * @return struct OrtWrapperData*   Pointer to ORT wrapper data.
  */
-struct OrtWrapperData* initOrtData(const char* pathToONNX, const char* modelName, unsigned int nInputs, unsigned int nOutputs) {
+struct OrtWrapperData* initOrtData(const char* pathToONNX, const char* modelName, unsigned int nInputs, unsigned int nOutputs, const char* input_name, const char* output_name) {
   struct OrtWrapperData* ortData = calloc(1, sizeof (struct OrtWrapperData));
 
   /* Initialize ORT */
@@ -93,14 +95,14 @@ struct OrtWrapperData* initOrtData(const char* pathToONNX, const char* modelName
   const size_t input_shape_len = sizeof(input_shape) / sizeof(input_shape[0]);
   const size_t model_input_len = model_input_ele_count * sizeof(float);
   // TODO: Get input names automatically
-  const char* input_name = "onnx::Flatten_0";
+  //const char* input_name = "onnx::Flatten_0";
   ortData->input_names = calloc(1, sizeof ortData->input_names);
   ortData->input_names[0] = strdup(input_name);
   const int64_t output_shape[] = {1, model_output_ele_count};
   const size_t output_shape_len = sizeof(output_shape) / sizeof(output_shape[0]);
   const size_t model_output_len = model_output_ele_count * sizeof(float);
   // TODO: Get output names automatically
-  const char* output_name = "13";
+  //const char* output_name = "13";
   ortData->output_names = calloc(1, sizeof ortData->output_names);
   ortData->output_names[0] = strdup(output_name);
 
@@ -127,10 +129,10 @@ void deinitOrtData(struct OrtWrapperData* ortData) {
   ortData->g_ort->ReleaseValue(ortData->input_tensor);
 
   free(ortData->model_input);
-  free((char**)ortData->input_names[0]);
+  free((char*)ortData->input_names[0]);
   free(ortData->input_names);
   free(ortData->model_output);
-  free((char**)ortData->output_names[0]);
+  free((char*)ortData->output_names[0]);
   free(ortData->output_names);
 
   /* Free ORT */

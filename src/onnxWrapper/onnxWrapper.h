@@ -20,6 +20,6 @@ struct OrtWrapperData {
   OrtValue* output_tensor;
 };
 
-struct OrtWrapperData* initOrtData(const char* path_to_onnx, const char* modelName, unsigned int nInputs, unsigned int nOutputs);
+struct OrtWrapperData* initOrtData(const char* pathToONNX, const char* modelName, unsigned int nInputs, unsigned int nOutputs, const char* input_name, const char* output_name);
 void deinitOrtData(struct OrtWrapperData* ortData);
 void evalModel(struct OrtWrapperData* ortData);

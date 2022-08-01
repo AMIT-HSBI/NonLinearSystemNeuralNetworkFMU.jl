@@ -1,10 +1,11 @@
 # NonLinearSystemNeuralNetworkFMU.jl
 
-Generate Neural Networks to replace non-linear systems inside [OpenModelica](https://openmodelica.org/) 2.0 FMUs.
+Generate training data to replace non-linear systems inside
+[OpenModelica](https://openmodelica.org/) 2.0 FMUs with trained ONNX models.
 
 ## Usage
 
-The package generates an FMU from a modelica file in XXX steps:
+The package generates an FMU from a modelica file in 3 steps (+ 1 user step):
 
   1. Find non-linear equation systems to replace.
 
@@ -23,13 +24,14 @@ The package generates an FMU from a modelica file in XXX steps:
       * Initialize FMU using [FMI.jl](https://github.com/ThummeTo/FMI.jl).
       * Generate training data for each equation system by calling new interface.
 
-  3. Train neural network.
+  3. Create ONNX (performed by user).
 
-      * Step performed by user.
+      * Use your favorite environment to create a trained Open Neural Network Exchange ([ONNX](https://onnx.ai/)) model.
+        * Use the generated training data to train artificial neural network.
 
-  4. Integrate neural network into FMU
+  4. Integrate ONNX into FMU.
 
-      * Replace equations with neural network in generated C code.
+      * Replace equations with ONNX evaluation done by [ONNX Runtime](https://onnxruntime.ai/) in generated C code.
       * Re-compile FMU.
 
 ## Known Limitations
