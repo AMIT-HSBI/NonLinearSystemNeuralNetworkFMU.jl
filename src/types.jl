@@ -9,14 +9,16 @@ struct EqInfo
   time::Float64
   maxTime::Float64
   fraction::Float64
+  EqInfo(id, ncall, time, maxTime, fraction) = new(id, ncall, time, maxTime, fraction)
+  EqInfo(;id, ncall, time, maxTime, fraction) = new(id, ncall, time, maxTime, fraction)
 end
 
 function Base.show(io::IO, ::MIME"text/plain", eqInfo::EqInfo)
-  Printf.@printf(io, "EqInfo(id: %s, ", eqInfo.id)
-  Printf.@printf(io, "ncall: %s, ", eqInfo.ncall)
-  Printf.@printf(io, "time: %s, ", eqInfo.time)
-  Printf.@printf(io, "maxTime: %s, ", eqInfo.maxTime)
-  Printf.@printf(io, "fraction: %s)", eqInfo.fraction)
+  Printf.@printf(io, "EqInfo(id=%s, ", eqInfo.id)
+  Printf.@printf(io, "ncall=%s, ", eqInfo.ncall)
+  Printf.@printf(io, "time=%s, ", eqInfo.time)
+  Printf.@printf(io, "maxTime=%s, ", eqInfo.maxTime)
+  Printf.@printf(io, "fraction=%s)", eqInfo.fraction)
 end
 
 struct ProfilingInfo
