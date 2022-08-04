@@ -35,46 +35,78 @@ function getValueReferences(modelDescriptionXML::String)::Dict{String, Mapping}
 end
 
 function getVarCString(varName::String, variables::Dict{String, Mapping})
-  str = "data->localData[0]->realVars[$(variables.valueReference)] /* $(varName) */"
+  str = "data->localData[0]->realVars[$(variables[varName].valueReference)] /* $(varName) */"
 
   return str
 end
 
 
 function generateNNCall(modelDescriptionXmlFile::String, equationToReplace::ProfilingInfo)
-
   variablesDict = getValueReferences(modelDescriptionXmlFile)
 
   inputs = equationToReplace.usingVars
   outputs = equationToReplace.iterationVariables
 
   inputVarBlock = ""
-  for (i,var) in enumerat(inputs)
+  for (i,var) in enumerate(inputs)
     cVar = getVarCString(var, variablesDict)
-    inputVarBlock *= """
-                     input[$i] = $(cVar);
-                     """
+    inputVarBlock *= "input[$(i-1)] = $(cVar);"
+    if i < length(inputs)
+      inputVarBlock *= "\n  "
+    end
   end
 
   outputVarBlock = ""
-  for (i,var) in enumerat(outputs)
+  for (i,var) in enumerate(outputs)
     cVar = getVarCString(var, variablesDict)
-    outputVarBlock *= """
-                      $(cVar) = output[$i];
-                      """
+    outputVarBlock *= "$(cVar) = output[$(i-1)];"
+    if i < length(outputs)
+      inputVarBlock *= "\n  "
+    end
   end
 
   cCode = """
-  float* input = inputDataPtr(ortData);
-  float* output = outputDataPtr(ortData);
+    float* input = inputDataPtr(ortData);
+    float* output = outputDataPtr(ortData);
 
-  $inputVarBlock
+    $inputVarBlock
 
-  evalModel(ortData);
+    evalModel(ortData);
 
-  $outputVarBlock
+    $outputVarBlock
   """
+
+  return cCode
 end
 
-#infoJsonFile = abspath(joinpath(@__DIR__, "..", "/test/simpleLoop/simpleLoop_info.json"))
-modelDescriptionXML = abspath("test/fmus/FMU/modelDescription.xml")
+function addNNCall(modelName::String, cfile::String, modelDescriptionXmlFile::String, equationToReplace::ProfilingInfo)
+
+  str = open(cfile, "r") do file
+    read(file, String)
+  end
+
+  eq = equationToReplace.eqInfo
+  @show "void $(modelName)_eqFunction_$(eq.id)(DATA *data, threadData_t *threadData)"
+
+
+  id1 = last(findfirst("$(modelName)_eqFunction_$(eq.id)(DATA *data, threadData_t *threadData)", str))
+  id1 = first(findnext("/* get old value */", str, id1)) - 1
+
+  id2 = first(findnext("  TRACE_POP", str, id1)) -1
+
+  oldpart = str[id1:id2]
+  newpart = generateNNCall(modelDescriptionXmlFile, equationToReplace)
+
+  replacement = """
+    if(USE_JULIA) {
+      $newpart
+    } else {
+      $oldpart
+    }
+  """
+
+  str = str[1:id1] * replacement * str[id2:end]
+
+  #print(str)
+  write(cfile, str)
+end
