@@ -7,6 +7,7 @@ import BSON
 import CSV
 import DataFrames
 import Flux
+<<<<<<< HEAD
 import ONNX
 import ONNXNaiveNASflux
 import StatsBase
@@ -15,6 +16,10 @@ import StatsBase
 Flux.sigmoid(pp::ONNXNaiveNASflux.AbstractProbe) = ONNXNaiveNASflux.attribfun(identity, "Sigmoid", pp)
 ONNXNaiveNASflux.refresh()
 
+=======
+import StatsBase
+
+>>>>>>> origin/main
 """
     readData(filename, nInputs; ratio=0.8)
 
@@ -187,8 +192,11 @@ function runTrainNNTest()
   trainSurrogate!(model, dataloader, train_in, train_out, outname; nepochs=100)
 
   testLoss(test_in, test_out)
+<<<<<<< HEAD
 
   onnxModel =  abspath(joinpath(@__DIR__, "nn", "simpleLoop.onnx"))
   ONNXNaiveNASflux.save(onnxModel, model, (nInputs,1))
   @info "Generated $onnxModel"
+=======
+>>>>>>> origin/main
 end

@@ -70,8 +70,9 @@ function generateTrainingData(fmuPath::String, fname::String, eqId::Int64, input
       push!(df, row)
     end
   catch err
-    FMI.fmiUnload(fmu)
     rethrow(err)
+  finally
+    FMI.fmiUnload(fmu)
   end
   mkpath(dirname(fname))
   CSV.write(fname, df)

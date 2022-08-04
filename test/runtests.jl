@@ -13,7 +13,8 @@ include("trainNNTest.jl")
 
 pathToOmc = ""
 if Sys.iswindows()
-  pathToOmc = string(strip(read(`where omc.exe`, String)))
+  @assert(haskey(ENV, "OPENMODELICAHOME"), "Environment variable OPENMODELICAHOME not set.")
+  pathToOmc = abspath(joinpath(ENV["OPENMODELICAHOME"], "bin", "omc.exe"))
 else
   pathToOmc = string(strip(read(`which omc`, String)))
 end
