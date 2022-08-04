@@ -1,6 +1,17 @@
+#
+# Copyright (c) 2022 Andreas Heuermann
+# Licensed under the MIT license. See LICENSE.md file in the project root for details.
+#
+
 cmake_minimum_required(VERSION 3.16)
 
 project(onnxWrapper)
+
+# Change default CMake install prefix
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+  set(CMAKE_INSTALL_PREFIX ${PROJECT_BINARY_DIR}/install CACHE PATH "Default installation directory" FORCE)
+  set(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT FALSE)
+endif()
 
 if(NOT DEFINED ORT_DIR)
   message(FATAL_ERROR "ORT_DIR not set. Provide a path to ONNX Runtime with\n\t-DORT_DIR=\"/path/to/ort\"")
