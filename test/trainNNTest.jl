@@ -3,6 +3,8 @@
 # Licensed under the MIT license. See LICENSE.md file in the project root for details.
 #
 
+using Test
+
 import BSON
 import CSV
 import DataFrames
@@ -152,7 +154,7 @@ Load NN model from nn/simpleLoop_eq14.bson.
 """
 function getNN()
   outname = abspath(joinpath(@__DIR__, "nn", "simpleLoop_eq14.bson"))
-  dict = BSON.load(outname)
+  dict = BSON.load(outname, @__MODULE__)  # SafeTestsets puts everything into a module
   return dict[first(keys(dict))]
 end
 
@@ -173,6 +175,7 @@ function runTrainNNTest()
   nInputs = 2
   nOutputs = 1
   outname = abspath(joinpath(@__DIR__, "nn", "simpleLoop_eq14.bson"))
+  rm(outname, force = true)
 
   (train_in, train_out, test_in, test_out) = readData(fileName, nInputs)
   (train_in, train_out) = filterData(train_in, train_out)
@@ -181,14 +184,20 @@ function runTrainNNTest()
   dataloader = Flux.DataLoader((train_in, train_out), batchsize=64, shuffle=true)
 
   model = Flux.Chain(Flux.Dense(nInputs, 5, tanh),
-                     Flux.Dense(5, 5, tanh),
-                     Flux.Dense(5, nOutputs))
+                    Flux.Dense(5, 5, tanh),
+                    Flux.Dense(5, nOutputs))
 
   trainSurrogate!(model, dataloader, train_in, train_out, outname; nepochs=100)
+  @test isfile(outname)
 
   testLoss(test_in, test_out)
 
   onnxModel =  abspath(joinpath(@__DIR__, "nn", "simpleLoop.onnx"))
+  rm(onnxModel, force = true)
   ONNXNaiveNASflux.save(onnxModel, model, (nInputs,1))
   @info "Generated $onnxModel"
+
+  @test isfile(onnxModel)
 end
+
+runTrainNNTest()
