@@ -192,7 +192,7 @@ function runTrainNNTest()
 
   testLoss(test_in, test_out)
 
-  onnxModel =  abspath(joinpath(@__DIR__, "nn", "simpleLoop.onnx"))
+  onnxModel =  abspath(joinpath(@__DIR__, "nn", "simpleLoop_eq14.onnx"))
   rm(onnxModel, force = true)
   ONNXNaiveNASflux.save(onnxModel, model, (nInputs,1))
   @info "Generated $onnxModel"

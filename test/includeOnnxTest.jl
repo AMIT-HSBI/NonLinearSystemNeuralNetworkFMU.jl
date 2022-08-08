@@ -7,13 +7,10 @@ using Revise
 using Test
 using NonLinearSystemNeuralNetworkFMU
 
-pathToOmc = string(strip(read(`which omc`, String)))
 modelName = "simpleLoop"
-pathToMo = abspath(@__DIR__,"simpleLoop.mo")
-workingDir = abspath(@__DIR__)
-simpleLoopFile = abspath(@__DIR__,"fmus/FMU/sources/simpleLoop.c")
-
-profilingInfo = NonLinearSystemNeuralNetworkFMU.profiling(modelName, pathToMo, pathToOmc, workingDir; threshold=0)
-
+fmuroot = abspath(@__DIR__,"fmus/FMU/")
+profilingInfo = ProfilingInfo[ProfilingInfo(EqInfo(14, 2512, 2.111228e6, 54532.0, 0.12241628639186376), ["y"], [11, 12, 13], ["s", "r"]), ProfilingInfo(EqInfo(6, 8, 30248.0, 30374.0, 0.0017538834416657486), ["y"], [11, 12, 13], ["s", "r"])]
 modelDescription = abspath(@__DIR__,"fmus/FMU/modelDescription.xml")
-NonLinearSystemNeuralNetworkFMU.addNNCall(modelName, simpleLoopFile, modelDescription, profilingInfo[1])
+ortdir = "/mnt/home/aheuermann/workdir/julia/benchmark-import-NN/onnxruntime-linux-x64-1.11.0"
+onnxFiles = [abspath(@__DIR__, "nn", "simpleLoop_eq14.onnx")]
+NonLinearSystemNeuralNetworkFMU.buildWithOnnx(modelName, fmuroot, [profilingInfo[1]], onnxFiles, ortdir)

@@ -18,6 +18,55 @@ struct Mapping
   #type::String
 end
 
+function ortDataCode(equations::Array{ProfilingInfo}, modelName::String)
+  ortstructs = ""
+  initCalls = ""
+  deinitCalls = ""
+  nEq = length(equations)
+  for (i,eq) in enumerate(equations)
+    onnxName = "$(modelName)_$(eq.eqInfo.id).onnx"
+    nInputs = length(eq.usingVars)
+    nOutputs = length(eq.iterationVariables)
+    # TODO: Get input and output names
+    input_name = "data_0"
+    output_name = "dense_2"
+    ortstructs *= "struct OrtWrapperData* ortData_eq_$(eq.eqInfo.id);"
+    initCalls *= """
+        snprintf(onnxPath, 2048, "%s/%s", data->modelData->resourcesDir, \"$onnxName\");
+        ortData_eq_$(eq.eqInfo.id) = initOrtData(onnxPath, \"$modelName\", $nInputs, $nOutputs, \"$input_name\", \"$output_name\");
+      """
+    deinitCalls *= "  deinitOrtData(ortData_eq_$(eq.eqInfo.id));"
+    if i < nEq
+      ortstructs *= "\n  "
+      deinitCalls *= "\n  "
+    end
+    if i == nEq
+      initCalls = initCalls[1:end-1]
+    end
+  end
+
+  code = """
+    #include "onnxWrapper.h"
+
+    int USE_JULIA = 1;
+
+    /* Global ORT structs */
+    $(ortstructs)
+
+    /* Init function */
+    void initGlobalOrtData(DATA* data) {
+      char onnxPath[2048];
+    $(initCalls)
+    }
+
+    /* Deinit function */
+    void deinitGlobalOrtData() {
+    $(deinitCalls)
+    }
+    """
+  return code
+end
+
 function getValueReferences(modelDescriptionXML::String)::Dict{String, Mapping}
   xml = open(modelDescriptionXML) do file
     XMLDict.parse_xml(read(file, String))
@@ -52,7 +101,7 @@ function generateNNCall(modelDescriptionXmlFile::String, equationToReplace::Prof
     cVar = getVarCString(var, variablesDict)
     inputVarBlock *= "input[$(i-1)] = $(cVar);"
     if i < length(inputs)
-      inputVarBlock *= "\n  "
+      inputVarBlock *= "\n    "
     end
   end
 
@@ -61,52 +110,119 @@ function generateNNCall(modelDescriptionXmlFile::String, equationToReplace::Prof
     cVar = getVarCString(var, variablesDict)
     outputVarBlock *= "$(cVar) = output[$(i-1)];"
     if i < length(outputs)
-      inputVarBlock *= "\n  "
+      inputVarBlock *= "\n    "
     end
   end
 
+
+  ortData = "ortData_eq_$(equationToReplace.eqInfo.id)"
+
   cCode = """
-    float* input = inputDataPtr(ortData);
-    float* output = outputDataPtr(ortData);
+      float* input = $ortData->model_input;
+      float* output = $ortData->model_output;
 
-    $inputVarBlock
+      $inputVarBlock
 
-    evalModel(ortData);
+      evalModel($ortData);
 
-    $outputVarBlock
+      $outputVarBlock
   """
 
   return cCode
 end
 
-function addNNCall(modelName::String, cfile::String, modelDescriptionXmlFile::String, equationToReplace::ProfilingInfo)
+function modifyCCode(modelName::String, cfile::String, modelDescriptionXmlFile::String, equations::Array{ProfilingInfo})
 
   str = open(cfile, "r") do file
     read(file, String)
   end
 
-  eq = equationToReplace.eqInfo
-  @show "void $(modelName)_eqFunction_$(eq.id)(DATA *data, threadData_t *threadData)"
+  # Add init/ deinint ortData
+  id1 = first(findfirst("/* dummy VARINFO and FILEINFO */", str)) - 2
+  initCode = ortDataCode(equations, modelName)
+  str = str[1:id1] * initCode * str[id1+1:end]
 
+  id1 = last(findfirst("$(modelName)_setupDataStruc(DATA *data, threadData_t *threadData)", str))
+  id1 = last(findnext("data->modelData->nExtObjs", str, id1))
+  id1 = last(findnext(";\n", str, id1))
+  str = str[1:id1] * "\n  initGlobalOrtData(data);\n" * str[id1+1:end]
 
-  id1 = last(findfirst("$(modelName)_eqFunction_$(eq.id)(DATA *data, threadData_t *threadData)", str))
-  id1 = first(findnext("/* get old value */", str, id1)) - 1
+  # Replace nls-call in equation
+  for equation in equations
+    eqInfo = equation.eqInfo
+    id1 = last(findfirst("$(modelName)_eqFunction_$(eqInfo.id)(DATA *data, threadData_t *threadData)", str))
+    id1 = first(findnext("/* get old value */", str, id1)) - 1
+    id2 = first(findnext("  TRACE_POP", str, id1)) -1
 
-  id2 = first(findnext("  TRACE_POP", str, id1)) -1
+    oldpart = str[id1:id2]
+    oldpart = replace(oldpart, "\n  "=>"\n    ")
+    newpart = generateNNCall(modelDescriptionXmlFile, equation)
 
-  oldpart = str[id1:id2]
-  newpart = generateNNCall(modelDescriptionXmlFile, equationToReplace)
-
-  replacement = """
+    replacement = """
     if(USE_JULIA) {
-      $newpart
-    } else {
-      $oldpart
-    }
-  """
+    $newpart
+      } else {
+        $oldpart
+      }
+    """
+    str = str[1:id1] * replacement * str[id2:end]
+  end
 
-  str = str[1:id1] * replacement * str[id2:end]
-
-  #print(str)
   write(cfile, str)
 end
+
+
+function modifyMakefile(makefile::String, ortdir::String)
+
+  str = open(makefile, "r") do file
+    read(file, String)
+  end
+
+  # Set include flag
+  includedir = "-I$(ortdir)/include/ "
+  str = replace(str, "CPPFLAGS="=>"CPPFLAGS=$(includedir)")
+
+  # Set linker flags
+  id1 = first(findfirst("PHONY:", str)) - 1
+  str = str[1:id1] * "LDFLAGS += -L$(ortdir)/lib/ -lonnxruntime\n\n" * str[id1+1:end]
+
+  write(makefile, str)
+end
+
+
+function copyOnnxWrapperLib(fmuRootDir::String)
+  # Copy header file
+  hfilesource = joinpath(@__DIR__, "onnxWrapper", "install", "include", "onnxWrapper.h")
+  @assert isfile(hfilesource)
+  hfiledest = joinpath(fmuRootDir, "sources", "onnxWrapper.h")
+  cp(hfilesource, hfiledest)
+
+  # Copy library
+  libdir = joinpath(@__DIR__, "onnxWrapper", "install", "lib")
+  @assert isdir(libdir)
+  for source in readdir(libdir)
+    libdest = joinpath(fmuRootDir, "binaries", "linux64", basename(source))
+    cp(joinpath(libdir, source), libdest)
+  end
+end
+
+function copyOnnxFiles(fmuRootDir::String, onnxFiles::Array{String})
+  resourcesDir = joinpath(fmuRootDir, "resources")
+  @assert isdir(resourcesDir)
+  for file in onnxFiles
+    cp(file, joinpath(resourcesDir, basename(file)))
+  end
+end
+
+function buildWithOnnx(modelName::String, fmuRootDir::String, equations::Array{ProfilingInfo}, onnxFiles::Array{String}, ortdir::String)
+
+  cfile = joinpath(fmuRootDir, "sources", "$(modelName).c")
+  modelDescriptionXmlFile = joinpath(fmuRootDir, "modelDescription.xml")
+  makefile = joinpath(fmuRootDir, "sources", "Makefile")
+
+  modifyMakefile(makefile, ortdir)
+  copyOnnxWrapperLib(fmuRootDir)
+  copyOnnxFiles(fmuRootDir, onnxFiles)
+  modifyCCode(modelName, cfile, modelDescriptionXmlFile, equations)
+end
+
