@@ -3,15 +3,6 @@
 # Licensed under the MIT license. See LICENSE.md file in the project root for details.
 #
 
-
-#=
-1. Mapping between model inputs / output variables and OpenModelica FMU variables
-2. Generate calling code for ONNX
-3. Wrapp NN in ONNX
-4. Add ONNX and wrapper code to FMU
-
-=#
-
 struct Mapping
   name::String
   valueReference::String
@@ -24,7 +15,7 @@ function ortDataCode(equations::Array{ProfilingInfo}, modelName::String)
   deinitCalls = ""
   nEq = length(equations)
   for (i,eq) in enumerate(equations)
-    onnxName = "$(modelName)_$(eq.eqInfo.id).onnx"
+    onnxName = "$(modelName)_eq$(eq.eqInfo.id).onnx"
     nInputs = length(eq.usingVars)
     nOutputs = length(eq.iterationVariables)
     # TODO: Get input and output names
@@ -90,7 +81,7 @@ function getVarCString(varName::String, variables::Dict{String, Mapping})
 end
 
 
-function generateNNCall(modelDescriptionXmlFile::String, equationToReplace::ProfilingInfo)
+function generateNNCall(modelname::String, modelDescriptionXmlFile::String, equationToReplace::ProfilingInfo)
   variablesDict = getValueReferences(modelDescriptionXmlFile)
 
   inputs = equationToReplace.usingVars
@@ -114,6 +105,13 @@ function generateNNCall(modelDescriptionXmlFile::String, equationToReplace::Prof
     end
   end
 
+  innerEquations = ""
+  for (i,eq) in enumerate(equationToReplace.innerEquations)
+    innerEquations *= "$(modelname)_eqFunction_$(eq)(data, threadData);"
+    if i < length(equationToReplace.innerEquations)
+      innerEquations *= "\n    "
+    end
+  end
 
   ortData = "ortData_eq_$(equationToReplace.eqInfo.id)"
 
@@ -126,6 +124,9 @@ function generateNNCall(modelDescriptionXmlFile::String, equationToReplace::Prof
       evalModel($ortData);
 
       $outputVarBlock
+
+      /* Eval inner equations */
+      $innerEquations
   """
 
   return cCode
@@ -156,7 +157,7 @@ function modifyCCode(modelName::String, cfile::String, modelDescriptionXmlFile::
 
     oldpart = str[id1:id2]
     oldpart = replace(oldpart, "\n  "=>"\n    ")
-    newpart = generateNNCall(modelDescriptionXmlFile, equation)
+    newpart = generateNNCall(modelName, modelDescriptionXmlFile, equation)
 
     replacement = """
     if(USE_JULIA) {
@@ -239,4 +240,3 @@ function buildWithOnnx(fmu::String, modelName::String, equations::Array{Profilin
 
   return joinpath(tempDir, "$(modelName).onnx.fmu")
 end
-
