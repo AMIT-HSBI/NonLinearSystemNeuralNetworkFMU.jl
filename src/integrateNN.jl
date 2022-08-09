@@ -172,7 +172,7 @@ function modifyCCode(modelName::String, cfile::String, modelDescriptionXmlFile::
 end
 
 
-function modifyMakefile(makefile::String, ortdir::String)
+function modifyMakefile(makefile::String, ortdir::String, fmuBinaryDir::String)
 
   str = open(makefile, "r") do file
     read(file, String)
@@ -182,10 +182,16 @@ function modifyMakefile(makefile::String, ortdir::String)
   includedir = "-I$(ortdir)/include/ "
   str = replace(str, "CPPFLAGS="=>"CPPFLAGS=$(includedir)")
 
-  # Set linker flags
-  id1 = first(findfirst("PHONY:", str)) - 1
-  str = str[1:id1] * "LDFLAGS += -L$(ortdir)/lib/ -lonnxruntime\n\n" * str[id1+1:end]
+  str = replace(str, ".interface.fmu"=>".onnx.fmu")
 
+  # Set linker flags
+  extraLdflags = """
+    LDFLAGS += -L$(ortdir)/lib/ -lonnxruntime \\
+               -L$(fmuBinaryDir) -lonnxWrapper '-Wl,-rpath,\$\$ORIGIN'
+    
+    """
+  id1 = first(findfirst("PHONY:", str)) - 1
+  str = str[1:id1] * extraLdflags * str[id1+1:end]
   write(makefile, str)
 end
 
@@ -214,15 +220,23 @@ function copyOnnxFiles(fmuRootDir::String, onnxFiles::Array{String})
   end
 end
 
-function buildWithOnnx(modelName::String, fmuRootDir::String, equations::Array{ProfilingInfo}, onnxFiles::Array{String}, ortdir::String)
+function buildWithOnnx(fmu::String, modelName::String, equations::Array{ProfilingInfo}, onnxFiles::Array{String}, ortdir::String; tempDir=modelName*"_onnx"::String)
 
-  cfile = joinpath(fmuRootDir, "sources", "$(modelName).c")
-  modelDescriptionXmlFile = joinpath(fmuRootDir, "modelDescription.xml")
-  makefile = joinpath(fmuRootDir, "sources", "Makefile")
+  # Unzip FMU into tmp dir
+  fmuTmpDir = abspath(joinpath(tempDir,"FMU"))
+  rm(fmuTmpDir, force=true, recursive=true)
+  unzip(fmu, fmuTmpDir)
 
-  modifyMakefile(makefile, ortdir)
-  copyOnnxWrapperLib(fmuRootDir)
-  copyOnnxFiles(fmuRootDir, onnxFiles)
+  cfile = joinpath(fmuTmpDir, "sources", "$(modelName).c")
+  modelDescriptionXmlFile = joinpath(fmuTmpDir, "modelDescription.xml")
+  makefile = joinpath(fmuTmpDir, "sources", "Makefile")
+
+  modifyMakefile(makefile, ortdir, joinpath("..","binaries", "linux64"))
+  copyOnnxWrapperLib(fmuTmpDir)
+  copyOnnxFiles(fmuTmpDir, onnxFiles)
   modifyCCode(modelName, cfile, modelDescriptionXmlFile, equations)
+  compileFMU(fmuTmpDir, modelName)
+
+  return joinpath(tempDir, "$(modelName).onnx.fmu")
 end
 

@@ -9,3 +9,4 @@ using SafeTestsets
 @safetestset "Generate FMUs" begin include("genFmusTest.jl") end
 @safetestset "Generate data" begin include("genDataTest.jl") end
 @safetestset "Train ANN" begin include("trainNNTest.jl") end
+@safetestset "Generate ONNX FMU" begin include("includeOnnxTest.jl") end
