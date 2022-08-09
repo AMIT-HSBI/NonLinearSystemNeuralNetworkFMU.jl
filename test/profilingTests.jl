@@ -31,10 +31,12 @@ function runProfilingTests()
     @test profilingInfo[1].eqInfo.id == 14
     @test profilingInfo[1].iterationVariables == ["y"]
     @test sort(profilingInfo[1].usingVars) == ["r","s"]
+    @test profilingInfo[1].innerEquations == [11]
     # NLS from initialization system
     @test profilingInfo[2].eqInfo.id == 6
     @test profilingInfo[2].iterationVariables == ["y"]
     @test sort(profilingInfo[2].usingVars) == ["r","s"]
+    @test profilingInfo[2].innerEquations == [3]
     rm(joinpath(workingDir,modelName), recursive=true)
   end
 

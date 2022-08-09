@@ -15,7 +15,7 @@ function runIncludeOnnxTests()
     interfaceFmu = joinpath(fmuDir, "$(modelname).interface.fmu")
     onnxFmu = joinpath(fmuDir, "$(modelname).onnx.fmu")
     rm(onnxFmu, force=true)
-    profilingInfo = ProfilingInfo[ProfilingInfo(EqInfo(14, 2512, 2.111228e6, 54532.0, 0.12241628639186376), ["y"], [11, 12, 13], ["s", "r"])]
+    profilingInfo = ProfilingInfo[ProfilingInfo(EqInfo(14, 2512, 2.111228e6, 54532.0, 0.12241628639186376), ["y"], [11], ["s", "r"])]
     ortdir = "/mnt/home/aheuermann/workdir/julia/benchmark-import-NN/onnxruntime-linux-x64-1.11.0"
     onnxFiles = [abspath(@__DIR__, "nn", "simpleLoop_eq14.onnx")]
 

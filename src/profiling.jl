@@ -154,7 +154,8 @@ end
 
 
 """
-Read JSON info file and find all variables needed for equation with index `eqIndex`.
+Read JSON info file and find all variables needed for equation with index `eqIndex`
+as well as inner (torn) equations.
 """
 function findDependentVars(jsonFile, eqIndex)
   infoFile = JSON.parsefile(jsonFile)
@@ -170,6 +171,7 @@ function findDependentVars(jsonFile, eqIndex)
 
   iterationVariables = Array{String}(eq["defines"])
   loopEquations = collect(Iterators.flatten(eq["equation"]))
+  innerEquations = Int64[]
 
   usingVars = String[]
   innerVars = String[]
@@ -181,6 +183,9 @@ function findDependentVars(jsonFile, eqIndex)
     (def, use) =findUsedVars(infoFile, loopeq)
     append!(usingVars, use)
     append!(innerVars, def)
+    if !isempty(def)
+      append!(innerEquations, loopeq)
+    end
   end
 
   for v in vcat(innerVars, iterationVariables)
@@ -190,7 +195,7 @@ function findDependentVars(jsonFile, eqIndex)
   # Workaround for Windows until https://github.com/JuliaIO/JSON.jl/issues/347 is fixed.
   GC.gc()
 
-  return (unique(iterationVariables), loopEquations, unique(usingVars))
+  return (unique(iterationVariables), innerEquations, unique(usingVars))
 end
 
 
@@ -240,8 +245,8 @@ function profiling(modelName::String, pathToMo::String, pathToOmc::String, worki
   profilingInfo = Array{ProfilingInfo}(undef, length(slowestEqs))
 
   for (i,slowEq) in enumerate(slowestEqs)
-    (iterationVariables, loopEquations, usingVars) = findDependentVars(infoJsonFile, slowestEqs[1].id)
-    profilingInfo[i] = ProfilingInfo(slowEq, iterationVariables, loopEquations, usingVars)
+    (iterationVariables, innerEquations, usingVars) = findDependentVars(infoJsonFile, slowestEqs[i].id)
+    profilingInfo[i] = ProfilingInfo(slowEq, iterationVariables, innerEquations, usingVars)
   end
 
   return profilingInfo

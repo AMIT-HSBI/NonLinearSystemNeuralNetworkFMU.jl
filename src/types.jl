@@ -24,13 +24,13 @@ end
 struct ProfilingInfo
   eqInfo::EqInfo
   iterationVariables::Array{String}
-  loopEquations::Array{Int64}
+  innerEquations::Array{Int64}
   usingVars::Array{String}
 end
 
 function Base.show(io::IO, ::MIME"text/plain", profilingInfo::ProfilingInfo)
   Printf.@printf(io, "ProfilingInfo(%s, ", profilingInfo.eqInfo)
   Printf.@printf(io, "iterationVariables: %s, ", profilingInfo.iterationVariables)
-  Printf.@printf(io, "loopEquations: %s, ", profilingInfo.loopEquations)
+  Printf.@printf(io, "innerEquations: %s, ", profilingInfo.innerEquations)
   Printf.@printf(io, "usingVars: %s)", profilingInfo.usingVars)
 end
