@@ -133,6 +133,8 @@ function updateMakefile(path_to_makefile::String; clean::Bool = false, debug::Bo
       newStr = newStr[1:id2-1]*" \\\n         fmi-export/special_interface.c\n"*newStr[id2+1:end]
     end
 
+    newStr = replace(newStr, ".fmu"=>".interface.fmu")
+
     if !clean
       # Deactivate distclean rule
       id2 = last(findfirst("distclean: clean", newStr)) + 1
@@ -152,6 +154,40 @@ function updateMakefile(path_to_makefile::String; clean::Bool = false, debug::Bo
 end
 
 """
+    unzip(file, exdir)
+
+Unzip `file` to directory `exdir`.
+"""
+function unzip(file::String, exdir::String)
+  @assert(isfile(file), "File $(file) not found.")
+  if !isdir(exdir)
+    mkpath(exdir)
+  end
+
+  if Sys.iswindows()
+    omrun(`unzip -q -o $(file) -d $(exdir)`)
+  else
+    run(Cmd(`unzip -q -o $(file) -d $(exdir)`))
+  end
+end
+
+
+"""
+    compileFMU(fmuRootDir, modelname)
+
+Run `fmuRootDir/sources/Makefile` to compile FMU binaries.
+"""
+function compileFMU(fmuRootDir::String, modelname::String)
+  # run make
+  @info "Compiling FMU"
+  if Sys.iswindows()
+    omrun(`make -sj $(modelname)_FMU`, dir = "$(fmuRootDir)/sources")
+  else
+    run(Cmd(`make -sj $(modelname)_FMU`, dir = "$(fmuRootDir)/sources"))
+  end
+end
+
+"""
 Create extendedFMU with special_interface
 """
 function addEqInterface2FMU(;modelName::String,
@@ -161,14 +197,8 @@ function addEqInterface2FMU(;modelName::String,
                              tempDir::String)
 
   @info "Unzip FMU"
-  pathToFmu = abspath(pathToFmu)
-  @assert(isfile(pathToFmu), "FMU $(pathToFmu) not found.")
   fmuPath = abspath(joinpath(tempDir,"FMU"))
-  if Sys.iswindows()
-    omrun(`unzip -q -o $(pathToFmu) -d $(fmuPath)`)
-  else
-    run(Cmd(`unzip -q -o $(pathToFmu) -d $(fmuPath)`))
-  end
+  unzip(abspath(pathToFmu), fmuPath)
 
   # make special_interface in FMU/sources/fmi-export
   @info "Add special C sources"
@@ -188,13 +218,7 @@ function addEqInterface2FMU(;modelName::String,
     updateMakefile(joinpath(fmuPath,"sources/Makefile"))
   end
 
-  # run make
-  @info "Compiling FMU"
-  if Sys.iswindows()
-    omrun(`make -sj $(modelname)_FMU`, dir = "$(fmuPath)/sources")
-  else
-    run(Cmd(`make -sj $(modelname)_FMU`, dir = "$(fmuPath)/sources"))
-  end
+  compileFMU(fmuPath, modelName)
 
-  return joinpath(tempDir, modelName*".fmu")
+  return joinpath(tempDir, "$(modelName).interface.fmu")
 end

@@ -39,8 +39,8 @@ function runProfilingTests()
   end
 
   @testset "Min-max for usingVars" begin
-    profilingInfo = NonLinearSystemNeuralNetworkFMU.profiling(modelName, pathToMo, pathToOmc, workingDir; threshold=0)
-    (min, max)  = NonLinearSystemNeuralNetworkFMU.minMaxValuesReSim(profilingInfo[1].usingVars, modelName, pathToMo, pathToOmc, workingDir)
+    usingVars = ["s", "r"]
+    (min, max)  = NonLinearSystemNeuralNetworkFMU.minMaxValuesReSim(usingVars, modelName, pathToMo, pathToOmc, workingDir)
     # s = sqrt((2-time)*0.9), time = 0..2
     # r = 1..3
     @test min[1] ≈ 0.0 && max[1] ≈ 1.4087228258248679
