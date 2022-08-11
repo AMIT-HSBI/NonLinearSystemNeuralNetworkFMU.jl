@@ -50,21 +50,21 @@ end
 """
 Filter data for `x = r*s-y <= y` to get uniqe data points.
 """
-function isLeft(s,r,y)
+function isRight(s,r,y)
   x = r*s-y
-  return x <= y
+  return x > y
 end
 
 """
 Filter training data to only contain unambiguous data points
-by using only the top left intersection points.
+by using only the bottom right intersection points.
 """
 function filterData(data_in, data_out)
   s = [x[2] for x in data_in];
   r = [x[2] for x in data_in];
   y = [x[1] for x in data_out];
 
-  keep = findall(i->(i==true), isLeft.(s, r, y))
+  keep = findall(i->(i==true), isRight.(s, r, y))
 
   filtered_data_in = data_in[keep]
   filtered_data_out = data_out[keep]

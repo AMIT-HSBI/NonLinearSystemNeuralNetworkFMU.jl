@@ -23,16 +23,22 @@ function runIncludeOnnxTests()
     @test isfile(pathToFmu)
     # Save FMU for next test
     cp(pathToFmu, onnxFmu)
-    #rm(tempDir, recursive=true)
+    rm(tempDir, recursive=true)
   end
 
   @testset "Simulate ONNX FMU" begin
-    #modelname = "simpleLoop"
-    #pathToFMU = abspath(joinpath(@__DIR__, "fmus", "$(modelname).onnx.fmu"))
-    #myFMU = fmiLoad(pathToFMU)
-    #res = fmiSimulate(myFMU, 0.0, 1.0; recordValues=["r", "s", "x", "y"])
+    modelname = "simpleLoop"
+    pathToFMU = abspath(joinpath(@__DIR__, "fmus", "$(modelname).onnx.fmu"))
+    nnFMU = fmiLoad(pathToFMU)
+    # Can't use FMI.jl for FMUs without states at the moment
+    #onnx_solution = fmiSimulate(nnFMU, 0.0, 1.0; recordValues=["r", "s", "x", "y"])
+    fmiUnload(nnFMU)
 
-  end
+    #pathToFMU = abspath(joinpath(@__DIR__, "fmus", "$(modelname).fmu"))
+    #refFMU = fmiLoad(pathToFMU)
+    #ref_solution = fmiSimulate(refFMU, 0.0, 1.0; recordValues=["r", "s", "x", "y"])
+    #fmiUnload(refFMU)
+  #end
 end
 
 runIncludeOnnxTests()
