@@ -16,6 +16,17 @@
 
 #include "onnxWrapper.h"
 
+#ifdef _WIN32
+#include <windows.h>
+
+wchar_t* wideCharCopy(const char* str) {
+  size_t length = MultiByteToWideChar(CP_UTF8, 0, str, -1, NULL, 0);
+  wchar_t* str_wide = (wchar_t*) malloc(length * sizeof(str_wide));
+  MultiByteToWideChar(CP_UTF8, 0, str, -1, str_wide, length);
+  return str_wide;
+}
+#endif
+
 #define ORT_ABORT_ON_ERROR(expr)                             \
   do {                                                       \
     OrtStatus* onnx_status = (expr);                         \
@@ -73,7 +84,13 @@ struct OrtWrapperData* initOrtData(const char* pathToONNX, const char* modelName
   ORT_ABORT_ON_ERROR(g_ort->SetIntraOpNumThreads(session_options, 1));
   ORT_ABORT_ON_ERROR(g_ort->SetInterOpNumThreads(session_options, 1));
 
+#ifdef _WIN32
+  wchar_t* pathToONNX_utf = wideCharCopy(pathToONNX);
+  ORT_ABORT_ON_ERROR(g_ort->CreateSession(env, pathToONNX_utf, session_options, &session));
+  free(pathToONNX_utf);
+#else
   ORT_ABORT_ON_ERROR(g_ort->CreateSession(env, pathToONNX, session_options, &session));
+#endif
   verify_input_output_count(g_ort, session);
 
   ortData->g_ort = g_ort;
