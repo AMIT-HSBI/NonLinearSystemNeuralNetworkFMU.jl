@@ -29,6 +29,11 @@ jobs:
     timeout-minutes: 30
 
     steps:
+      - uses: actions/checkout@v2
+      - uses: AnHeuermann/setup-openmodelica@main
+        with:
+          version: 'stable'
+
       #- name: Download ONNX Runtime
       #  run: |
       #    if [ "$RUNNER_OS" == "Linux" ]; then
@@ -52,15 +57,10 @@ jobs:
           rm ${{ matrix.ort_archieve_name }}
 
       - name: Configure CMake
-        run: cmake -S ${{github.workspace}}/src/onnxWrapper/ -B ${{github.workspace}}/src/onnxWrapper/build/ -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DORT_DIR=${{github.workspace}}/${{matrix.ort_archieve_name}}
+        run: cmake -S /src/onnxWrapper/ -B /src/onnxWrapper/build/ -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DORT_DIR=${{github.workspace}}/${{matrix.ort_archieve_name}}
 
       - name: Build C Sources
-        run: cmake --build ${{github.workspace}}/src/onnxWrapper/build --config ${{env.BUILD_TYPE}} --target install
-
-      - uses: actions/checkout@v2
-      - uses: AnHeuermann/setup-openmodelica@main
-        with:
-          version: 'stable'
+        run: cmake --build /src/onnxWrapper/build --config ${{env.BUILD_TYPE}} --target install
 
       - uses: julia-actions/setup-julia@v1
         with:
