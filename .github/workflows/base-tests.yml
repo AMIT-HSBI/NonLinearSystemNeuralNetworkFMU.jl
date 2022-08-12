@@ -38,7 +38,7 @@ jobs:
             tar -xf ${{ matrix.ort_archieve_name }}
             rm ${{ matrix.ort_archieve_name }}
           elif [ "$RUNNER_OS" == "Windows" ]; then
-            C:\msys64\usr\bin\wget.exe -q ${{ matrix.ort_url }}
+            C:\\msys64\\usr\\bin\\wget.exe -q ${{ matrix.ort_url }}
             7zip x ${{ matrix.ort_archieve_name }}
             rm ${{ matrix.ort_archieve_name }}
           else
