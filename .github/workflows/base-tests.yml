@@ -8,7 +8,6 @@ on:
 
 env:
   BUILD_TYPE: RelWithDebInfo
-  ORT_VERSION: '1.12.1'
 
 jobs:
   test:
@@ -20,13 +19,13 @@ jobs:
         os: [ubuntu-latest, windows-latest]
         include:
           - os: ubuntu-latest
-            ort_url: 'https://github.com/microsoft/onnxruntime/releases/download/v${{env.ORT_VERSION}}/onnxruntime-linux-x64-${{env.ORT_VERSION}}.tgz'
-            ort_archieve_name: 'onnxruntime-linux-x64-${{env.ORT_VERSION}}.tgz'
-            ort_dir: '${{github.workspace}}/onnxruntime-linux-x64-${{env.ORT_VERSION}}'
+            ort_url: 'https://github.com/microsoft/onnxruntime/releases/download/v1.12.1/onnxruntime-linux-x64-1.12.1.tgz'
+            ort_archieve_name: 'onnxruntime-linux-x64-1.12.1.tgz'
+            ort_dir: '${{github.workspace}}/onnxruntime-linux-x64-1.12.1'
           - os: windows-latest
-            ort_url: 'https://github.com/microsoft/onnxruntime/releases/download/v${{env.ORT_VERSION}}/onnxruntime-win-x64-${{env.ORT_VERSION}}.zip'
-            ort_archieve_name: 'onnxruntime-win-x64-${{env.ORT_VERSION}}.zip'
-            ort_dir: '${{github.workspace}}/onnxruntime-win-x64-${{env.ORT_VERSION}}'
+            ort_url: 'https://github.com/microsoft/onnxruntime/releases/download/v1.12.1/onnxruntime-win-x64-1.12.1.zip'
+            ort_archieve_name: 'onnxruntime-win-x64-1.12.1.zip'
+            ort_dir: '${{github.workspace}}/onnxruntime-win-x64-1.12.1'
     timeout-minutes: 30
 
     steps:
