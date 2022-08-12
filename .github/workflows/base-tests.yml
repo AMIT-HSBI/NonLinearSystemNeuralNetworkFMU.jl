@@ -32,11 +32,20 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Download ONNX Runtime
-        uses: suisei-cn/actions-download-file@v1.0.1
-        id: downloadfile
-        with:
-          url: ${{ matrix.ort_url }}
-          target: ${{ github.workspace }}
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            wget -q ${{ matrix.ort_url }}
+            tar -xf ${{ matrix.ort_archieve_name }}
+            rm ${{ matrix.ort_archieve_name }}
+          elif [ "$RUNNER_OS" == "Windows" ]; then
+            C:\msys64\usr\bin\wget.exe -q ${{ matrix.ort_url }}
+            7zip x ${{ matrix.ort_archieve_name }}
+            rm ${{ matrix.ort_archieve_name }}
+          else
+            echo "$RUNNER_OS not supported"
+            exit 1
+          fi
+        shell: bash
 
       - name: Configure CMake
         run: cmake -S src/onnxWrapper/ -B src/onnxWrapper/build/ -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DORT_DIR=${{ github.workspace }}/${{ matrix.ort_dir }}
