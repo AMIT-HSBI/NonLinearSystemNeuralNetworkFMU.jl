@@ -31,21 +31,20 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Download ONNX Runtime
+      - name: Download ONNX Runtime (Linux)
+        if: ${{ runner.os == 'Linux' }}
         run: |
-          if [ "$RUNNER_OS" == "Linux" ]; then
-            wget -q ${{ matrix.ort_url }}
-            tar -xf ${{ matrix.ort_archieve_name }}
-            rm ${{ matrix.ort_archieve_name }}
-          elif [ "$RUNNER_OS" == "Windows" ]; then
-            C:\\msys64\\usr\\bin\\wget.exe -q ${{ matrix.ort_url }}
-            7zip x ${{ matrix.ort_archieve_name }}
-            rm ${{ matrix.ort_archieve_name }}
-          else
-            echo "$RUNNER_OS not supported"
-            exit 1
-          fi
-        shell: bash
+          wget -q ${{ matrix.ort_url }}
+          tar -xf ${{ matrix.ort_archieve_name }}
+          rm ${{ matrix.ort_archieve_name }}
+
+      - name: Download ONNX Runtime (Windows)
+        if: ${{ runner.os == 'Windows' }}
+        run: |
+          Invoke-WebRequest -URI  ${{ matrix.ort_url }} -OutFile ${{ matrix.ort_archieve_name }}
+          7z x ${{ matrix.ort_archieve_name }}
+          rm ${{ matrix.ort_archieve_name }}
+        shell: pwsh
 
       - name: Configure CMake
         run: cmake -S src/onnxWrapper/ -B src/onnxWrapper/build/ -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DORT_DIR=${{ github.workspace }}/${{ matrix.ort_dir }}
