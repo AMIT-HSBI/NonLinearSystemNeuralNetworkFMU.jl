@@ -34,16 +34,18 @@ jobs:
       - name: Download ONNX Runtime
         run: |
           if [ "$RUNNER_OS" == "Linux" ]; then
-            wget -q ${{ matrix.ort_url }}
+            wget ${{ matrix.ort_url }}
             tar -xf ${{ matrix.ort_archieve_name }}
             rm ${{ matrix.ort_archieve_name }}
+            ls
           elif [ "$RUNNER_OS" == "Windows" ]; then
-            wget -q ${{ matrix.ort_url }}
-            unzip -qq ${{ matrix.ort_archieve_name }}
+            wget ${{ matrix.ort_url }}
+            unzip ${{ matrix.ort_archieve_name }}
             rm ${{ matrix.ort_archieve_name }}
+            ls
           else
-                echo "$RUNNER_OS not supported"
-                exit 1
+            echo "$RUNNER_OS not supported"
+            exit 1
           fi
         shell: bash
 
