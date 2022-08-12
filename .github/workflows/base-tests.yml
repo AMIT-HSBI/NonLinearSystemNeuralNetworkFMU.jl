@@ -21,11 +21,11 @@ jobs:
           - os: ubuntu-latest
             ort_url: 'https://github.com/microsoft/onnxruntime/releases/download/v1.12.1/onnxruntime-linux-x64-1.12.1.tgz'
             ort_archieve_name: 'onnxruntime-linux-x64-1.12.1.tgz'
-            ort_dir: '${{github.workspace}}/onnxruntime-linux-x64-1.12.1'
+            ort_dir: 'onnxruntime-linux-x64-1.12.1'
           - os: windows-latest
             ort_url: 'https://github.com/microsoft/onnxruntime/releases/download/v1.12.1/onnxruntime-win-x64-1.12.1.zip'
             ort_archieve_name: 'onnxruntime-win-x64-1.12.1.zip'
-            ort_dir: '${{github.workspace}}/onnxruntime-win-x64-1.12.1'
+            ort_dir: 'onnxruntime-win-x64-1.12.1'
     timeout-minutes: 30
 
     steps:
@@ -50,7 +50,7 @@ jobs:
         shell: bash
 
       - name: Configure CMake
-        run: cmake -S src/onnxWrapper/ -B src/onnxWrapper/build/ -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DORT_DIR=${{matrix.ort_dir}}
+        run: cmake -S src/onnxWrapper/ -B src/onnxWrapper/build/ -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DORT_DIR=${{github.workspace}}/${{matrix.ort_dir}}
 
       - name: Build C Sources
         run: cmake --build src/onnxWrapper/build --config ${{env.BUILD_TYPE}} --target install
