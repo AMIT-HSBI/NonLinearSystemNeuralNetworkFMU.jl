@@ -121,9 +121,8 @@ function updateMakefile(path_to_makefile::String; clean::Bool = false, debug::Bo
     filestr = read(file, String)
 
     # Update CPPFLAGS
-    id1 = first(findfirst("CPPFLAGS=", filestr))
-    id1 = first(findnext(' ', filestr, id1))-1
-    newStr = filestr[1:id1]*" -Ifmi-export"*filestr[id1+1:end]
+    id1 = last(findfirst("CPPFLAGS=", filestr))
+    newStr = filestr[1:id1] * " -Ifmi-export " * filestr[id1+1:end]
 
     # Add fmi-export/special_interface.c to CFILES
     id2 = first(findfirst("OFILES=\$(CFILES:.c=.o)", newStr)) - 1
