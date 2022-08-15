@@ -180,9 +180,9 @@ function compileFMU(fmuRootDir::String, modelname::String)
   # run make
   @info "Compiling FMU"
   if Sys.iswindows()
-    omrun(`make -sj $(modelname)_FMU`, dir = "$(fmuRootDir)/sources")
+    omrun(`make -sj $(modelname)_FMU`, dir = joinpath(fmuRootDir,"sources"))
   else
-    run(Cmd(`make -sj $(modelname)_FMU`, dir = "$(fmuRootDir)/sources"))
+    run(Cmd(`make -sj $(modelname)_FMU`, dir = joinpath(fmuRootDir,"sources")))
   end
 end
 
@@ -207,14 +207,14 @@ function addEqInterface2FMU(;modelName::String,
   # Configure in FMU/sources while adding FMI headers to `CPPFLAGS`
   @info "Configure"
   if !Sys.iswindows()
-    run(Cmd(`./configure CPPFLAGS="-I$(pathToFmiHeader)" NEED_CMINPACK=1`, dir = "$(fmuPath)/sources"))
+    run(Cmd(`./configure CPPFLAGS="-I$(pathToFmiHeader)" NEED_CMINPACK=1`, dir = joinpath(fmuPath,"sources")))
   end
 
   # Update Makefile
   if Sys.iswindows()
-    updateMakefile(joinpath(fmuPath,"sources/Makefile"), clean=true)
+    updateMakefile(joinpath(fmuPath,"sources", "Makefile"), clean=true)
   else
-    updateMakefile(joinpath(fmuPath,"sources/Makefile"))
+    updateMakefile(joinpath(fmuPath,"sources", "Makefile"))
   end
 
   compileFMU(fmuPath, modelName)

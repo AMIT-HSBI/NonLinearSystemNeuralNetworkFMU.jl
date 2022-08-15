@@ -8,6 +8,8 @@ using FMI
 using NonLinearSystemNeuralNetworkFMU
 
 function runIncludeOnnxTests()
+  @assert haskey(ENV, "ORT_DIR") "Environamet variable `OR_DIR` has to be set and point to ONNX Runtime directory for testing."
+
   @testset "Build FMU with ONNX" begin
     modelname = "simpleLoop"
     fmuDir = abspath(joinpath(@__DIR__, "fmus"))
@@ -16,7 +18,7 @@ function runIncludeOnnxTests()
     onnxFmu = joinpath(fmuDir, "$(modelname).onnx.fmu")
     rm(onnxFmu, force=true)
     profilingInfo = ProfilingInfo[ProfilingInfo(EqInfo(14, 2512, 2.111228e6, 54532.0, 0.12241628639186376), ["y"], [11], ["s", "r"])]
-    ortdir = "/mnt/home/aheuermann/workdir/julia/benchmark-import-NN/onnxruntime-linux-x64-1.11.0"
+    ortdir = ENV["ORT_DIR"]
     onnxFiles = [abspath(@__DIR__, "nn", "simpleLoop_eq14.onnx")]
 
     pathToFmu = NonLinearSystemNeuralNetworkFMU.buildWithOnnx(interfaceFmu, modelname, profilingInfo, onnxFiles, ortdir; tempDir=tempDir)
@@ -38,7 +40,7 @@ function runIncludeOnnxTests()
     #refFMU = fmiLoad(pathToFMU)
     #ref_solution = fmiSimulate(refFMU, 0.0, 1.0; recordValues=["r", "s", "x", "y"])
     #fmiUnload(refFMU)
-  #end
+  end
 end
 
 runIncludeOnnxTests()

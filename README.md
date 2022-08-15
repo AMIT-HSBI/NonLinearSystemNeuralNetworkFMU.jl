@@ -33,6 +33,7 @@ The package generates an FMU from a modelica file in 3 steps (+ 1 user step):
 
       * Replace equations with ONNX evaluation done by [ONNX Runtime](https://onnxruntime.ai/) in generated C code.
       * Re-compile FMU.
+        * Environment variable `ORT_DIR` has to be set and point to the ONNX runtime directory (with include/ and lib/ inside).
 
 ## Known Limitations
 

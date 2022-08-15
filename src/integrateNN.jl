@@ -9,6 +9,8 @@ struct Mapping
   #type::String
 end
 
+EOL = Sys.iswindows() ? "\r\n" : "\n"
+
 function ortDataCode(equations::Array{ProfilingInfo}, modelName::String)
   ortstructs = ""
   initCalls = ""
@@ -28,8 +30,8 @@ function ortDataCode(equations::Array{ProfilingInfo}, modelName::String)
       """
     deinitCalls *= "  deinitOrtData(ortData_eq_$(eq.eqInfo.id));"
     if i < nEq
-      ortstructs *= "\n  "
-      deinitCalls *= "\n  "
+      ortstructs *= "$EOL  "
+      deinitCalls *= "$EOL  "
     end
     if i == nEq
       initCalls = initCalls[1:end-1]
@@ -80,7 +82,6 @@ function getVarCString(varName::String, variables::Dict{String, Mapping})
   return str
 end
 
-
 function generateNNCall(modelname::String, modelDescriptionXmlFile::String, equationToReplace::ProfilingInfo)
   variablesDict = getValueReferences(modelDescriptionXmlFile)
 
@@ -92,7 +93,7 @@ function generateNNCall(modelname::String, modelDescriptionXmlFile::String, equa
     cVar = getVarCString(var, variablesDict)
     inputVarBlock *= "input[$(i-1)] = $(cVar);"
     if i < length(inputs)
-      inputVarBlock *= "\n    "
+      inputVarBlock *= "$EOL    "
     end
   end
 
@@ -101,7 +102,7 @@ function generateNNCall(modelname::String, modelDescriptionXmlFile::String, equa
     cVar = getVarCString(var, variablesDict)
     outputVarBlock *= "$(cVar) = output[$(i-1)];"
     if i < length(outputs)
-      inputVarBlock *= "\n    "
+      inputVarBlock *= "$EOL    "
     end
   end
 
@@ -109,7 +110,7 @@ function generateNNCall(modelname::String, modelDescriptionXmlFile::String, equa
   for (i,eq) in enumerate(equationToReplace.innerEquations)
     innerEquations *= "$(modelname)_eqFunction_$(eq)(data, threadData);"
     if i < length(equationToReplace.innerEquations)
-      innerEquations *= "\n    "
+      innerEquations *= "$EOL    "
     end
   end
 
@@ -145,8 +146,8 @@ function modifyCCode(modelName::String, cfile::String, modelDescriptionXmlFile::
 
   id1 = last(findfirst("$(modelName)_setupDataStruc(DATA *data, threadData_t *threadData)", str))
   id1 = last(findnext("data->modelData->nExtObjs", str, id1))
-  id1 = last(findnext(";\n", str, id1))
-  str = str[1:id1] * "\n  initGlobalOrtData(data);\n" * str[id1+1:end]
+  id1 = last(findnext(";$EOL", str, id1))
+  str = str[1:id1] * "$EOL  initGlobalOrtData(data);$EOL" * str[id1+1:end]
 
   # Replace nls-call in equation
   for equation in equations
@@ -156,7 +157,7 @@ function modifyCCode(modelName::String, cfile::String, modelDescriptionXmlFile::
     id2 = first(findnext("  TRACE_POP", str, id1)) -1
 
     oldpart = str[id1:id2]
-    oldpart = replace(oldpart, "\n  "=>"\n    ")
+    oldpart = replace(oldpart, "$EOL  "=>"$EOL    ")
     newpart = generateNNCall(modelName, modelDescriptionXmlFile, equation)
 
     replacement = """
@@ -180,15 +181,15 @@ function modifyMakefile(makefile::String, ortdir::String, fmuBinaryDir::String)
   end
 
   # Set include flag
-  includedir = "-I$(ortdir)/include/ "
+  includedir = "-I\"$(ortdir)/include/\" "
   str = replace(str, "CPPFLAGS="=>"CPPFLAGS=$(includedir)")
 
   str = replace(str, ".interface.fmu"=>".onnx.fmu")
 
   # Set linker flags
   extraLdflags = """
-    LDFLAGS += -L$(ortdir)/lib/ -lonnxruntime \\
-               -L$(fmuBinaryDir) -lonnxWrapper '-Wl,-rpath,\$\$ORIGIN'
+    LDFLAGS += -L\"$(ortdir)/lib/\" -lonnxruntime \\
+               -L\"$(fmuBinaryDir)\" -lonnxWrapper '-Wl,-rpath,\$\$ORIGIN'
 
     """
   id1 = first(findfirst("PHONY:", str)) - 1
@@ -196,6 +197,25 @@ function modifyMakefile(makefile::String, ortdir::String, fmuBinaryDir::String)
   write(makefile, str)
 end
 
+"""
+    getFmuBinDir()
+
+Get FMU binary directory.
+
+For example nn 64bit Windwos this is `"binaries/win64"`.
+On 32bit Linux this is `"binaries/linux32`.
+"""
+function getFmuBinDir()
+  if Sys.iswindows()
+    return joinpath("binaries", "linux"*string(Sys.WORD_SIZE))
+  elseif Sys.islinux()
+    return joinpath("binaries", "win"*string(Sys.WORD_SIZE))
+  elseif Sys.isapple()
+    return joinpath("binaries", "darwin"*string(Sys.WORD_SIZE))
+  else
+    error("OS not handled.")
+  end
+end
 
 function copyOnnxWrapperLib(fmuRootDir::String)
   # Copy header file
@@ -208,7 +228,7 @@ function copyOnnxWrapperLib(fmuRootDir::String)
   libdir = joinpath(@__DIR__, "onnxWrapper", "install", "lib")
   @assert isdir(libdir)
   for source in readdir(libdir)
-    libdest = joinpath(fmuRootDir, "binaries", "linux64", basename(source))
+    libdest = joinpath(fmuRootDir, getFmuBinDir(), basename(source))
     cp(joinpath(libdir, source), libdest)
   end
 end
@@ -232,7 +252,7 @@ function buildWithOnnx(fmu::String, modelName::String, equations::Array{Profilin
   modelDescriptionXmlFile = joinpath(fmuTmpDir, "modelDescription.xml")
   makefile = joinpath(fmuTmpDir, "sources", "Makefile")
 
-  modifyMakefile(makefile, ortdir, joinpath("..","binaries", "linux64"))
+  modifyMakefile(makefile, ortdir, getFmuBinDir())
   copyOnnxWrapperLib(fmuTmpDir)
   copyOnnxFiles(fmuTmpDir, onnxFiles)
   modifyCCode(modelName, cfile, modelDescriptionXmlFile, equations)
