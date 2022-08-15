@@ -189,7 +189,7 @@ function modifyMakefile(makefile::String, ortdir::String, fmuBinaryDir::String)
   extraLdflags = """
     LDFLAGS += -L$(ortdir)/lib/ -lonnxruntime \\
                -L$(fmuBinaryDir) -lonnxWrapper '-Wl,-rpath,\$\$ORIGIN'
-    
+
     """
   id1 = first(findfirst("PHONY:", str)) - 1
   str = str[1:id1] * extraLdflags * str[id1+1:end]
