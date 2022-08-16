@@ -59,3 +59,9 @@ along with NonLinearSystemNeuralNetworkFMU.jl. If not, see <http://www.gnu.org/l
 -------------------------------------------------------------------------------
 
 NonLinearSystemNeuralNetworkFMU.jl uses header files from the FMI standard, licensed under BSD 2-Clause (see [FMI-Standard-2.0.3/LICENSE.txt](./FMI-Standard-2.0.3/LICENSE.txt)).
+
+## Acknowledgments
+
+This package was developed as part of the [Proper Hybrid Models for Smarter Vehicles (PHyMoS)](https://phymos.de/en/) project,
+supported by the German [Federal Ministry for Economic Affairs and Climate Action](https://www.bmwk.de/Navigation/EN/Home/home.html)
+with project number 19|200022G.
