@@ -1,0 +1,55 @@
+name: Windows Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+env:
+  BUILD_TYPE: RelWithDebInfo
+  ORT_DIR: ${{ github.workspace }}/${{ matrix.ort_dir }}
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        julia-version: ['1.7.3']
+        julia-arch: [x64]
+        os: [windows-latest]
+        include:
+          - os: windows-latest
+            ort_url: 'https://github.com/microsoft/onnxruntime/releases/download/v1.12.1/onnxruntime-win-x64-1.12.1.zip'
+            ort_archieve_name: 'onnxruntime-win-x64-1.12.1.zip'
+            ort_dir: 'onnxruntime-win-x64-1.12.1'
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v2
+
+      # Build onnxWrapper library
+      - name: Download ONNX Runtime
+        run: |
+          Start-BitsTransfer -Source ${{ matrix.ort_url }} -Destination ${{ matrix.ort_archieve_name }}
+          7z x ${{ matrix.ort_archieve_name }}
+          rm ${{ matrix.ort_archieve_name }}
+        shell: pwsh
+
+      - name: Build onnxWrapper lib
+        run: |
+          cmake -S src/onnxWrapper/ -B src/onnxWrapper/build/ -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/src/onnxWrapper/install
+          cmake --build src/onnxWrapper/build --config ${{ env.BUILD_TYPE }} --target install
+
+      # Setup OpenModelica for OMJulia.jl
+      - uses: AnHeuermann/setup-openmodelica@main
+        with:
+          version: 'stable'
+
+      # Build and test NonLinearSystemNeuralNetworkFMU.jl
+      - uses: julia-actions/setup-julia@v1
+        with:
+          version: ${{ matrix.julia-version }}
+          arch: ${{ matrix.julia-arch }}
+      - uses: julia-actions/julia-buildpkg@v1
+      - uses: julia-actions/julia-runtest@v1
