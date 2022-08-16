@@ -22,7 +22,7 @@ using FMI
 using NonLinearSystemNeuralNetworkFMU
 
 function runIncludeOnnxTests()
-  @assert haskey(ENV, "ORT_DIR") "Environamet variable `OR_DIR` has to be set and point to ONNX Runtime directory for testing."
+  @assert haskey(ENV, "ORT_DIR") "Environamet variable `ORT_DIR` has to be set and point to ONNX Runtime directory for testing."
 
   @testset "Build FMU with ONNX" begin
     modelname = "simpleLoop"

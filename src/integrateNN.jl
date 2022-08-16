@@ -203,7 +203,7 @@ function modifyMakefile(makefile::String, ortdir::String, fmuBinaryDir::String)
   # Set linker flags
   extraLdflags = """
     LDFLAGS += -L\"$(ortdir)/lib/\" -lonnxruntime \\
-               -L\"$(fmuBinaryDir)\" -lonnxWrapper '-Wl,-rpath,\$\$ORIGIN'
+               -L\"../$(fmuBinaryDir)\" -lonnxWrapper '-Wl,-rpath,\$\$ORIGIN'
 
     """
   id1 = first(findfirst("PHONY:", str)) - 1
@@ -221,9 +221,9 @@ On 32bit Linux this is `"binaries/linux32`.
 """
 function getFmuBinDir()
   if Sys.iswindows()
-    return joinpath("binaries", "linux"*string(Sys.WORD_SIZE))
-  elseif Sys.islinux()
     return joinpath("binaries", "win"*string(Sys.WORD_SIZE))
+  elseif Sys.islinux()
+    return joinpath("binaries", "linux"*string(Sys.WORD_SIZE))
   elseif Sys.isapple()
     return joinpath("binaries", "darwin"*string(Sys.WORD_SIZE))
   else
