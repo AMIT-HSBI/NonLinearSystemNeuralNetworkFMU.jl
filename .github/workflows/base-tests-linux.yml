@@ -1,4 +1,4 @@
-name: Base tests
+name: Linux Tests
 
 on:
   push:
@@ -16,36 +16,23 @@ jobs:
       matrix:
         julia-version: ['1.7.3']
         julia-arch: [x64]
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest]
         include:
           - os: ubuntu-latest
             ort_url: 'https://github.com/microsoft/onnxruntime/releases/download/v1.12.1/onnxruntime-linux-x64-1.12.1.tgz'
             ort_archieve_name: 'onnxruntime-linux-x64-1.12.1.tgz'
             ort_dir: 'onnxruntime-linux-x64-1.12.1'
-          - os: windows-latest
-            ort_url: 'https://github.com/microsoft/onnxruntime/releases/download/v1.12.1/onnxruntime-win-x64-1.12.1.zip'
-            ort_archieve_name: 'onnxruntime-win-x64-1.12.1.zip'
-            ort_dir: 'onnxruntime-win-x64-1.12.1'
     timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v2
 
       # Build onnxWrapper library
-      - name: Download ONNX Runtime (Linux)
-        if: ${{ runner.os == 'Linux' }}
+      - name: Download ONNX Runtime
         run: |
           wget -q ${{ matrix.ort_url }}
           tar -xf ${{ matrix.ort_archieve_name }}
           rm ${{ matrix.ort_archieve_name }}
-
-      - name: Download ONNX Runtime (Windows)
-        if: ${{ runner.os == 'Windows' }}
-        run: |
-          Start-BitsTransfer -Source ${{ matrix.ort_url }} -Destination ${{ matrix.ort_archieve_name }}
-          7z x ${{ matrix.ort_archieve_name }}
-          rm ${{ matrix.ort_archieve_name }}
-        shell: pwsh
 
       - name: Build onnxWrapper lib
         run: |
