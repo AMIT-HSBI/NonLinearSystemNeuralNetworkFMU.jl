@@ -44,17 +44,7 @@ The package generates an FMU from a modelica file in 3 steps (+ 1 user step):
 
 ## Documentation
 
-Currently HTML documentation is not published because this repo is still private.
-Checkout the [gh-pages branch](https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/tree/gh-pages)
-and start a web server:
-
-```bash
-julia -e 'using LiveServer; serve(dir=".")'
-```
-
-and open [localhost:8000/](localhost:8000/) in your browser.
-
-Or check the latest artifact of the [documentation workflow](https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/actions/workflows/documentation.yml) to find a PDF version of the documentation.
+Currently HTML documentation is not active, but there is a [PDF](https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/blob/gh-pages/dev/NonLinearSystemNeuralNetworkFMU.jl.pdf).
 
 
 ## Known Limitations
