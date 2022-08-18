@@ -1,13 +1,21 @@
 # NonLinearSystemNeuralNetworkFMU.jl
 
+[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://AnHeuermann.github.io/NonLinearSystemNeuralNetworkFMU.jl/dev)
 [![Linux Tests](https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/actions/workflows/base-tests-linux.yml/badge.svg?branch=main)](https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/actions/workflows/base-tests-linux.yml)
 [![Windows Tests](https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/actions/workflows/base-tests-windows.yml/badge.svg?branch=main)](https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/actions/workflows/base-tests-windows.yml)
 
 Generate Neural Networks to replace non-linear systems inside [OpenModelica](https://openmodelica.org/) 2.0 FMUs.
 
+## Requirements
+
+  - Julia v1.7.1 or newer.
+  - OpenModelica installed.
+    - Path has to contain the OpenModelica bin directory `/path/to/OpenModelica/bin/`.
+    - For running the tests: Environment variable `OPENMODELICAHOME` set to point to the installation directory of OpenModelica.
+
 ## Usage
 
-The package generates an FMU from a modelica file in XXX steps:
+The package generates an FMU from a modelica file in 3 steps (+ 1 user step):
 
   1. Find non-linear equation systems to replace.
 
@@ -34,6 +42,7 @@ The package generates an FMU from a modelica file in XXX steps:
 
       * Replace equations with neural network in generated C code.
       * Re-compile FMU.
+
 
 ## Known Limitations
 
