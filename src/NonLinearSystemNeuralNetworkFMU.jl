@@ -35,6 +35,7 @@ export EqInfo
 export ProfilingInfo
 include("profiling.jl")
 export profiling
+export minMaxValuesReSim
 include("genFMUs.jl")
 export generateFMU
 export addEqInterface2FMU

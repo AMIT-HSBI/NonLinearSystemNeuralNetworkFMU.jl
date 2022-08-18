@@ -58,7 +58,7 @@ function simulateWithProfiling(;modelName,
     write(logFile, msg*"\n")
 
     @info "simulate"
-    msg = OMJulia.sendExpression(omc, "simulate($(modelName), outputFormat=\"$(outputFormat)\", simflags=\"-lv=LOG_STATS -clock=CPU -cpu -w\")")
+    msg = OMJulia.sendExpression(omc, "simulate($(modelName), outputFormat=\"$(outputFormat)\", simflags=\"-lv=LOG_STATS -clock=RT -cpu -w\")")
     write(logFile, msg["messages"]*"\n")
     msg = OMJulia.sendExpression(omc, "getErrorString()")
     write(logFile, msg*"\n")
@@ -239,13 +239,15 @@ Find equations of Modelica model that are slower then threashold.
   - `modelName::String`:  Name of the Modelica model.
   - `pathToMo::String`:   Path to the *.mo file containing the model.
   - `pathToOm::Stringc`:  Path to omc used for simulating the model.
-  - `workingDir::String`: Working directory for omc.
 
 # Keywords
-  - `threshold`: Slowest equations that need more then `threshold` of total simulation time.
+  - `workingDir::String = pwd()`: Working directory for omc. Defaults to the current directory.
+  - `threshold = 0.01`: Slowest equations that need more then `threshold` of total simulation time.
 
+# Returns
+  - `profilingInfo::Vector{ProfilingInfo}`: Profiling information with non-linear equation systems slower than `threshold`.
 """
-function profiling(modelName::String, pathToMo::String, pathToOmc::String, workingDir::String; threshold = 0.01)
+function profiling(modelName::String, pathToMo::String, pathToOmc::String; workingDir=pwd()::String, threshold = 0.01)::Vector{ProfilingInfo}
 
   omcWorkingDir = abspath(joinpath(workingDir, modelName))
   (profJsonFile, infoJsonFile, _) = simulateWithProfiling(modelName=modelName,
@@ -266,8 +268,25 @@ function profiling(modelName::String, pathToMo::String, pathToOmc::String, worki
   return profilingInfo
 end
 
+"""
+    minMaxValuesReSim(vars::Array{String}, modelName::String, pathToMo::String, pathToOmc::String; workingDir::String = pwd())
 
-function minMaxValuesReSim(vars::Array{String}, modelName::String, pathToMo::String, pathToOmc::String, workingDir::String)
+(Re-)simulate Modelica model and find miminum and maximum value each variable has during simulation.
+
+# Arguments
+  - `vars::Array{String}`:  Array of variables to get min-max values for.
+  - `modelName::String`:    Name of Modelica model to simulate.
+  - `pathToMo::String`:     Path to .mo file.
+  - `pathToOm::Stringc`:    Path to OpenModelica Compiler omc.
+
+# Keywords
+  - `workingDir::String = pwd()`: Working directory for omc. Defaults to the current directory.
+
+# Returns
+  - `min::Array{Float64}`: Minimum values for each variable listed in `vars`, minus some small epsilon.
+  - `max::Array{Float64}`: Maximum values for each variable listed in `vars`, plus some small epsilon.
+"""
+function minMaxValuesReSim(vars::Array{String}, modelName::String, pathToMo::String, pathToOmc::String; workingDir::String = pwd())::Tuple{Array{Float64},Array{Float64}}
 
   # FIXME don't simulate twice and use mat instead
   # But the MAT.jl doesn't work with v4 mat files.....
@@ -281,4 +300,3 @@ function minMaxValuesReSim(vars::Array{String}, modelName::String, pathToMo::Str
 
   return (min, max) 
 end
-
