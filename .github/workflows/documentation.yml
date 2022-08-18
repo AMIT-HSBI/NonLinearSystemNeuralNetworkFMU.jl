@@ -23,3 +23,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # If authenticating with GitHub Actions token
         run: julia --project=docs/ docs/make.jl
+      # TODO: Remove when switching back to HTML doc
+      - uses: actions/upload-artifact@v3
+        with:
+          name: documentation
+          path: ${{ github.workspace }}/docs/build/NonLinearSystemNeuralNetworkFMU.jl.pdf

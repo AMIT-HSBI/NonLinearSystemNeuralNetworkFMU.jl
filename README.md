@@ -1,6 +1,5 @@
 # NonLinearSystemNeuralNetworkFMU.jl
 
-[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://AnHeuermann.github.io/NonLinearSystemNeuralNetworkFMU.jl/dev)
 [![Linux Tests](https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/actions/workflows/base-tests-linux.yml/badge.svg?branch=main)](https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/actions/workflows/base-tests-linux.yml)
 [![Windows Tests](https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/actions/workflows/base-tests-windows.yml/badge.svg?branch=main)](https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/actions/workflows/base-tests-windows.yml)
 
@@ -42,6 +41,20 @@ The package generates an FMU from a modelica file in 3 steps (+ 1 user step):
 
       * Replace equations with neural network in generated C code.
       * Re-compile FMU.
+
+## Documentation
+
+Currently HTML documentation is not published because this repo is still private.
+Checkout the [gh-pages branch](https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/tree/gh-pages)
+and start a web server:
+
+```bash
+julia -e 'using LiveServer; serve(dir=".")'
+```
+
+and open [localhost:8000/](localhost:8000/) in your browser.
+
+Or check the latest artifact of the [documentation workflow](https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/actions/workflows/documentation.yml) to find a PDF version of the documentation.
 
 
 ## Known Limitations
