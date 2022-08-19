@@ -5,6 +5,13 @@
 
 Generate Neural Networks to replace non-linear systems inside [OpenModelica](https://openmodelica.org/) 2.0 FMUs.
 
+## Requirements
+
+  - Julia v1.7.1 or newer.
+  - OpenModelica installed.
+    - Path has to contain the OpenModelica bin directory `/path/to/OpenModelica/bin/`.
+    - For running the tests: Environment variable `OPENMODELICAHOME` set to point to the installation directory of OpenModelica.
+
 ## Usage
 
 The package generates an FMU from a modelica file in 3 steps (+ 1 user step):
@@ -36,6 +43,11 @@ The package generates an FMU from a modelica file in 3 steps (+ 1 user step):
       * Replace equations with ONNX evaluation done by [ONNX Runtime](https://onnxruntime.ai/) in generated C code.
       * Re-compile FMU.
         * Environment variable `ORT_DIR` has to be set and point to the ONNX runtime directory (with include/ and lib/ inside).
+
+## Documentation
+
+Currently HTML documentation is not active, but there is a [PDF](https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/blob/gh-pages/dev/NonLinearSystemNeuralNetworkFMU.jl.pdf).
+
 
 ## Known Limitations
 
