@@ -11,6 +11,15 @@ profiling
 minMaxValuesReSim
 ```
 
+## Structures
+
+```@docs
+ProfilingInfo
+```
+
+```@docs
+EqInfo
+```
 
 ## Examples
 

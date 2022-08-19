@@ -285,6 +285,8 @@ end
 # Returns
   - `min::Array{Float64}`: Minimum values for each variable listed in `vars`, minus some small epsilon.
   - `max::Array{Float64}`: Maximum values for each variable listed in `vars`, plus some small epsilon.
+
+See also [`profiling`](@ref).
 """
 function minMaxValuesReSim(vars::Array{String}, modelName::String, pathToMo::String, pathToOmc::String; workingDir::String = pwd())::Tuple{Array{Float64},Array{Float64}}
 
