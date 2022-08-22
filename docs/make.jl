@@ -1,5 +1,6 @@
 using Documenter, NonLinearSystemNeuralNetworkFMU
 
+@info "Make the docs"
 makedocs(
   sitename="NonLinearSystemNeuralNetworkFMU.jl",
   format = Documenter.LaTeX(platform = "docker"),   # Workaround because we can't publish HTML to GitHub pages at the moment
@@ -11,6 +12,7 @@ makedocs(
   ]
 )
 
+@info "Deploy the docs"
 deploydocs(
   repo = "github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl.git",
   devbranch = "main"

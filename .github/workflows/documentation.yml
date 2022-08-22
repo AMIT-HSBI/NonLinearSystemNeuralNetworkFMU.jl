@@ -2,10 +2,8 @@ name: Documentation
 
 on:
   push:
-    branches:
-      - main
+    branches: main
     tags: '*'
-  pull_request:
 
 jobs:
   build:
@@ -24,12 +22,12 @@ jobs:
       - uses: julia-actions/setup-julia@v1
         with:
           version: '1.7.3'
-      - name: Install dependencies
-        run: julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
-      - name: Build and deploy
+      # Workaround for issue #30
+      # TODO: Revert
+      - name: Install dependencies, build and deploy
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # If authenticating with GitHub Actions token
-        run: julia --project=docs/ docs/make.jl
+        run: julia -e 'using Pkg; Pkg.add(name="Documenter", version="0.27"); Pkg.activate(pwd()); include("docs/make.jl")'
       # TODO: Remove when switching back to HTML doc
       - uses: actions/upload-artifact@v3
         with:
