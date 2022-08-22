@@ -17,11 +17,19 @@
 # along with NonLinearSystemNeuralNetworkFMU.jl. If not, see <http://www.gnu.org/licenses/>.
 #
 
+using Test
+
 import BSON
 import CSV
 import DataFrames
 import Flux
+import ONNX
+import ONNXNaiveNASflux
 import StatsBase
+
+# Add Flux.sigmoid operation for ONNXNaiveNASflux
+Flux.sigmoid(pp::ONNXNaiveNASflux.AbstractProbe) = ONNXNaiveNASflux.attribfun(identity, "Sigmoid", pp)
+ONNXNaiveNASflux.refresh()
 
 """
     readData(filename, nInputs; ratio=0.8)
@@ -56,21 +64,21 @@ end
 """
 Filter data for `x = r*s-y <= y` to get uniqe data points.
 """
-function isLeft(s,r,y)
+function isRight(s,r,y)
   x = r*s-y
-  return x <= y
+  return x > y
 end
 
 """
 Filter training data to only contain unambiguous data points
-by using only the top left intersection points.
+by using only the bottom right intersection points.
 """
 function filterData(data_in, data_out)
   s = [x[2] for x in data_in];
   r = [x[2] for x in data_in];
   y = [x[1] for x in data_out];
 
-  keep = findall(i->(i==true), isLeft.(s, r, y))
+  keep = findall(i->(i==true), isRight.(s, r, y))
 
   filtered_data_in = data_in[keep]
   filtered_data_out = data_out[keep]
@@ -160,7 +168,7 @@ Load NN model from nn/simpleLoop_eq14.bson.
 """
 function getNN()
   outname = abspath(joinpath(@__DIR__, "nn", "simpleLoop_eq14.bson"))
-  dict = BSON.load(outname)
+  dict = BSON.load(outname, @__MODULE__)  # SafeTestsets puts everything into a module
   return dict[first(keys(dict))]
 end
 
@@ -181,6 +189,7 @@ function runTrainNNTest()
   nInputs = 2
   nOutputs = 1
   outname = abspath(joinpath(@__DIR__, "nn", "simpleLoop_eq14.bson"))
+  rm(outname, force = true)
 
   (train_in, train_out, test_in, test_out) = readData(fileName, nInputs)
   (train_in, train_out) = filterData(train_in, train_out)
@@ -189,10 +198,20 @@ function runTrainNNTest()
   dataloader = Flux.DataLoader((train_in, train_out), batchsize=64, shuffle=true)
 
   model = Flux.Chain(Flux.Dense(nInputs, 5, tanh),
-                     Flux.Dense(5, 5, tanh),
-                     Flux.Dense(5, nOutputs))
+                    Flux.Dense(5, 5, tanh),
+                    Flux.Dense(5, nOutputs))
 
   trainSurrogate!(model, dataloader, train_in, train_out, outname; nepochs=100)
+  @test isfile(outname)
 
   testLoss(test_in, test_out)
+
+  onnxModel =  abspath(joinpath(@__DIR__, "nn", "simpleLoop_eq14.onnx"))
+  rm(onnxModel, force = true)
+  ONNXNaiveNASflux.save(onnxModel, model, (nInputs,1))
+  @info "Generated $onnxModel"
+
+  @test isfile(onnxModel)
 end
+
+runTrainNNTest()
