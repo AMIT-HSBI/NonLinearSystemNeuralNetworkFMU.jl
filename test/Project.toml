@@ -2,6 +2,7 @@
 BSON = "fbb218c0-5317-5bc6-957e-2ee96dd4b1f0"
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+FMI = "14a09403-18e3-468f-ad8a-74f8dda2d9ac"
 Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
 ONNX = "d0dd6a25-fac6-55c0-abf7-829e0c774d20"
 ONNXNaiveNASflux = "2e935253-ba83-4645-9154-13ffeb13a688"

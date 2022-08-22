@@ -30,6 +30,7 @@ import Libdl
 import OMJulia
 import Printf
 import ProgressMeter
+import XMLDict
 
 include("types.jl")
 export EqInfo
@@ -42,5 +43,6 @@ export generateFMU
 export addEqInterface2FMU
 include("genTrainData.jl")
 export generateTrainingData
+include("integrateNN.jl")
 
 end # module

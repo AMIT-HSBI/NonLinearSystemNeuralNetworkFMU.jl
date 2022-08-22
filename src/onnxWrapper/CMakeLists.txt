@@ -27,9 +27,10 @@ if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   set(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT FALSE)
 endif()
 
-if(NOT DEFINED ORT_DIR)
-  message(FATAL_ERROR "ORT_DIR not set. Provide a path to ONNX Runtime with\n\t-DORT_DIR=\"/path/to/ort\"")
+if(NOT DEFINED ENV{ORT_DIR})
+  message(FATAL_ERROR "Environment variable ORT_DIR not set.")
 else()
+  set(ORT_DIR $ENV{ORT_DIR})
   message(STATUS "Using ORT_DIR: ${ORT_DIR}")
 endif()
 
