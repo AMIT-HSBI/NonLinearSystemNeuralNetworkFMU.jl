@@ -23,8 +23,6 @@ struct Mapping
   #type::String
 end
 
-EOL = Sys.iswindows() ? "\r\n" : "\n"
-
 function ortDataCode(equations::Array{ProfilingInfo}, modelName::String)
   ortstructs = ""
   initCalls = ""

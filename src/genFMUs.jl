@@ -17,12 +17,17 @@
 # along with NonLinearSystemNeuralNetworkFMU.jl. If not, see <http://www.gnu.org/licenses/>.
 #
 
+EOL = Sys.iswindows() ? "\r\n" : "\n"
+
 function omrun(cmd::Cmd; dir=pwd()::String)
 
-  path = ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "mingw64", "bin"))
-  path *= ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "usr", "bin"))
-
-  run(Cmd(cmd, env=("PATH" => path,), dir = dir))
+  if Sys.iswindows()
+    path = ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "mingw64", "bin"))
+    path *= ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "usr", "bin"))
+    run(Cmd(cmd, env=("PATH" => path,), dir = dir))
+  else
+    run(Cmd(cmd, dir = dir))
+  end
 end
 
 """
@@ -124,7 +129,7 @@ function generateFMU(;modelName::String, pathToMo::String, pathToOmc::String, te
     OMJulia.sendExpression(omc, "cd(\"$(tempDir)\")")
 
     @info "setCommandLineOptions"
-    msg = OMJulia.sendExpression(omc, "setCommandLineOptions(\"-d=newInst\")")
+    msg = OMJulia.sendExpression(omc, "setCommandLineOptions(\"-d=newInst --fmuCMakeBuild=\\\"true\\\"\")")
     write(logFile, string(msg)*"\n")
     msg = OMJulia.sendExpression(omc, "getErrorString()")
     write(logFile, msg*"\n")
@@ -146,42 +151,17 @@ function generateFMU(;modelName::String, pathToMo::String, pathToOmc::String, te
   return joinpath(tempDir, modelName*".fmu")
 end
 
-
-function updateMakefile(path_to_makefile::String; clean::Bool = false, debug::Bool = true)
+function updateCMakeLists(path_to_cmakelists::String)
   newStr = ""
-  open(path_to_makefile, "r") do file
+  open(path_to_cmakelists, "r") do file
     filestr = read(file, String)
-
-    # Update CPPFLAGS
-    id1 = last(findfirst("CPPFLAGS=", filestr))
-    newStr = filestr[1:id1] * " -Ifmi-export " * filestr[id1+1:end]
-
-    # Add fmi-export/special_interface.c to CFILES
-    id2 = first(findfirst("OFILES=\$(CFILES:.c=.o)", newStr)) - 1
-    if Sys.iswindows()
-      newStr = newStr[1:id2-2]*" \\\r\n         fmi-export/special_interface.c\r\n"*newStr[id2+1:end]
-    else
-      newStr = newStr[1:id2-1]*" \\\n         fmi-export/special_interface.c\n"*newStr[id2+1:end]
-    end
-
-    newStr = replace(newStr, ".fmu"=>".interface.fmu")
-
-    if !clean
-      # Deactivate distclean rule
-      id2 = last(findfirst("distclean: clean", newStr)) + 1
-      newStr = newStr[1:id2]*"#"*newStr[id2+1:end]
-
-      # Deactivate clean rule
-      id2 = last(findnext("clean:", newStr, id2)) + 1
-      newStr = newStr[1:id2]*"#"*newStr[id2+1:end]
-    end
-
-    if debug
-      newStr = replace(newStr, "-O2"=>"-O0")
-    end
+    id1 = last(findfirst("\${CMAKE_CURRENT_SOURCE_DIR}/external_solvers/*.c", filestr))
+    newStr = filestr[1:id1] * EOL *
+             "                              \${CMAKE_CURRENT_SOURCE_DIR}/fmi-export/*.c" *
+             filestr[id1+1:end]
   end
 
-  write(path_to_makefile, newStr)
+  write(path_to_cmakelists, newStr)
 end
 
 """
@@ -195,11 +175,7 @@ function unzip(file::String, exdir::String)
     mkpath(exdir)
   end
 
-  if Sys.iswindows()
-    omrun(`unzip -q -o $(file) -d $(exdir)`)
-  else
-    run(Cmd(`unzip -q -o $(file) -d $(exdir)`))
-  end
+  omrun(`unzip -q -o $(file) -d $(exdir)`)
 end
 
 
@@ -211,11 +187,12 @@ Run `fmuRootDir/sources/Makefile` to compile FMU binaries.
 function compileFMU(fmuRootDir::String, modelname::String)
   # run make
   @info "Compiling FMU"
-  if Sys.iswindows()
-    omrun(`make -sj $(modelname)_FMU`, dir = joinpath(fmuRootDir,"sources"))
-  else
-    run(Cmd(`make -sj $(modelname)_FMU`, dir = joinpath(fmuRootDir,"sources")))
-  end
+  pathToFmiHeader = abspath(joinpath(dirname(@__DIR__), "FMI-Standard-2.0.3", "headers"))
+  omrun(`cmake -S . -B build_cmake -DFMI_INTERFACE_HEADER_FILES_DIRECTORY=$(pathToFmiHeader)`, dir = joinpath(fmuRootDir,"sources"))
+  omrun(`cmake --build build_cmake/ --target install`, dir = joinpath(fmuRootDir,"sources"))
+  # Use create_zip instead of calling zip
+  rm(joinpath(dirname(fmuRootDir),modelname), force=true)
+  omrun(`zip -r ../$(modelname).fmu binaries/ resources/ sources/ modelDescription.xml`, dir = fmuRootDir)
 end
 
 """
@@ -230,8 +207,6 @@ Create extendedFMU with special_interface to evalaute single equations.
 # Keywords
   - `modelName::String`: Name of Modelica model to export as FMU.
   - `pathToFmu::String`: Path to FMU to extend.
-  - `pathToFmiHeader::String`: Path to FMI headers.
-                               They are part of this repository in FMI-Standard-2.0.3/headers.
   - `eqIndices::Array{Int64}`: Array with equation indices to add equiation interface for.
   - `tempDir::String`:
 
@@ -242,7 +217,6 @@ See also [`profiling`](@ref), [`generateFMU`](@ref), [`generateTrainingData`](@r
 """
 function addEqInterface2FMU(;modelName::String,
                              pathToFmu::String,
-                             pathToFmiHeader::String,
                              eqIndices::Array{Int64},
                              tempDir::String)
 
@@ -255,22 +229,11 @@ function addEqInterface2FMU(;modelName::String,
   modelname = replace(modelName, "."=>"_")
   createSpecialInterface(modelname, abspath(tempDir), eqIndices)
 
-  pathToFmiHeader = abspath(pathToFmiHeader)
+  # Update CMakeLists.txt
+  updateCMakeLists(joinpath(fmuPath,"sources", "CMakeLists.txt"))
 
-  # Configure in FMU/sources while adding FMI headers to `CPPFLAGS`
-  @info "Configure"
-  if !Sys.iswindows()
-    run(Cmd(`./configure CPPFLAGS="-I$(pathToFmiHeader)" NEED_CMINPACK=1`, dir = joinpath(fmuPath,"sources")))
-  end
-
-  # Update Makefile
-  if Sys.iswindows()
-    updateMakefile(joinpath(fmuPath,"sources", "Makefile"), clean=true)
-  else
-    updateMakefile(joinpath(fmuPath,"sources", "Makefile"))
-  end
-
-  compileFMU(fmuPath, modelName)
+  # Re-compile FMU
+  compileFMU(fmuPath, modelName*".interface")
 
   return joinpath(tempDir, "$(modelName).interface.fmu")
 end
