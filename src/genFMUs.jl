@@ -77,7 +77,25 @@ function createSpecialInterface(modelname::String, tempDir::String, eqIndices::A
 end
 
 """
-Generate 2.0 Model Exchange FMU for Modelica model using omc.
+    generateFMU(;modelName::String,
+                 pathToMo::String,
+                 pathToOmc::String, 
+                 tempDir::String,
+                 clean::Bool = false)
+
+Generate 2.0 Model Exchange FMU for Modelica model using OMJulia.
+
+# Keywords
+  - `modelName::String`: Name of Modelica model to export as FMU.
+  - `pathToMo::String`: Path to Modelica file.
+  - `pathToOmc::String`: Path to OpenModlica Compiler.
+  - `tempDir::String`: Path to temp directory in which FMU will be saved to.
+  - `clean::Bool=false`: True if tempDir should be removed and re-created before working in it.
+
+# Returns
+  - Path to generated FMU `tempDir/<modelName>.fmu`.
+
+See also [`addEqInterface2FMU`](@ref), [`generateTrainingData`](@ref).
 """
 function generateFMU(;modelName::String, pathToMo::String, pathToOmc::String, tempDir::String, clean::Bool = false)
 
@@ -201,7 +219,26 @@ function compileFMU(fmuRootDir::String, modelname::String)
 end
 
 """
-Create extendedFMU with special_interface
+    addEqInterface2FMU(;modelName::String,
+                        pathToFmu::String,
+                        pathToFmiHeader::String,
+                        eqIndices::Array{Int64},
+                        tempDir::String)
+
+Create extendedFMU with special_interface to evalaute single equations.
+
+# Keywords
+  - `modelName::String`: Name of Modelica model to export as FMU.
+  - `pathToFmu::String`: Path to FMU to extend.
+  - `pathToFmiHeader::String`: Path to FMI headers.
+                               They are part of this repository in FMI-Standard-2.0.3/headers.
+  - `eqIndices::Array{Int64}`: Array with equation indices to add equiation interface for.
+  - `tempDir::String`:
+
+# Returns
+  - Path to generated FMU `tempDir/<modelName>.interface.fmu`.
+
+See also [`profiling`](@ref), [`generateFMU`](@ref), [`generateTrainingData`](@ref).
 """
 function addEqInterface2FMU(;modelName::String,
                              pathToFmu::String,
@@ -217,6 +254,8 @@ function addEqInterface2FMU(;modelName::String,
   @info "Add special C sources"
   modelname = replace(modelName, "."=>"_")
   createSpecialInterface(modelname, abspath(tempDir), eqIndices)
+
+  pathToFmiHeader = abspath(pathToFmiHeader)
 
   # Configure in FMU/sources while adding FMI headers to `CPPFLAGS`
   @info "Configure"

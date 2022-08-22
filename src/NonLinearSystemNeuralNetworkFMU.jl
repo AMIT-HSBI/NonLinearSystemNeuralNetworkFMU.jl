@@ -19,15 +19,16 @@
 
 module NonLinearSystemNeuralNetworkFMU
 
-import Printf
-import OMJulia
-import JSON
 import CSV
 import DataFrames
-import Libdl
+import DocStringExtensions
 import FMI
 import FMICore
 import FMIImport
+import JSON
+import Libdl
+import OMJulia
+import Printf
 import ProgressMeter
 import XMLDict
 

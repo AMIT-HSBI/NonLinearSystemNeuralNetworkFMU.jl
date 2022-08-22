@@ -20,7 +20,14 @@
 include("fmiExtensions.jl")
 
 """
-    generateTrainingData(fmuPath, fname, eqId, inputVars, min, max, outputVars[; N])
+    generateTrainingData(fmuPath::String,
+                         fname::String,
+                         eqId::Int64,
+                         inputVars::Array{String},
+                         min::AbstractVector{<:Number}
+                         max::AbstractVector{<:Number},
+                         outputVars::Array{String};
+                         N::Integer=1000)
 
 Generate training data for given equation of FMU.
 
@@ -38,6 +45,8 @@ All input-output pairs are saved in `fname`.
 
 # Keywords
   - `N::Integer = 1000`: Number of input-output pairs to generate.
+
+See also [`generateFMU`](@ref), [`generateFMU`](@ref).
 """
 function generateTrainingData(fmuPath::String, fname::String, eqId::Int64, inputVars::Array{String}, min::AbstractVector{<:Number}, max::AbstractVector{<:Number}, outputVars::Array{String}; N::Integer=1000)
   #ENV["JULIA_DEBUG"] = "FMICore"

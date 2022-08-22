@@ -1,2 +1,5 @@
 onnxruntime-*/
 .vscode/
+tempDir/
+simpleLoop/
+simpleLoop_data.csv

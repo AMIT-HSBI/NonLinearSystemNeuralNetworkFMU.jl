@@ -4,6 +4,11 @@ Generate Neural Networks to replace non-linear systems inside OpenModelica 2.0 F
 
 ## Table of Contents
 ```@contents
+  pages = [
+    "Home" => "index.md",
+    "Profiling" => "profiling.md",
+    "Data Generation" => "dataGen.md"
+  ]
 ```
 
 ## Overview
