@@ -17,11 +17,23 @@
 # along with NonLinearSystemNeuralNetworkFMU.jl. If not, see <http://www.gnu.org/licenses/>.
 #
 
+"""
+    EqInfo <: Any
+
+Equation info struct.
+
+$(DocStringExtensions.TYPEDFIELDS)
+"""
 struct EqInfo
+  "Unique equation id"
   id::Int64
+  "Number of calls during simulation"
   ncall::Int64
+  "Total time [s] spend on evaluating this equation."
   time::Float64
+  "Maximum time [s] needed for single evaluation of equation."
   maxTime::Float64
+  "Fraction of total simulation time spend on evaluating this equation."
   fraction::Float64
   EqInfo(id, ncall, time, maxTime, fraction) = new(id, ncall, time, maxTime, fraction)
   EqInfo(;id, ncall, time, maxTime, fraction) = new(id, ncall, time, maxTime, fraction)
@@ -35,10 +47,21 @@ function Base.show(io::IO, ::MIME"text/plain", eqInfo::EqInfo)
   Printf.@printf(io, "fraction=%s)", eqInfo.fraction)
 end
 
+"""
+    ProfilingInfo <: Any
+
+Profiling information for single non-linear equation.
+
+$(DocStringExtensions.TYPEDFIELDS)
+"""
 struct ProfilingInfo
+  "Non-linear equation"
   eqInfo::EqInfo
+  "Iteration (output) variables of non-linear system"
   iterationVariables::Array{String}
+  "Inner (torn) equations of non-linear system."
   innerEquations::Array{Int64}
+  "Used (input) variables of non-linear system. "
   usingVars::Array{String}
 end
 
