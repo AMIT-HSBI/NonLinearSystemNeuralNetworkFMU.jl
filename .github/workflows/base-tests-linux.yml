@@ -34,11 +34,6 @@ jobs:
           tar -xf ${{ matrix.ort_archieve_name }}
           rm ${{ matrix.ort_archieve_name }}
 
-      - name: Build onnxWrapper lib
-        run: |
-          cmake -S src/onnxWrapper/ -B src/onnxWrapper/build/ -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DORT_DIR=${{ github.workspace }}/${{ matrix.ort_dir }} -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/src/onnxWrapper/install
-          cmake --build src/onnxWrapper/build --config ${{ env.BUILD_TYPE }} --target install
-
       # Setup OpenModelica for OMJulia.jl
       - uses: AnHeuermann/setup-openmodelica@main
         with:

@@ -33,8 +33,6 @@ else
   @info "Using omc: $pathToOmc"
 end
 
-pathToFmiHeader = abspath(joinpath(@__DIR__, "..", "FMI-Standard-2.0.3","headers"))
-
 function runGenFmusTest()
   modelName = "simpleLoop"
   pathToMo = abspath(@__DIR__,"simpleLoop.mo")
@@ -71,7 +69,6 @@ function runGenFmusTest()
     end
     pathToFmu = NonLinearSystemNeuralNetworkFMU.addEqInterface2FMU(modelName = modelName,
                                                                     pathToFmu = pathToFmu,
-                                                                    pathToFmiHeader = pathToFmiHeader,
                                                                     eqIndices = eqIndices,
                                                                     tempDir = tempDir)
     @test isfile(pathToFmu)

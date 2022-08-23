@@ -23,8 +23,6 @@ struct Mapping
   #type::String
 end
 
-EOL = Sys.iswindows() ? "\r\n" : "\n"
-
 function ortDataCode(equations::Array{ProfilingInfo}, modelName::String)
   ortstructs = ""
   initCalls = ""
@@ -53,7 +51,7 @@ function ortDataCode(equations::Array{ProfilingInfo}, modelName::String)
   end
 
   code = """
-    #include "onnxWrapper.h"
+    #include "onnxWrapper/onnxWrapper.h"
 
     int USE_JULIA = 1;
 
@@ -187,28 +185,33 @@ function modifyCCode(modelName::String, cfile::String, modelDescriptionXmlFile::
   write(cfile, str)
 end
 
+function modifyCMakeLists(path_to_cmakelists::String)
+  newStr = ""
+  open(path_to_cmakelists, "r") do file
+    str = read(file, String)
+    id1 = last(findfirst("project(\${FMU_NAME})", str))
+    newStr = str[1:id1] * EOL *
+             """
+             add_subdirectory(onnxWrapper)
+             """ *
+             str[id1+1:end]
 
-function modifyMakefile(makefile::String, ortdir::String, fmuBinaryDir::String)
+    id1 = last(findfirst("set(CMAKE_SHARED_LIBRARY_PREFIX \"\")", newStr))
+    newStr = newStr[1:id1] * EOL *
+             """
+             SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
+             SET(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+             SET(CMAKE_INSTALL_RPATH "\\\${ORIGIN}/lib")
+             """ *
+             newStr[id1+1:end]
 
-  str = open(makefile, "r") do file
-    read(file, String)
+    newStr = replace(newStr,
+                     "target_link_libraries(\${FMU_NAME} PRIVATE Threads::Threads)" 
+                     =>
+                     "target_link_libraries(\${FMU_NAME} PRIVATE Threads::Threads onnxWrapper)")
   end
 
-  # Set include flag
-  includedir = "-I\"$(ortdir)/include/\" "
-  str = replace(str, "CPPFLAGS="=>"CPPFLAGS=$(includedir)")
-
-  str = replace(str, ".interface.fmu"=>".onnx.fmu")
-
-  # Set linker flags
-  extraLdflags = """
-    LDFLAGS += -L\"$(ortdir)/lib/\" -lonnxruntime \\
-               -L\"../$(fmuBinaryDir)\" -lonnxWrapper '-Wl,-rpath,\$\$ORIGIN'
-
-    """
-  id1 = first(findfirst("PHONY:", str)) - 1
-  str = str[1:id1] * extraLdflags * str[id1+1:end]
-  write(makefile, str)
+  write(path_to_cmakelists, newStr)
 end
 
 """
@@ -232,18 +235,17 @@ function getFmuBinDir()
 end
 
 function copyOnnxWrapperLib(fmuRootDir::String)
-  # Copy header file
-  hfilesource = joinpath(@__DIR__, "onnxWrapper", "install", "include", "onnxWrapper.h")
-  @assert isfile(hfilesource)
-  hfiledest = joinpath(fmuRootDir, "sources", "onnxWrapper.h")
-  cp(hfilesource, hfiledest)
+  # Copy onnxWrapper sources
+  onnxWrapperDir = joinpath(fmuRootDir, "sources", "onnxWrapper")
+  mkpath(onnxWrapperDir)
 
-  # Copy library
-  libdir = joinpath(@__DIR__, "onnxWrapper", "install", "lib")
-  @assert isdir(libdir)
-  for source in readdir(libdir)
-    libdest = joinpath(fmuRootDir, getFmuBinDir(), basename(source))
-    cp(joinpath(libdir, source), libdest)
+  files = [
+    joinpath(@__DIR__, "onnxWrapper", "onnxWrapper.h"),
+    joinpath(@__DIR__, "onnxWrapper", "onnxWrapper.c"),
+    joinpath(@__DIR__, "onnxWrapper", "CMakeLists.txt"),
+  ]
+  for f in files
+    cp(f, joinpath(onnxWrapperDir,basename(f)))
   end
 end
 
@@ -264,13 +266,13 @@ function buildWithOnnx(fmu::String, modelName::String, equations::Array{Profilin
 
   cfile = joinpath(fmuTmpDir, "sources", "$(modelName).c")
   modelDescriptionXmlFile = joinpath(fmuTmpDir, "modelDescription.xml")
-  makefile = joinpath(fmuTmpDir, "sources", "Makefile")
+  path_to_cmakelists = joinpath(fmuTmpDir,"sources", "CMakeLists.txt")
 
-  modifyMakefile(makefile, ortdir, getFmuBinDir())
   copyOnnxWrapperLib(fmuTmpDir)
+  modifyCMakeLists(path_to_cmakelists)
   copyOnnxFiles(fmuTmpDir, onnxFiles)
   modifyCCode(modelName, cfile, modelDescriptionXmlFile, equations)
-  compileFMU(fmuTmpDir, modelName)
+  compileFMU(fmuTmpDir, modelName*".onnx")
 
   return joinpath(tempDir, "$(modelName).onnx.fmu")
 end
