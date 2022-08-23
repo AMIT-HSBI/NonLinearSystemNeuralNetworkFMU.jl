@@ -178,7 +178,6 @@ function unzip(file::String, exdir::String)
   omrun(`unzip -q -o $(file) -d $(exdir)`)
 end
 
-
 """
     compileFMU(fmuRootDir, modelname)
 
@@ -189,9 +188,10 @@ function compileFMU(fmuRootDir::String, modelname::String)
   @info "Compiling FMU"
   pathToFmiHeader = abspath(joinpath(dirname(@__DIR__), "FMI-Standard-2.0.3", "headers"))
   omrun(`cmake -S . -B build_cmake -DFMI_INTERFACE_HEADER_FILES_DIRECTORY=$(pathToFmiHeader)`, dir = joinpath(fmuRootDir,"sources"))
-  omrun(`cmake --build build_cmake/ --target install`, dir = joinpath(fmuRootDir,"sources"))
+  omrun(`cmake --build build_cmake/ --target install`, dir = joinpath(fmuRootDir, "sources"))
+  rm(joinpath(fmuRootDir, "sources", "build_cmake"), force=true, recursive=true)
   # Use create_zip instead of calling zip
-  rm(joinpath(dirname(fmuRootDir),modelname), force=true)
+  rm(joinpath(dirname(fmuRootDir),modelname*".fmu"), force=true)
   omrun(`zip -r ../$(modelname).fmu binaries/ resources/ sources/ modelDescription.xml`, dir = fmuRootDir)
 end
 

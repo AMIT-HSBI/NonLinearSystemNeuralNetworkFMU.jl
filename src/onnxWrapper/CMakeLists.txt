@@ -21,18 +21,12 @@ cmake_minimum_required(VERSION 3.16)
 
 project(onnxWrapper)
 
-# Change default CMake install prefix
-if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-  set(CMAKE_INSTALL_PREFIX ${PROJECT_BINARY_DIR}/install CACHE PATH "Default installation directory" FORCE)
-  set(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT FALSE)
-endif()
-
-if(NOT DEFINED ENV{ORT_DIR})
+if(NOT DEFINED ENV{ORT_DIR} AND NOT DEFINED ORT_DIR)
   message(FATAL_ERROR "Environment variable ORT_DIR not set.")
-else()
+elseif(DEFINED ENV{ORT_DIR})
   set(ORT_DIR $ENV{ORT_DIR})
-  message(STATUS "Using ORT_DIR: ${ORT_DIR}")
 endif()
+message(STATUS "Using ORT_DIR: ${ORT_DIR}")
 
 # Find ONNX Runtime (ORT)
 find_path(ORT_INCLUDE
@@ -45,9 +39,6 @@ else()
   message(FATAL_ERROR "ONNX Runtime include directory not found.")
 endif()
 
-include_directories(${ORT_INCLUDE})
-
-#set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 set(CMAKE_INSTALL_RPATH "${ORT_DIR}/lib")
 
 # Find ORT libraries
@@ -60,8 +51,8 @@ message(STATUS "Using ORT_LIBR: ${ORT_LIB}")
 
 add_library(onnxWrapper SHARED
             onnxWrapper.c)
-set_target_properties(onnxWrapper PROPERTIES PUBLIC_HEADER "onnxWrapper.h")
 
-target_link_libraries(onnxWrapper ${ORT_LIB})
+target_include_directories(onnxWrapper PUBLIC ${ORT_INCLUDE})
+target_link_libraries(onnxWrapper PRIVATE ${ORT_LIB})
 
 install(TARGETS onnxWrapper)
