@@ -60,7 +60,10 @@ function generateTrainingData(fmuPath::String, fname::String, eqId::Int64, input
   named_tuple = NamedTuple{Tuple(col_names)}(type[] for type in col_types )
   df = DataFrames.DataFrame(named_tuple)
 
-  fmu = FMI.fmiLoad(fmuPath)
+  local fmu
+  Suppressor.@suppress begin
+    fmu = FMI.fmiLoad(fmuPath)
+  end
   try
     # Load FMU and initialize
     FMI.fmiInstantiate!(fmu; loggingOn = false, externalCallbacks=false)
@@ -99,4 +102,5 @@ function generateTrainingData(fmuPath::String, fname::String, eqId::Int64, input
   end
   mkpath(dirname(fname))
   CSV.write(fname, df)
+  return fname
 end

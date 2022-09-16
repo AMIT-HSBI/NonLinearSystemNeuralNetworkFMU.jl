@@ -20,19 +20,6 @@
 using Test
 import NonLinearSystemNeuralNetworkFMU
 
-pathToOmc = ""
-if Sys.iswindows()
-  @assert(haskey(ENV, "OPENMODELICAHOME"), "Environment variable OPENMODELICAHOME not set.")
-  pathToOmc = abspath(joinpath(ENV["OPENMODELICAHOME"], "bin", "omc.exe"))
-else
-  pathToOmc = string(strip(read(`which omc`, String)))
-end
-if !isfile(pathToOmc)
-  error("omc not found")
-else
-  @info "Using omc: $pathToOmc"
-end
-
 function runGenFmusTest()
   modelName = "simpleLoop"
   pathToMo = abspath(@__DIR__,"simpleLoop.mo")
@@ -47,10 +34,7 @@ function runGenFmusTest()
   end
 
   @testset "Generate default FMU" begin
-    pathToFmu = NonLinearSystemNeuralNetworkFMU.generateFMU(modelName = modelName,
-                                                            pathToMo = pathToMo,
-                                                            pathToOmc = pathToOmc,
-                                                            tempDir = workingDir)
+    pathToFmu = NonLinearSystemNeuralNetworkFMU.generateFMU(modelName, pathToMo, workingDir = workingDir)
     @test isfile(pathToFmu)
     # Save FMU for next test
     cp(pathToFmu, joinpath(fmuDir, modelName*".fmu"))
@@ -60,21 +44,18 @@ function runGenFmusTest()
   @testset "Re-compile extended FMU" begin
     pathToFmu = abspath(joinpath(fmuDir, "$(modelName).fmu"))
     eqIndices = [14]
-    tempDir = abspath(joinpath(fmuDir, "$(modelName)_interface"))
-    if !isdir(tempDir)
-      mkdir(tempDir)
+    workingDir = abspath(joinpath(fmuDir, "$(modelName)_interface"))
+    if !isdir(workingDir)
+      mkdir(workingDir)
     else
-      rm(tempDir, force=true, recursive=true)
-      mkdir(tempDir)
+      rm(workingDir, force=true, recursive=true)
+      mkdir(workingDir)
     end
-    pathToFmu = NonLinearSystemNeuralNetworkFMU.addEqInterface2FMU(modelName = modelName,
-                                                                    pathToFmu = pathToFmu,
-                                                                    eqIndices = eqIndices,
-                                                                    tempDir = tempDir)
+    pathToFmu = NonLinearSystemNeuralNetworkFMU.addEqInterface2FMU(modelName, pathToFmu, eqIndices, workingDir = workingDir)
     @test isfile(pathToFmu)
     # Save FMU for next test
     cp(pathToFmu, joinpath(fmuDir, modelName*".interface.fmu"))
-    rm(tempDir, recursive=true)
+    rm(workingDir, recursive=true)
   end
 end
 

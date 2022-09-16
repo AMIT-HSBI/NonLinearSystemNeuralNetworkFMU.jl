@@ -31,9 +31,9 @@ function runGenDataTest()
   N = 100
 
   NonLinearSystemNeuralNetworkFMU.generateTrainingData(pathToFMU, fileName,
-                                                        eqIndex, inputVars,
-                                                        min, max, outputVars;
-                                                        N = N)
+                                                       eqIndex, inputVars,
+                                                       min, max, outputVars;
+                                                       N = N)
 
   @test isfile(fileName)
   nLines = 0
