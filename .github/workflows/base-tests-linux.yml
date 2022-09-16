@@ -13,7 +13,7 @@ jobs:
   test:
     runs-on: ${{ matrix.os }}
     env:
-      ORT_DIR: ${{ matrix.ort_dir }}
+      ORT_DIR: '${{ github.workspace }}/${{ matrix.ort_dir }}'
     strategy:
       matrix:
         julia-version: ['1.7.3']
