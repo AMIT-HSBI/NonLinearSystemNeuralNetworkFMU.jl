@@ -20,7 +20,6 @@
 EOL = Sys.iswindows() ? "\r\n" : "\n"
 
 function omrun(cmd::Cmd; dir=pwd()::String)
-
   if Sys.iswindows()
     path = ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "mingw64", "bin"))
     path *= ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "usr", "bin"))
@@ -29,6 +28,7 @@ function omrun(cmd::Cmd; dir=pwd()::String)
     run(Cmd(cmd, dir = dir))
   end
 end
+
 
 """
 Create C files for extendedFMU with special_interface to call single equations
@@ -81,60 +81,69 @@ function createSpecialInterface(modelname::String, tempDir::String, eqIndices::A
   end
 end
 
+
 """
-    generateFMU(;modelName::String,
-                 pathToMo::String,
-                 pathToOmc::String, 
-                 tempDir::String,
-                 clean::Bool = false)
+    generateFMU(modelName, pathToMo; [pathToOmc], tempDir=pwd(), clean=false)
 
 Generate 2.0 Model Exchange FMU for Modelica model using OMJulia.
 
+# Arguments
+  - `modelName::String`:  Name of the Modelica model.
+  - `pathToMo::String`:   Path to the *.mo file containing the model.
+
 # Keywords
-  - `modelName::String`: Name of Modelica model to export as FMU.
-  - `pathToMo::String`: Path to Modelica file.
-  - `pathToOmc::String`: Path to OpenModlica Compiler.
-  - `tempDir::String`: Path to temp directory in which FMU will be saved to.
-  - `clean::Bool=false`: True if tempDir should be removed and re-created before working in it.
+  - `pathToOmc::String=""`:     Path to omc used for simulating the model.
+                                Use omc from PATH/OPENMODELICAHOME if nothing is provided.
+  - `workingDir::String=pwd()`: Path to temp directory in which FMU will be saved to.
+  - `clean::Bool=false`:        True if workingDir should be removed and re-created before working in it.
 
 # Returns
-  - Path to generated FMU `tempDir/<modelName>.fmu`.
+  - Path to generated FMU `workingDir/<modelName>.fmu`.
 
 See also [`addEqInterface2FMU`](@ref), [`generateTrainingData`](@ref).
 """
-function generateFMU(;modelName::String, pathToMo::String, pathToOmc::String, tempDir::String, clean::Bool = false)
+function generateFMU(modelName::String,
+                     pathToMo::String;
+                     pathToOmc::String="",
+                     workingDir::String=pwd(),
+                     clean::Bool = false)
 
-  if !isdir(tempDir)
-    mkdir(tempDir)
+  pathToOmc = getomc(pathToOmc)
+
+  if !isdir(workingDir)
+    mkdir(workingDir)
   elseif clean
-    rm(tempDir, force=true, recursive=true)
-    mkdir(tempDir)
+    rm(workingDir, force=true, recursive=true)
+    mkdir(workingDir)
   end
 
   if Sys.iswindows()
     pathToMo = replace(pathToMo, "\\"=> "\\\\")
-    tempDir = replace(tempDir, "\\"=> "\\\\")
+    workingDir = replace(workingDir, "\\"=> "\\\\")
   end
 
-  logFilePath = joinpath(tempDir,"callsFMI.log")
+  logFilePath = joinpath(workingDir,"callsFMI.log")
   logFile = open(logFilePath, "w")
 
-  omc = OMJulia.OMCSession(pathToOmc)
+  local omc
+  Suppressor.@suppress begin
+    omc = OMJulia.OMCSession(pathToOmc)
+  end
   try
     msg = OMJulia.sendExpression(omc, "getVersion()")
     write(logFile, msg*"\n")
     OMJulia.sendExpression(omc, "loadFile(\"$(pathToMo)\")")
     msg = OMJulia.sendExpression(omc, "getErrorString()")
     write(logFile, msg*"\n")
-    OMJulia.sendExpression(omc, "cd(\"$(tempDir)\")")
+    OMJulia.sendExpression(omc, "cd(\"$(workingDir)\")")
 
-    @info "setCommandLineOptions"
+    @debug "setCommandLineOptions"
     msg = OMJulia.sendExpression(omc, "setCommandLineOptions(\"-d=newInst --fmuCMakeBuild=\\\"true\\\"\")")
     write(logFile, string(msg)*"\n")
     msg = OMJulia.sendExpression(omc, "getErrorString()")
     write(logFile, msg*"\n")
 
-    @info "buildFMU"
+    @debug "buildFMU"
     msg = OMJulia.sendExpression(omc, "buildModelFMU($(modelName), version=\"2.0\", fmuType=\"me\")")
     write(logFile, msg*"\n")
     msg = OMJulia.sendExpression(omc, "getErrorString()")
@@ -144,12 +153,13 @@ function generateFMU(;modelName::String, pathToMo::String, pathToOmc::String, te
     OMJulia.sendExpression(omc, "quit()",parsed=false)
   end
 
-  if !isfile(joinpath(tempDir, modelName*".fmu"))
+  if !isfile(joinpath(workingDir, modelName*".fmu"))
     error("Could not generate FMU! Check log file:\n$(abspath(logFilePath))")
   end
 
-  return joinpath(tempDir, modelName*".fmu")
+  return joinpath(workingDir, modelName*".fmu")
 end
+
 
 function updateCMakeLists(path_to_cmakelists::String)
   newStr = ""
@@ -163,6 +173,7 @@ function updateCMakeLists(path_to_cmakelists::String)
 
   write(path_to_cmakelists, newStr)
 end
+
 
 """
     unzip(file, exdir)
@@ -178,56 +189,63 @@ function unzip(file::String, exdir::String)
   omrun(`unzip -q -o $(file) -d $(exdir)`)
 end
 
+
 """
     compileFMU(fmuRootDir, modelname)
 
 Run `fmuRootDir/sources/Makefile` to compile FMU binaries.
 """
 function compileFMU(fmuRootDir::String, modelname::String)
-  # run make
-  @info "Compiling FMU"
-  pathToFmiHeader = abspath(joinpath(dirname(@__DIR__), "FMI-Standard-2.0.3", "headers"))
-  omrun(`cmake -S . -B build_cmake -DFMI_INTERFACE_HEADER_FILES_DIRECTORY=$(pathToFmiHeader)`, dir = joinpath(fmuRootDir,"sources"))
-  omrun(`cmake --build build_cmake/ --target install`, dir = joinpath(fmuRootDir, "sources"))
-  rm(joinpath(fmuRootDir, "sources", "build_cmake"), force=true, recursive=true)
-  # Use create_zip instead of calling zip
-  rm(joinpath(dirname(fmuRootDir),modelname*".fmu"), force=true)
-  omrun(`zip -r ../$(modelname).fmu binaries/ resources/ sources/ modelDescription.xml`, dir = fmuRootDir)
+  @debug "Compiling FMU"
+  logFile = modelname*"_compile.log"
+  @info "Compilation log file: $(logFile)"
+
+  @assert haskey(ENV, "ORT_DIR") "Environment variable ORT_DIR not set."
+  @assert isdir(ENV["ORT_DIR"]) "Environment variable ORT_DIR not pointing to a directory."
+
+  redirect_stdio(stdout=logFile, stderr=logFile) do
+    pathToFmiHeader = abspath(joinpath(dirname(@__DIR__), "FMI-Standard-2.0.3", "headers"))
+    omrun(`cmake -S . -B build_cmake -DFMI_INTERFACE_HEADER_FILES_DIRECTORY=$(pathToFmiHeader)`, dir = joinpath(fmuRootDir,"sources"))
+    omrun(`cmake --build build_cmake/ --target install`, dir = joinpath(fmuRootDir, "sources"))
+    rm(joinpath(fmuRootDir, "sources", "build_cmake"), force=true, recursive=true)
+    # Use create_zip instead of calling zip
+    rm(joinpath(dirname(fmuRootDir),modelname*".fmu"), force=true)
+    omrun(`zip -r ../$(modelname).fmu binaries/ resources/ sources/ modelDescription.xml`, dir = fmuRootDir)
+  end
 end
 
+
 """
-    addEqInterface2FMU(;modelName::String,
-                        pathToFmu::String,
-                        pathToFmiHeader::String,
-                        eqIndices::Array{Int64},
-                        tempDir::String)
+    addEqInterface2FMU(modelName, pathToFmu, eqIndices; workingDir=pwd())
 
 Create extendedFMU with special_interface to evalaute single equations.
 
+# Arguments
+  - `modelName::String`:        Name of Modelica model to export as FMU.
+  - `pathToFmu::String`:        Path to FMU to extend.
+  - `eqIndices::Array{Int64}`:  Array with equation indices to add equiation interface for.
+
 # Keywords
-  - `modelName::String`: Name of Modelica model to export as FMU.
-  - `pathToFmu::String`: Path to FMU to extend.
-  - `eqIndices::Array{Int64}`: Array with equation indices to add equiation interface for.
-  - `tempDir::String`:
+  - `workingDir::String=pwd()`: Working directory. Defaults to current working directory.
 
 # Returns
-  - Path to generated FMU `tempDir/<modelName>.interface.fmu`.
+  - Path to generated FMU `workingDir/<modelName>.interface.fmu`.
 
 See also [`profiling`](@ref), [`generateFMU`](@ref), [`generateTrainingData`](@ref).
 """
-function addEqInterface2FMU(;modelName::String,
-                             pathToFmu::String,
-                             eqIndices::Array{Int64},
-                             tempDir::String)
+function addEqInterface2FMU(modelName::String,
+                            pathToFmu::String,
+                            eqIndices::Array{Int64};
+                            workingDir::String=pwd())
 
-  @info "Unzip FMU"
-  fmuPath = abspath(joinpath(tempDir,"FMU"))
+  @debug "Unzip FMU"
+  fmuPath = abspath(joinpath(workingDir,"FMU"))
   unzip(abspath(pathToFmu), fmuPath)
 
   # make special_interface in FMU/sources/fmi-export
-  @info "Add special C sources"
+  @debug "Add special C sources"
   modelname = replace(modelName, "."=>"_")
-  createSpecialInterface(modelname, abspath(tempDir), eqIndices)
+  createSpecialInterface(modelname, abspath(workingDir), eqIndices)
 
   # Update CMakeLists.txt
   updateCMakeLists(joinpath(fmuPath,"sources", "CMakeLists.txt"))
@@ -235,5 +253,5 @@ function addEqInterface2FMU(;modelName::String,
   # Re-compile FMU
   compileFMU(fmuPath, modelName*".interface")
 
-  return joinpath(tempDir, "$(modelName).interface.fmu")
+  return joinpath(workingDir, "$(modelName).interface.fmu")
 end

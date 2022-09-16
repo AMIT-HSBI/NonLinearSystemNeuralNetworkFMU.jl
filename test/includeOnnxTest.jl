@@ -17,8 +17,9 @@
 # along with NonLinearSystemNeuralNetworkFMU.jl. If not, see <http://www.gnu.org/licenses/>.
 #
 
-using Test
 using FMI
+using Suppressor
+using Test
 using NonLinearSystemNeuralNetworkFMU
 
 function runIncludeOnnxTests()
@@ -32,10 +33,9 @@ function runIncludeOnnxTests()
     onnxFmu = joinpath(fmuDir, "$(modelname).onnx.fmu")
     rm(onnxFmu, force=true)
     profilingInfo = ProfilingInfo[ProfilingInfo(EqInfo(14, 2512, 2.111228e6, 54532.0, 0.12241628639186376), ["y"], [11], ["s", "r"])]
-    ortdir = ENV["ORT_DIR"]
     onnxFiles = [abspath(@__DIR__, "nn", "simpleLoop_eq14.onnx")]
 
-    pathToFmu = NonLinearSystemNeuralNetworkFMU.buildWithOnnx(interfaceFmu, modelname, profilingInfo, onnxFiles, ortdir; tempDir=tempDir)
+    pathToFmu = NonLinearSystemNeuralNetworkFMU.buildWithOnnx(interfaceFmu, modelname, profilingInfo, onnxFiles; tempDir=tempDir)
     @test isfile(pathToFmu)
     # Save FMU for next test
     cp(pathToFmu, onnxFmu)
@@ -45,7 +45,10 @@ function runIncludeOnnxTests()
   @testset "Simulate ONNX FMU" begin
     modelname = "simpleLoop"
     pathToFMU = abspath(joinpath(@__DIR__, "fmus", "$(modelname).onnx.fmu"))
-    nnFMU = fmiLoad(pathToFMU)
+    local nnFMU
+    Suppressor.@suppress begin
+      nnFMU = fmiLoad(pathToFMU)
+    end
     # Can't use FMI.jl for FMUs without states at the moment
     #onnx_solution = fmiSimulate(nnFMU, 0.0, 1.0; recordValues=["r", "s", "x", "y"])
     fmiUnload(nnFMU)

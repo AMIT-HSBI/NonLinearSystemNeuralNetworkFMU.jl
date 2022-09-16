@@ -23,13 +23,13 @@ struct Mapping
   #type::String
 end
 
-function ortDataCode(equations::Array{ProfilingInfo}, modelName::String)
+function ortDataCode(equations::Array{ProfilingInfo}, modelName::String, onnxNames::Array{String})
   ortstructs = ""
   initCalls = ""
   deinitCalls = ""
   nEq = length(equations)
   for (i,eq) in enumerate(equations)
-    onnxName = "$(modelName)_eq$(eq.eqInfo.id).onnx"
+    onnxName = basename(onnxNames[i])
     nInputs = length(eq.usingVars)
     nOutputs = length(eq.iterationVariables)
     # TODO: Get input and output names
@@ -37,7 +37,7 @@ function ortDataCode(equations::Array{ProfilingInfo}, modelName::String)
     output_name = "dense_2"
     ortstructs *= "struct OrtWrapperData* ortData_eq_$(eq.eqInfo.id);"
     initCalls *= """
-        snprintf(onnxPath, 2048, "%s/%s", data->modelData->resourcesDir, \"$onnxName\");
+        snprintf(onnxPath, 2048, "%s/%s", data->modelData->resourcesDir, \"$(onnxName)\");
         ortData_eq_$(eq.eqInfo.id) = initOrtData(onnxPath, \"$modelName\", $nInputs, $nOutputs, \"$input_name\", \"$output_name\");
       """
     deinitCalls *= "  deinitOrtData(ortData_eq_$(eq.eqInfo.id));"
@@ -145,18 +145,20 @@ function generateNNCall(modelname::String, modelDescriptionXmlFile::String, equa
   return cCode
 end
 
-function modifyCCode(modelName::String, cfile::String, modelDescriptionXmlFile::String, equations::Array{ProfilingInfo})
+function modifyCCode(modelName::String, cfile::String, modelDescriptionXmlFile::String, equations::Array{ProfilingInfo}, onnxFiles::Array{String})
 
   str = open(cfile, "r") do file
     read(file, String)
   end
 
+  modelNameC = replace(modelName, "."=>"_")
+
   # Add init/ deinint ortData
   id1 = first(findfirst("/* dummy VARINFO and FILEINFO */", str)) - 2
-  initCode = ortDataCode(equations, modelName)
+  initCode = ortDataCode(equations, modelName, onnxFiles)
   str = str[1:id1] * initCode * str[id1+1:end]
 
-  id1 = last(findfirst("$(modelName)_setupDataStruc(DATA *data, threadData_t *threadData)", str))
+  id1 = last(findfirst("$(modelNameC)_setupDataStruc(DATA *data, threadData_t *threadData)", str))
   id1 = last(findnext("data->modelData->nExtObjs", str, id1))
   id1 = last(findnext(";$EOL", str, id1))
   str = str[1:id1] * "$EOL  initGlobalOrtData(data);$EOL" * str[id1+1:end]
@@ -164,13 +166,13 @@ function modifyCCode(modelName::String, cfile::String, modelDescriptionXmlFile::
   # Replace nls-call in equation
   for equation in equations
     eqInfo = equation.eqInfo
-    id1 = last(findfirst("$(modelName)_eqFunction_$(eqInfo.id)(DATA *data, threadData_t *threadData)", str))
+    id1 = last(findfirst("$(modelNameC)_eqFunction_$(eqInfo.id)(DATA *data, threadData_t *threadData)", str))
     id1 = first(findnext("/* get old value */", str, id1)) - 1
     id2 = first(findnext("  TRACE_POP", str, id1)) -1
 
     oldpart = str[id1:id2]
     oldpart = replace(oldpart, "$EOL  "=>"$EOL    ")
-    newpart = generateNNCall(modelName, modelDescriptionXmlFile, equation)
+    newpart = generateNNCall(modelNameC, modelDescriptionXmlFile, equation)
 
     replacement = """
     if(USE_JULIA) {
@@ -249,6 +251,7 @@ function copyOnnxWrapperLib(fmuRootDir::String)
   end
 end
 
+
 function copyOnnxFiles(fmuRootDir::String, onnxFiles::Array{String})
   resourcesDir = joinpath(fmuRootDir, "resources")
   @assert isdir(resourcesDir)
@@ -257,21 +260,21 @@ function copyOnnxFiles(fmuRootDir::String, onnxFiles::Array{String})
   end
 end
 
-function buildWithOnnx(fmu::String, modelName::String, equations::Array{ProfilingInfo}, onnxFiles::Array{String}, ortdir::String; tempDir=modelName*"_onnx"::String)
 
+function buildWithOnnx(fmu::String, modelName::String, equations::Array{ProfilingInfo}, onnxFiles::Array{String}; tempDir=modelName*"_onnx"::String)
   # Unzip FMU into tmp dir
   fmuTmpDir = abspath(joinpath(tempDir,"FMU"))
   rm(fmuTmpDir, force=true, recursive=true)
   unzip(fmu, fmuTmpDir)
 
-  cfile = joinpath(fmuTmpDir, "sources", "$(modelName).c")
+  cfile = joinpath(fmuTmpDir, "sources", "$(replace(modelName, "."=>"_")).c")
   modelDescriptionXmlFile = joinpath(fmuTmpDir, "modelDescription.xml")
   path_to_cmakelists = joinpath(fmuTmpDir,"sources", "CMakeLists.txt")
 
   copyOnnxWrapperLib(fmuTmpDir)
   modifyCMakeLists(path_to_cmakelists)
   copyOnnxFiles(fmuTmpDir, onnxFiles)
-  modifyCCode(modelName, cfile, modelDescriptionXmlFile, equations)
+  modifyCCode(modelName, cfile, modelDescriptionXmlFile, equations, onnxFiles)
   compileFMU(fmuTmpDir, modelName*".onnx")
 
   return joinpath(tempDir, "$(modelName).onnx.fmu")
