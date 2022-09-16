@@ -8,7 +8,6 @@ on:
 
 env:
   BUILD_TYPE: RelWithDebInfo
-  ORT_DIR: ${{ github.workspace }}/${{ matrix.ort_dir }}
 
 jobs:
   test:
@@ -43,6 +42,8 @@ jobs:
 
       # Build and test NonLinearSystemNeuralNetworkFMU.jl
       - uses: julia-actions/setup-julia@v1
+        env:
+          ORT_DIR: ${{ort_dir}}
         with:
           version: ${{ matrix.julia-version }}
           arch: ${{ matrix.julia-arch }}
