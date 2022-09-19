@@ -1,11 +1,11 @@
-#$julia -e "include(\"ScalableTranslationStatistics.jl\")"
+# $julia -e "include(\"ScalableTranslationStatistics.jl\"); run()"
+# $nohup julia-1.8.1 -e "include(\"ScalableTranslationStatistics.jl\"); run()" &
 
 cd(@__DIR__)
 using NaiveONNX
 import Pkg; Pkg.activate("..")
 using NonLinearSystemNeuralNetworkFMU
 using BSON: @save, @load
-using Plots
 
 ENV["ORT_DIR"] = "/mnt/home/aheuermann/workdir/julia/NonLinearSystemNeuralNetworkFMU.jl/onnxruntime-linux-x64-1.12.1"
 rootDir = "/mnt/home/aheuermann/workdir/phymos/ScalableTranslationStatistics"
@@ -75,7 +75,7 @@ function runScalableTranslationStatistics(rootDir::String; level::Integer=1, N::
     push!(onnxFiles, onnxModel)
     nInputs = length(prof.usingVars)
 
-    @showtime trainONNX(csvFiles[i], onnxModel, nInputs; nepochs=2, losstol=1e-4)
+    @showtime trainONNX(csvFiles[i], onnxModel, nInputs; nepochs=100, losstol=1e-4)
   end
 
   # Include ONNX into FMU
@@ -91,18 +91,25 @@ function runScalableTranslationStatistics(rootDir::String; level::Integer=1, N::
   return (profilingInfo, fmu, fmu_onnx)
 end
 
-# Create all the FMUs
-for level in 1:1
-  @info "Starting level $level"
-  redirect_stdio(stdout="level$(string(level)).log", stderr="level$(string(level)).log") do
-    @time runScalableTranslationStatistics(rootDir, level = 1)
+function clean()
+  rm("data/", recursive=true, force=true)
+  rm("fmus/", recursive=true, force=true)
+  rm("onnx/", recursive=true, force=true)
+  rm("profiling/", recursive=true, force=true)
+  foreach(rm, filter(endswith(".log"), readdir(@__DIR__,join=true)))
+  for dir in readdir(@__DIR__)
+    if startswith(dir, "ScalableTranslationStatistics.Examples.ScaledNLEquations.NLEquations_")
+      rm(dir, recursive=true)
+    end
   end
 end
 
-function clean()
-  rm("data/", recursive=true)
-  rm("fmus/", recursive=true)
-  rm("onnx/", recursive=true)
-  rm("profiling/", recursive=true)
-  foreach(rm, filter(endswith(".log"), readdir(@__DIR__,join=true)))
+# Create all the FMUs
+function run()
+  for level in 1:6
+    @info "Starting level $level"
+    redirect_stdio(stdout="level$(string(level)).log", stderr="level$(string(level)).log") do
+      @time runScalableTranslationStatistics(rootDir, level = level)
+    end
+  end
 end

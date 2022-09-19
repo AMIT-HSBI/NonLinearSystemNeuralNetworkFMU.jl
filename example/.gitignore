@@ -1,7 +1,7 @@
 *.log
-*.bson
-*.ipynb_checkpoints/
+*.out
 data/
 fmus/
 onnx/
-ScalableTranslationStatistics.Examples.ScaledNLEquations.NLEquations_5/
+profiling/
+ScalableTranslationStatistics.Examples.ScaledNLEquations.NLEquations_*/
