@@ -114,8 +114,8 @@ struct OrtWrapperData* initOrtData(const char* pathToONNX, const char* modelName
   ortData->session = session;
 
   /* Initialize model_input and model_output */
-  ortData->model_input = calloc(nInputs, sizeof ortData->model_input);
-  ortData->model_output = calloc(nInputs, sizeof ortData->model_output);
+  ortData->model_input = calloc(nInputs, sizeof ortData->model_input[0]);
+  ortData->model_output = calloc(nOutputs, sizeof ortData->model_output[0]);
 
   /* Initialize input and output tensors */
   unsigned int model_input_ele_count = nInputs;
@@ -126,16 +126,12 @@ struct OrtWrapperData* initOrtData(const char* pathToONNX, const char* modelName
   const int64_t input_shape[] = {1, model_input_ele_count};
   const size_t input_shape_len = sizeof(input_shape) / sizeof(input_shape[0]);
   const size_t model_input_len = model_input_ele_count * sizeof(float);
-  // TODO: Get input names automatically
-  //const char* input_name = "onnx::Flatten_0";
-  ortData->input_names = calloc(1, sizeof ortData->input_names);
+  ortData->input_names = calloc(1, sizeof ortData->input_names[0]);
   ortData->input_names[0] = strdup(input_name);
   const int64_t output_shape[] = {1, model_output_ele_count};
   const size_t output_shape_len = sizeof(output_shape) / sizeof(output_shape[0]);
   const size_t model_output_len = model_output_ele_count * sizeof(float);
-  // TODO: Get output names automatically
-  //const char* output_name = "13";
-  ortData->output_names = calloc(1, sizeof ortData->output_names);
+  ortData->output_names = calloc(1, sizeof ortData->output_names[0]);
   ortData->output_names[0] = strdup(output_name);
 
   ORT_ABORT_ON_ERROR(g_ort->CreateTensorWithDataAsOrtValue(memory_info, ortData->model_input, model_input_len, input_shape,
