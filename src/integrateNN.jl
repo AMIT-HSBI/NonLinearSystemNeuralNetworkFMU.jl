@@ -42,8 +42,8 @@ function ortDataCode(equations::Array{ProfilingInfo}, modelName::String, onnxNam
       """
     deinitCalls *= "  deinitOrtData(ortData_eq_$(eq.eqInfo.id));"
     if i < nEq
-      ortstructs *= "$EOL  "
-      deinitCalls *= "$EOL  "
+      ortstructs *= "$EOL"
+      deinitCalls *= "$EOL"
     end
     if i == nEq
       initCalls = initCalls[1:end-1]
@@ -114,7 +114,7 @@ function generateNNCall(modelname::String, modelDescriptionXmlFile::String, equa
     cVar = getVarCString(var, variablesDict)
     outputVarBlock *= "$(cVar) = output[$(i-1)];"
     if i < length(outputs)
-      inputVarBlock *= "$EOL    "
+      outputVarBlock *= "$EOL    "
     end
   end
 
