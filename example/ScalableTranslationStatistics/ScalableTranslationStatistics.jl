@@ -3,7 +3,7 @@
 
 cd(@__DIR__)
 using NaiveONNX
-import Pkg; Pkg.activate("..")
+import Pkg; Pkg.activate("../..")
 using NonLinearSystemNeuralNetworkFMU
 using BSON: @save, @load
 using FMI
@@ -36,10 +36,6 @@ function runScalableTranslationStatistics(rootDir::String; level::Integer=1, N::
   allUsedvars = vcat([prof.usingVars for prof in profilingInfo]...)
   @showtime (min, max) = minMaxValuesReSim(allUsedvars, modelName, lib)
 
-  #plot(allUsedvars, min, xrotation=90, label="min", legend=:topleft)
-  #plt = plot!(allUsedvars, max, label="max")
-  #savefig(plt,"$(modelName)_minmax.svg")
-
   # Generate default FMU
   @showtime fmu = generateFMU(modelName, lib, workingDir = modelName)
   allFmuDir = joinpath("fmus", "level$(string(level))")
@@ -50,7 +46,6 @@ function runScalableTranslationStatistics(rootDir::String; level::Integer=1, N::
   # Generate extended FMU
   allEqs = [prof.eqInfo.id for prof in profilingInfo]
   @showtime fmu_interface = addEqInterface2FMU(modelName, fmu, allEqs, workingDir = modelName)
-  basename(fmu_interface)
   cp(fmu_interface, joinpath(allFmuDir, basename(fmu_interface)), force=true)
   fmu_interface = joinpath(allFmuDir, basename(fmu_interface))
 
@@ -85,6 +80,19 @@ function runScalableTranslationStatistics(rootDir::String; level::Integer=1, N::
     @showtime trainONNX(csvFiles[i], onnxModel, nInputs; nepochs=100, losstol=1e-4)
   end
 
+  #=
+  allFmuDir = joinpath(@__DIR__, "fmus", "level$(string(level))")
+  fmu_interface = joinpath(allFmuDir, modelName*".interface.fmu")
+  allProfiling = joinpath(@__DIR__, "profiling", "level$(string(level))")
+  @load joinpath(allProfiling, "profilingInfo.bson") profilingInfo
+  profilingInfo = Array{ProfilingInfo}(profilingInfo)
+  onnxFiles = String[]
+  for prof in profilingInfo
+    onnxModel = abspath(joinpath("onnx", "level$(string(level))", "eq_$(prof.eqInfo.id).onnx"))
+    push!(onnxFiles, onnxModel)
+  end
+  =#
+
   # Include ONNX into FMU
   @showtime fmu_onnx = buildWithOnnx(fmu_interface,
                                      modelName,
@@ -95,7 +103,7 @@ function runScalableTranslationStatistics(rootDir::String; level::Integer=1, N::
   cp(fmu_onnx, joinpath(allFmuDir, basename(fmu_onnx)), force=true)
   fmu_onnx = joinpath(allFmuDir, basename(fmu_onnx))
 
-  return (profilingInfo, fmu, fmu_onnx)
+  #return (profilingInfo, fmu, fmu_onnx)
 end
 
 function DataFrame(result::FMICore.FMU2Solution{FMU2}, names::Array{String})
@@ -115,7 +123,7 @@ function simulateFMU(pathToFMU, resultFile)
   result = fmiSimulate(fmu, 0.0, 10.0; recordValues=outputVars)
   df = DataFrame(result, outputVars)
 
-  bench = @benchmark fmiSimulate($fmu, 0.0, 10.0; recordValues=$outputVars) evals=1 samples=1
+  bench = @benchmark fmiSimulate($fmu, 0.0, 10.0; recordValues=$outputVars)
   fmiUnload(fmu)
 
   CSV.write(resultFile, df)
@@ -136,8 +144,8 @@ function clean()
 end
 
 # Create all the FMUs
-function genFMUs()
-  for level in 6:6
+function genFMUs(levels=1:6)
+  for level in levels
     @info "Starting level $level"
     redirect_stdio(stdout="level$(string(level)).log", stderr="level$(string(level)).log") do
       @time runScalableTranslationStatistics(rootDir, level = level)
@@ -145,6 +153,7 @@ function genFMUs()
   end
 end
 
+# Test ONNX FMUs and bench times
 function runBenchmarks(levels=1:6)
   for level in levels
     @info "Benchmarking level $level"
@@ -162,8 +171,8 @@ function runBenchmarks(levels=1:6)
   end
 end
 
-
-function plotResult(;level=1, outputs=1:8)
+# Plot FMU simulations
+function plotResult(;level=1, outputs=1:8, tspan=nothing)
   resultDir = joinpath(@__DIR__, "results", "level$(string(level))")
   modelName = "ScalableTranslationStatistics.Examples.ScaledNLEquations.NLEquations_$(sizes[level])"
   defaultResult = joinpath(resultDir, modelName*".csv")
@@ -172,7 +181,16 @@ function plotResult(;level=1, outputs=1:8)
   df_def = DataFrames.DataFrame(CSV.File(defaultResult))
   df_onnx = DataFrames.DataFrame(CSV.File(onnxResult))
 
-  p = plot(title = "level $level", legend=:topleft)
+  if tspan !== nothing
+    i_start = findfirst(x->x>= tspan[1], df_def.time)
+    i_end = findnext(x->x>= tspan[end], df_def.time, i_start)
+    df_def = df_def[i_start:i_end,:]
+    i_start = findfirst(x->x>= tspan[1], df_onnx.time)
+    i_end = findnext(x->x>= tspan[end], df_onnx.time, i_start)
+    df_onnx = df_onnx[i_start:i_end,:]
+  end
+
+  p = plot(title = "ScaledNLEquations.NLEquations_$(sizes[level])", legend=:topleft, xlabel="time [s]")
   for (i,out) in enumerate(outputs)
     name = "outputs[$out]"
     p = plot(p, df_def.time, df_def[!,Symbol(name)], label=name*" ref", color=i)
@@ -180,4 +198,36 @@ function plotResult(;level=1, outputs=1:8)
   end
 
   return p
+end
+
+
+function animateData(;level=4, eq_idx=1, i_out=1, angle=40)
+  modelName = "ScalableTranslationStatistics.Examples.ScaledNLEquations.NLEquations_$(sizes[level])"
+
+  @load joinpath("profiling", "level$(string(level))", "profilingInfo.bson") profilingInfo
+  prof = profilingInfo[eq_idx]
+
+  dataFile = joinpath(@__DIR__, "data", "level$(string(level))", "eq_$(prof.eqInfo.id).csv")
+  df = DataFrames.DataFrame(CSV.File(dataFile))
+
+  inputNames = prof.usingVars
+  outputNames = prof.iterationVariables
+
+  p = scatter(df[!,Symbol(inputNames[1])],
+              df[!,Symbol(inputNames[2])],
+              df[!,Symbol(outputNames[i_out])],
+              xlabel=inputNames[1], ylabel=inputNames[2], label=[outputNames[i_out]],
+              title="Equation $(prof.eqInfo.id)",
+              markersize=1, markeralpha=0.5, markerstrokewidth=0,
+              color=2,
+              camera = (angle, 30))
+
+  return p
+end
+
+function genGif(level, i_out)
+  anim = @animate for angle in 0:0.5:360
+    animateData(;level=level, eq_idx=1, i_out=i_out, angle=angle)
+  end
+  gif(anim, "data_animation_level$(level)_var$(i_out).gif", fps = 30)
 end

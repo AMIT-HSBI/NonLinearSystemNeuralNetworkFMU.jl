@@ -1,7 +1,9 @@
+*.gif
 *.log
 *.out
 data/
 fmus/
 onnx/
 profiling/
+results/
 ScalableTranslationStatistics.Examples.ScaledNLEquations.NLEquations_*/
