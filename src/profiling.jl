@@ -73,10 +73,10 @@ function simulateWithProfiling(modelName::String,
   @assert outputFormat === "mat" || outputFormat === "csv"  "Output format has to be \"mat\" or \"csv\"."
 
   if !isdir(workingDir)
-    mkdir(workingDir)
+    mkpath(workingDir)
   elseif clean
     rm(workingDir, force=true, recursive=true)
-    mkdir(workingDir)
+    mkpath(workingDir)
   end
 
   if Sys.iswindows()
