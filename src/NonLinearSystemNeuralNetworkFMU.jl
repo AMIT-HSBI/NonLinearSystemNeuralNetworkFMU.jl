@@ -19,6 +19,7 @@
 
 module NonLinearSystemNeuralNetworkFMU
 
+import BSON
 import CSV
 import DataFrames
 import DocStringExtensions
@@ -46,5 +47,7 @@ include("genTrainData.jl")
 export generateTrainingData
 include("integrateNN.jl")
 export buildWithOnnx
+include("main.jl")
+export main
 
 end # module
