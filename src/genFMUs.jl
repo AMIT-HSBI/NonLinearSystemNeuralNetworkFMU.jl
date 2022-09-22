@@ -111,10 +111,10 @@ function generateFMU(modelName::String,
   pathToOmc = getomc(pathToOmc)
 
   if !isdir(workingDir)
-    mkdir(workingDir)
+    mkpath(workingDir)
   elseif clean
     rm(workingDir, force=true, recursive=true)
-    mkdir(workingDir)
+    mkpath(workingDir)
   end
 
   if Sys.iswindows()
@@ -138,7 +138,7 @@ function generateFMU(modelName::String,
     OMJulia.sendExpression(omc, "cd(\"$(workingDir)\")")
 
     @debug "setCommandLineOptions"
-    msg = OMJulia.sendExpression(omc, "setCommandLineOptions(\"-d=newInst --fmuCMakeBuild=\\\"true\\\"\")")
+    msg = OMJulia.sendExpression(omc, "setCommandLineOptions(\"-d=newInst --fmiFilter=internal --fmuCMakeBuild=\\\"true\\\"\")")
     write(logFile, string(msg)*"\n")
     msg = OMJulia.sendExpression(omc, "getErrorString()")
     write(logFile, msg*"\n")
