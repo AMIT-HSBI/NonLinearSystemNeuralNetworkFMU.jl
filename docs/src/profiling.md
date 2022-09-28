@@ -40,9 +40,9 @@ So let's start [`profiling`](@ref):
 ```@repl profilingexample
 using NonLinearSystemNeuralNetworkFMU
 modelName = "simpleLoop";
-pathToMo = joinpath("test","simpleLoop.mo");
+moFiles = [joinpath("test","simpleLoop.mo")];
 omc = string(strip(read(`which omc`, String))) #hide
-profilingInfo = profiling(modelName, pathToMo, omc; threshold=0)
+profilingInfo = profiling(modelName, moFiles, omc; threshold=0)
 ```
 
 We can see that non-linear equation system `14` is using variables `s` and `r`
@@ -59,5 +59,5 @@ So we can see, that equations `14` is the slowest non-linear equation system. It
 If we want to get the minimal and maximal values for the used variables `s` and `r` can get we can use [`minMaxValuesReSim`](@ref). This will re-simulate the Modelica model and read the simulation results to find the smallest and largest values for each given variable.
 
 ```@repl profilingexample
-(min, max)  = minMaxValuesReSim(profilingInfo[1].usingVars, modelName, pathToMo, omc)
+(min, max)  = minMaxValuesReSim(profilingInfo[1].usingVars, modelName, moFiles, omc)
 ```

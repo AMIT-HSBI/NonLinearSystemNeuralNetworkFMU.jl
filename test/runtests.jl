@@ -19,6 +19,7 @@
 
 using SafeTestsets
 
+@safetestset "Main" begin include("mainTest.jl") end
 @safetestset "Profiling" begin include("profilingTests.jl") end
 @safetestset "Generate FMUs" begin include("genFmusTest.jl") end
 @safetestset "Generate data" begin include("genDataTest.jl") end

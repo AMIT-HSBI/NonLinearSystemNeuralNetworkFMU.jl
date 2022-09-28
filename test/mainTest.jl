@@ -20,34 +20,27 @@
 using Test
 import NonLinearSystemNeuralNetworkFMU
 
-function runProfilingTests()
+function runMainTest()
   modelName = "simpleLoop"
   moFiles = [abspath(@__DIR__,"simpleLoop.mo")]
-  workingDir = abspath(@__DIR__)
+  workingDir = joinpath(abspath(@__DIR__), modelName)
 
-  @testset "Find slowes equations" begin
-    profilingInfo = NonLinearSystemNeuralNetworkFMU.profiling(modelName, moFiles; workingDir=workingDir, threshold=0, ignoreInit=false)
-    @test length(profilingInfo) == 2
+  @testset "Generate Data (main)" begin
+    (csvFiles, fmu, profilingInfo) = NonLinearSystemNeuralNetworkFMU.main(modelName, moFiles; workdir=workingDir, reuseArtifacts=false, N=10)
+    @test isfile(joinpath(workingDir, "minMax.bson"))
+    @test isfile(joinpath(workingDir, "profilingInfo.bson"))
+    @test isfile(joinpath(workingDir, "simpleLoop.fmu"))
+    @test isfile(joinpath(workingDir, "simpleLoop.interface.fmu"))
+    @test length(csvFiles) == 1
+    @test isfile(csvFiles[1])
+    @test isfile(fmu)
+    @test length(profilingInfo) == 1
     # NLS from simulation system
     @test profilingInfo[1].eqInfo.id == 14
     @test profilingInfo[1].iterationVariables == ["y"]
     @test sort(profilingInfo[1].usingVars) == ["r","s"]
-    # NLS from initialization system
-    @test profilingInfo[2].eqInfo.id == 6
-    @test profilingInfo[2].iterationVariables == ["y"]
-    @test sort(profilingInfo[2].usingVars) == ["r","s"]
-    rm(joinpath(workingDir,modelName), recursive=true)
-  end
-
-  @testset "Min-max for usingVars" begin
-    profilingInfo = NonLinearSystemNeuralNetworkFMU.profiling(modelName, moFiles; workingDir=workingDir, threshold=0)
-    (min, max)  = NonLinearSystemNeuralNetworkFMU.minMaxValuesReSim(profilingInfo[1].usingVars, modelName, moFiles, workingDir=workingDir)
-    # s = sqrt((2-time)*0.9), time = 0..2
-    # r = 1..3
-    @test min[1] ≈ 0.0 && max[1] ≈ 1.4087228258248679
-    @test min[2] ≈ 0.95 && max[2] ≈ 3.15
-    rm(joinpath(workingDir,modelName), recursive=true)
+    rm(joinpath(workingDir), recursive=true, force=true)
   end
 end
 
-runProfilingTests()
+runMainTest()

@@ -83,13 +83,13 @@ end
 
 
 """
-    generateFMU(modelName, pathToMo; [pathToOmc], tempDir=pwd(), clean=false)
+    generateFMU(modelName, moFiles; [pathToOmc], workingDir=pwd(), clean=false)
 
 Generate 2.0 Model Exchange FMU for Modelica model using OMJulia.
 
 # Arguments
   - `modelName::String`:  Name of the Modelica model.
-  - `pathToMo::String`:   Path to the *.mo file containing the model.
+  - `moFiles::Array{String}`:   Path to the *.mo file(s) containing the model.
 
 # Keywords
   - `pathToOmc::String=""`:     Path to omc used for simulating the model.
@@ -103,7 +103,7 @@ Generate 2.0 Model Exchange FMU for Modelica model using OMJulia.
 See also [`addEqInterface2FMU`](@ref), [`generateTrainingData`](@ref).
 """
 function generateFMU(modelName::String,
-                     pathToMo::String;
+                     moFiles::Array{String};
                      pathToOmc::String="",
                      workingDir::String=pwd(),
                      clean::Bool = false)
@@ -118,7 +118,7 @@ function generateFMU(modelName::String,
   end
 
   if Sys.iswindows()
-    pathToMo = replace(pathToMo, "\\"=> "\\\\")
+    moFiles::Array{String} = replace.(moFiles::Array{String}, "\\"=> "\\\\")
     workingDir = replace(workingDir, "\\"=> "\\\\")
   end
 
@@ -132,9 +132,11 @@ function generateFMU(modelName::String,
   try
     msg = OMJulia.sendExpression(omc, "getVersion()")
     write(logFile, msg*"\n")
-    OMJulia.sendExpression(omc, "loadFile(\"$(pathToMo)\")")
-    msg = OMJulia.sendExpression(omc, "getErrorString()")
-    write(logFile, msg*"\n")
+    for file in moFiles
+      OMJulia.sendExpression(omc, "loadFile(\"$(file)\")")
+      msg = OMJulia.sendExpression(omc, "getErrorString()")
+      write(logFile, msg*"\n")
+    end
     OMJulia.sendExpression(omc, "cd(\"$(workingDir)\")")
 
     @debug "setCommandLineOptions"
