@@ -223,21 +223,28 @@ function findUsedVars(infoFile, eqIndex; filterParameters::Bool = true)::Tuple{A
     definingVars = Array{String}(eq["defines"])
   end
 
-  # Check if used variable is parameter
-  if filterParameters && usingVars !==nothing
-    parameters = String[]
-    variables = infoFile["variables"]
-    for usedVar in usingVars
-      try
-        var = variables[usedVar]
-        if var["kind"] == "parameter"
-          push!(parameters, usedVar)
-        end
-      catch
+  # Remove parameter and external objects used vars
+  removeVars = String[]
+  notFoundVars = String[]
+  for usedVar in usingVars
+    if haskey(variables, usedVar)
+      var = variables[usedVar]
+      if filterParameters && var["kind"] == "parameter"
+        push!(removeVars, usedVar)
       end
+      if var["kind"] == "external object"
+        push!(removeVars, usedVar)
+      end
+    else
+      @error "Variable $usedVar not found. Is it a non-expanded array variable?"
+      push!(removeVars, usedVar)
+      push!(notFoundVars, usedVar)
     end
-    setdiff!(usingVars, parameters)
   end
+  @debug "Removed $removeVars from usingVars"
+  setdiff!(usingVars, removeVars)
+
+  # Expand array variables
 
   return (definingVars, usingVars)
 end
