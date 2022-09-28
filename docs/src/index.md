@@ -6,6 +6,7 @@ Generate Neural Networks to replace non-linear systems inside OpenModelica 2.0 F
 ```@contents
   pages = [
     "Home" => "index.md",
+    "Main" => "main.md",
     "Profiling" => "profiling.md",
     "Data Generation" => "dataGen.md"
   ]

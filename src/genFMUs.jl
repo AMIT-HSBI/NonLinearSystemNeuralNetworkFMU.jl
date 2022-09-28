@@ -83,7 +83,7 @@ end
 
 
 """
-    generateFMU(modelName, moFiles; [pathToOmc], tempDir=pwd(), clean=false)
+    generateFMU(modelName, moFiles; [pathToOmc], workingDir=pwd(), clean=false)
 
 Generate 2.0 Model Exchange FMU for Modelica model using OMJulia.
 
