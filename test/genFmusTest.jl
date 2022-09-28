@@ -22,7 +22,7 @@ import NonLinearSystemNeuralNetworkFMU
 
 function runGenFmusTest()
   modelName = "simpleLoop"
-  pathToMo = abspath(@__DIR__,"simpleLoop.mo")
+  moFiles = [abspath(@__DIR__,"simpleLoop.mo")]
   workingDir = abspath(joinpath(@__DIR__, modelName))
   fmuDir = abspath(joinpath(@__DIR__, "fmus"))
 
@@ -34,7 +34,7 @@ function runGenFmusTest()
   end
 
   @testset "Generate default FMU" begin
-    pathToFmu = NonLinearSystemNeuralNetworkFMU.generateFMU(modelName, pathToMo, workingDir = workingDir)
+    pathToFmu = NonLinearSystemNeuralNetworkFMU.generateFMU(modelName, moFiles, workingDir = workingDir)
     @test isfile(pathToFmu)
     # Save FMU for next test
     cp(pathToFmu, joinpath(fmuDir, modelName*".fmu"))

@@ -22,11 +22,11 @@ import NonLinearSystemNeuralNetworkFMU
 
 function runProfilingTests()
   modelName = "simpleLoop"
-  pathToMo = abspath(@__DIR__,"simpleLoop.mo")
+  moFiles = [abspath(@__DIR__,"simpleLoop.mo")]
   workingDir = abspath(@__DIR__)
 
   @testset "Find slowes equations" begin
-    profilingInfo = NonLinearSystemNeuralNetworkFMU.profiling(modelName, pathToMo; workingDir=workingDir, threshold=0, ignoreInit=false)
+    profilingInfo = NonLinearSystemNeuralNetworkFMU.profiling(modelName, moFiles; workingDir=workingDir, threshold=0, ignoreInit=false)
     @test length(profilingInfo) == 2
     # NLS from simulation system
     @test profilingInfo[1].eqInfo.id == 14
@@ -40,8 +40,8 @@ function runProfilingTests()
   end
 
   @testset "Min-max for usingVars" begin
-    profilingInfo = NonLinearSystemNeuralNetworkFMU.profiling(modelName, pathToMo; workingDir=workingDir, threshold=0)
-    (min, max)  = NonLinearSystemNeuralNetworkFMU.minMaxValuesReSim(profilingInfo[1].usingVars, modelName, pathToMo, workingDir=workingDir)
+    profilingInfo = NonLinearSystemNeuralNetworkFMU.profiling(modelName, moFiles; workingDir=workingDir, threshold=0)
+    (min, max)  = NonLinearSystemNeuralNetworkFMU.minMaxValuesReSim(profilingInfo[1].usingVars, modelName, moFiles, workingDir=workingDir)
     # s = sqrt((2-time)*0.9), time = 0..2
     # r = 1..3
     @test min[1] ≈ 0.0 && max[1] ≈ 1.4087228258248679

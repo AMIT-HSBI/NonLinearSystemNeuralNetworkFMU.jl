@@ -32,8 +32,8 @@ This can be done directly from OpenModelica or with [`generateFMU`](@ref):
 using NonLinearSystemNeuralNetworkFMU # hide
 omc = string(strip(read(`which omc`, String))) #hide
 
-fmu = generateFMU(modelName = "simpleLoop",
-                  pathToMo = "test/simpleLoop.mo",
+fmu = generateFMU("simpleLoop",
+                  ["test/simpleLoop.mo"];
                   pathToOmc = omc,
                   tempDir = "tempDir")
 ```

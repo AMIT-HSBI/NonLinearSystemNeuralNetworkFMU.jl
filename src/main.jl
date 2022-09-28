@@ -18,7 +18,7 @@
 #
 
 function main(modelName::String,
-              modelicaFile::String;
+              moFiles::Array{String};
               workdir=joinpath(pwd(),modelName)::String,
               reuseArtifacts = false,
               N=1000::Integer)
@@ -33,7 +33,7 @@ function main(modelName::String,
     BSON.@load profilingInfoFile profilingInfo
   else
     @info "Profile $modelName"
-    profilingInfo = profiling(modelName, modelicaFile; threshold=0, workingDir=tempDir)
+    profilingInfo = profiling(modelName, moFiles; threshold=0, workingDir=tempDir)
     BSON.@save profilingInfoFile profilingInfo
     rm(tempDir, force=true, recursive=true)
   end
@@ -42,13 +42,13 @@ function main(modelName::String,
   minMaxFile = joinpath(workdir, "minMax.bson")
   local min
   local max
-  allUsedvars = vcat([prof.usingVars for prof in profilingInfo]...)
+  allUsedvars = unique(vcat([prof.usingVars for prof in profilingInfo]...))
   if(reuseArtifacts && isfile(minMaxFile))
     @info "Reusing $minMaxFile"
     BSON.@load minMaxFile min max
   else
     @info "Find min-max values of used varaibles"
-    (min, max) = minMaxValuesReSim(allUsedvars, modelName, modelicaFile, workingDir=tempDir)
+    (min, max) = minMaxValuesReSim(allUsedvars, modelName, moFiles, workingDir=tempDir)
     BSON.@save minMaxFile min max
     rm(tempDir, force=true, recursive=true)
   end
@@ -61,7 +61,7 @@ function main(modelName::String,
     fmu = fmuFile
   else
     @info "Generate default FMU"
-    fmu = generateFMU(modelName, modelicaFile, workingDir=tempDir)
+    fmu = generateFMU(modelName, moFiles, workingDir=tempDir)
     mv(fmu, joinpath(workdir, basename(fmu)), force=true)
     fmu = joinpath(workdir, basename(fmu))
     rm(tempDir, force=true, recursive=true)
@@ -104,6 +104,6 @@ function main(modelName::String,
     push!(csvFiles, csvFile)
   end
 
-  return csvFiles, profilingInfo
+  return csvFiles, fmu, profilingInfo
 end
 

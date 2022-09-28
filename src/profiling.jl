@@ -52,7 +52,7 @@ Simulate Modelica model with profiling enabled using given omc.
 
 # Arguments
 - `modelName::String`:  Name of the Modelica model.
-- `pathToMo::String`:   Path to the *.mo file containing the model.
+- `moFiles::Array{String}`:   Path to the *.mo file(s) containing the model.
 
 # Keywords
   - `pathToOmc::String=""`:       Path to omc used for simulating the model.
@@ -62,7 +62,7 @@ Simulate Modelica model with profiling enabled using given omc.
   - `clean::Bool=false`:          Remove everything in `workingDir` when set to `true`.
 """
 function simulateWithProfiling(modelName::String,
-                               pathToMo::String;
+                               moFiles::Array{String};
                                pathToOmc::String="",
                                workingDir::String=pwd(),
                                outputFormat::String="mat",
@@ -80,7 +80,7 @@ function simulateWithProfiling(modelName::String,
   end
 
   if Sys.iswindows()
-    pathToMo = replace(pathToMo, "\\"=> "\\\\")
+    pathToMo = replace.(moFiles, "\\"=> "\\\\")
     workingDir = replace(workingDir, "\\"=> "\\\\")
   end
 
@@ -94,11 +94,13 @@ function simulateWithProfiling(modelName::String,
   try
     msg = OMJulia.sendExpression(omc, "getVersion()")
     write(logFile, msg*"\n")
-    msg = OMJulia.sendExpression(omc, "loadFile(\"$(pathToMo)\")")
-    @assert msg==true "Failed to load file $(pathToMo)!"
-    write(logFile, string(msg)*"\n")
-    msg = OMJulia.sendExpression(omc, "getErrorString()")
-    write(logFile, msg*"\n")
+    for file in moFiles
+      msg = OMJulia.sendExpression(omc, "loadFile(\"$(file)\")")
+      @assert msg==true "Failed to load file $(file)!"
+      write(logFile, string(msg)*"\n")
+      msg = OMJulia.sendExpression(omc, "getErrorString()")
+      write(logFile, msg*"\n")
+    end
     OMJulia.sendExpression(omc, "cd(\"$(workingDir)\")")
 
     @debug "setCommandLineOptions"
@@ -205,6 +207,7 @@ Read `infoFile` and return `(definingVars, usingVars)` that are defined or used 
 function findUsedVars(infoFile, eqIndex; filterParameters::Bool = true)::Tuple{Array{String}, Array{String}}
   equations = infoFile["equations"]
   eq = (equations[eqIndex+1])
+  variables = infoFile["variables"]
 
   if eq["eqIndex"] != eqIndex
     error("Found wrong equation")
@@ -308,13 +311,13 @@ end
 
 
 """
-    profiling(modelName, pathToMo; pathToOmc, workingDir, threshold = 0.03)
+    profiling(modelName, moFiles; pathToOmc, workingDir, threshold = 0.03)
 
 Find equations of Modelica model that are slower then threashold.
 
 # Arguments
   - `modelName::String`:  Name of the Modelica model.
-  - `pathToMo::String`:   Path to the *.mo file containing the model.
+  - `moFiles::Array{String}`:   Path to the *.mo file(s) containing the model.
 
 # Keywords
   - `pathToOm::String=""`:      Path to omc used for simulating the model.
@@ -327,7 +330,7 @@ Find equations of Modelica model that are slower then threashold.
   - `profilingInfo::Vector{ProfilingInfo}`: Profiling information with non-linear equation systems slower than `threshold`.
 """
 function profiling(modelName::String,
-                   pathToMo::String;
+                   moFiles::Array{String};
                    pathToOmc::String="",
                    workingDir::String=pwd(),
                    threshold=0.01,
@@ -335,7 +338,7 @@ function profiling(modelName::String,
 
   omcWorkingDir = abspath(joinpath(workingDir, modelName))
   (profJsonFile, infoJsonFile, _) = simulateWithProfiling(modelName,
-                                                          pathToMo;
+                                                          moFiles;
                                                           pathToOmc = pathToOmc,
                                                           workingDir = omcWorkingDir)
 
@@ -353,14 +356,14 @@ end
 
 
 """
-    minMaxValuesReSim(vars, modelName, pathToMo; pathToOmc="" workingDir=pwd())
+    minMaxValuesReSim(vars, modelName, moFiles; pathToOmc="" workingDir=pwd())
 
 (Re-)simulate Modelica model and find miminum and maximum value each variable has during simulation.
 
 # Arguments
-  - `vars::Array{String}`:  Array of variables to get min-max values for.
-  - `modelName::String`:    Name of Modelica model to simulate.
-  - `pathToMo::String`:     Path to .mo file.
+  - `vars::Array{String}`:    Array of variables to get min-max values for.
+  - `modelName::String`:      Name of Modelica model to simulate.
+  - `moFiles::Array{String}`: Path to .mo file(s).
 
 # Keywords
   - `pathToOmc::String=""`:     Path to OpenModelica Compiler omc.
@@ -374,7 +377,7 @@ See also [`profiling`](@ref).
 """
 function minMaxValuesReSim(vars::Array{String},
                            modelName::String,
-                           pathToMo::String;
+                           moFiles::Array{String};
                            pathToOmc::String="",
                            workingDir::String=pwd())::Tuple{Array{Float64},Array{Float64}}
 
@@ -382,7 +385,7 @@ function minMaxValuesReSim(vars::Array{String},
   # But the MAT.jl doesn't work with v4 mat files.....
   omcWorkingDir = abspath(joinpath(workingDir, modelName))
   (_,_,result_file_csv) = simulateWithProfiling(modelName,
-                                                pathToMo,
+                                                moFiles,
                                                 pathToOmc=pathToOmc,
                                                 workingDir = omcWorkingDir,
                                                 outputFormat="csv")
