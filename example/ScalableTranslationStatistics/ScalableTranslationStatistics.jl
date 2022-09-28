@@ -1,5 +1,5 @@
-# $julia -e "include(\"ScalableTranslationStatistics.jl\"); genFMUs()"
-# $nohup julia-1.8.1 -e "include(\"ScalableTranslationStatistics.jl\"); genFMUs()" &
+# $ julia -e "include(\"ScalableTranslationStatistics.jl\"); genFMUs()"
+# $ nohup julia-1.8.1 -e "include(\"ScalableTranslationStatistics.jl\"); genFMUs()" &
 
 cd(@__DIR__)
 using NaiveONNX
@@ -24,86 +24,32 @@ function runScalableTranslationStatistics(rootDir::String; level::Integer=1, N::
   if !isfile(lib)
     @error "Could not find Modelica library at $(lib)"
   end
+  moFiles = [lib]
   modelName = "ScalableTranslationStatistics.Examples.ScaledNLEquations.NLEquations_$(sizes[level])"
-
-  # Profile non-linear loops
-  @showtime profilingInfo = profiling(modelName, lib; threshold=0)
-  allProfiling = joinpath("profiling", "level$(string(level))")
-  mkpath(allProfiling)
-  @save joinpath(allProfiling, "profilingInfo.bson") profilingInfo
-
-  # Find min-max values of used varaibles
-  allUsedvars = vcat([prof.usingVars for prof in profilingInfo]...)
-  @showtime (min, max) = minMaxValuesReSim(allUsedvars, modelName, lib)
-
-  # Generate default FMU
-  @showtime fmu = generateFMU(modelName, lib, workingDir = modelName)
-  allFmuDir = joinpath("fmus", "level$(string(level))")
-  mkpath(allFmuDir)
-  cp(fmu, joinpath(allFmuDir, basename(fmu)), force=true)
-  fmu = joinpath(allFmuDir, basename(fmu))
-
-  # Generate extended FMU
-  allEqs = [prof.eqInfo.id for prof in profilingInfo]
-  @showtime fmu_interface = addEqInterface2FMU(modelName, fmu, allEqs, workingDir = modelName)
-  cp(fmu_interface, joinpath(allFmuDir, basename(fmu_interface)), force=true)
-  fmu_interface = joinpath(allFmuDir, basename(fmu_interface))
+  workdir = joinpath(@__DIR__, "level$level")
 
   # Generate training data
-  csvFiles = String[]
-  for prof in profilingInfo
-    eqIndex = prof.eqInfo.id
-    inputVars = prof.usingVars
-    outputVars = prof.iterationVariables
-
-    mi = Array{Float64}(undef, length(inputVars))
-    ma = Array{Float64}(undef, length(inputVars))
-  
-    for (i,var) in enumerate(inputVars)
-      idx = findfirst(x->x==var, allUsedvars)
-      mi[i] = min[idx]
-      ma[i] = max[idx]
-    end
-
-    fileName = abspath(joinpath("data", "level$(string(level))", "eq_$(prof.eqInfo.id).csv"))
-    @showtime csvFile = generateTrainingData(fmu_interface, fileName, eqIndex, inputVars, mi, ma, outputVars; N = N)
-    push!(csvFiles, csvFile)
-  end
+  (csvFiles, fmu, profilingInfo) = main(modelName, moFiles, workdir=workdir, reuseArtifacts=true, N=N)
 
   # Train ONNX
   onnxFiles = String[]
   for (i ,prof) in enumerate(profilingInfo)
-    onnxModel = abspath(joinpath("onnx", "level$(string(level))", "eq_$(prof.eqInfo.id).onnx"))
+    onnxModel = abspath(joinpath(workdir, "onnx", "eq_$(prof.eqInfo.id).onnx"))
     push!(onnxFiles, onnxModel)
     nInputs = length(prof.usingVars)
 
     @showtime trainONNX(csvFiles[i], onnxModel, nInputs; nepochs=100, losstol=1e-4)
   end
 
-  #=
-  allFmuDir = joinpath(@__DIR__, "fmus", "level$(string(level))")
-  fmu_interface = joinpath(allFmuDir, modelName*".interface.fmu")
-  allProfiling = joinpath(@__DIR__, "profiling", "level$(string(level))")
-  @load joinpath(allProfiling, "profilingInfo.bson") profilingInfo
-  profilingInfo = Array{ProfilingInfo}(profilingInfo)
-  onnxFiles = String[]
-  for prof in profilingInfo
-    onnxModel = abspath(joinpath("onnx", "level$(string(level))", "eq_$(prof.eqInfo.id).onnx"))
-    push!(onnxFiles, onnxModel)
-  end
-  =#
-
   # Include ONNX into FMU
+  fmu_interface = joinpath(@__DIR__, "level$level", modelName*".interface.fmu")
   @showtime fmu_onnx = buildWithOnnx(fmu_interface,
                                      modelName,
                                      profilingInfo,
                                      onnxFiles;
-                                     tempDir=modelName)
-  basename(fmu_onnx)
-  cp(fmu_onnx, joinpath(allFmuDir, basename(fmu_onnx)), force=true)
-  fmu_onnx = joinpath(allFmuDir, basename(fmu_onnx))
+                                     tempDir=workdir)
 
-  #return (profilingInfo, fmu, fmu_onnx)
+  return (profilingInfo, fmu, fmu_onnx)
 end
 
 function DataFrame(result::FMICore.FMU2Solution{FMU2}, names::Array{String})
