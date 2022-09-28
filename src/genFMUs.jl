@@ -200,8 +200,12 @@ function compileFMU(fmuRootDir::String, modelname::String)
   logFile = modelname*"_compile.log"
   @info "Compilation log file: $(logFile)"
 
-  @assert haskey(ENV, "ORT_DIR") "Environment variable ORT_DIR not set."
-  @assert isdir(ENV["ORT_DIR"]) "Environment variable ORT_DIR not pointing to a directory.\nORT_DIR:$(ENV["ORT_DIR"])"
+  if !haskey(ENV, "ORT_DIR")
+    @warn "Environment variable ORT_DIR not set."
+  elseif !isdir(ENV["ORT_DIR"])
+    @warn "Environment variable ORT_DIR not pointing to a directory."
+    @show ENV["ORT_DIR"]
+  end
 
   redirect_stdio(stdout=logFile, stderr=logFile) do
     pathToFmiHeader = abspath(joinpath(dirname(@__DIR__), "FMI-Standard-2.0.3", "headers"))
