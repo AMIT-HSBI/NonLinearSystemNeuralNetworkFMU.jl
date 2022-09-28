@@ -23,7 +23,7 @@ struct Mapping
   #type::String
 end
 
-function ortDataCode(equations::Array{ProfilingInfo}, modelName::String, onnxNames::Array{String})
+function ortDataCode(equations::AbstractArray, modelName::String, onnxNames::Array{String})
   ortstructs = ""
   initCalls = ""
   deinitCalls = ""
@@ -145,7 +145,7 @@ function generateNNCall(modelname::String, modelDescriptionXmlFile::String, equa
   return cCode
 end
 
-function modifyCCode(modelName::String, cfile::String, modelDescriptionXmlFile::String, equations::Array{ProfilingInfo}, onnxFiles::Array{String})
+function modifyCCode(modelName::String, cfile::String, modelDescriptionXmlFile::String, equations::AbstractArray, onnxFiles::Array{String})
 
   str = open(cfile, "r") do file
     read(file, String)
@@ -261,7 +261,7 @@ function copyOnnxFiles(fmuRootDir::String, onnxFiles::Array{String})
 end
 
 
-function buildWithOnnx(fmu::String, modelName::String, equations::Array{ProfilingInfo}, onnxFiles::Array{String}; tempDir=modelName*"_onnx"::String)
+function buildWithOnnx(fmu::String, modelName::String, equations::AbstractArray, onnxFiles::Array{String}; tempDir=modelName*"_onnx"::String)
   # Unzip FMU into tmp dir
   fmuTmpDir = abspath(joinpath(tempDir,"FMU"))
   rm(fmuTmpDir, force=true, recursive=true)
