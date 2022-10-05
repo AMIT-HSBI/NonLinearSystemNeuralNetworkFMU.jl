@@ -140,7 +140,7 @@ function generateFMU(modelName::String,
     OMJulia.sendExpression(omc, "cd(\"$(workingDir)\")")
 
     @debug "setCommandLineOptions"
-    msg = OMJulia.sendExpression(omc, "setCommandLineOptions(\"-d=newInst --fmiFilter=internal --fmuCMakeBuild=\\\"true\\\"\")")
+    msg = OMJulia.sendExpression(omc, "setCommandLineOptions(\"-d=newInst --fmiFilter=internal --fmuCMakeBuild=true --fmuRuntimeDepends=modelica\")")
     write(logFile, string(msg)*"\n")
     msg = OMJulia.sendExpression(omc, "getErrorString()")
     write(logFile, msg*"\n")

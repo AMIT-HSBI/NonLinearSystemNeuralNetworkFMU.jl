@@ -8,9 +8,12 @@ Generate Neural Networks to replace non-linear systems inside [OpenModelica](htt
 ## Requirements
 
   - Julia v1.7.1 or newer.
-  - OpenModelica installed.
+  - OpenModelica version v1.20.0-dev-330 or newer.
     - Path has to contain the OpenModelica bin directory `/path/to/OpenModelica/bin/`.
     - For running the tests: Environment variable `OPENMODELICAHOME` set to point to the installation directory of OpenModelica.
+  - CMake version 3.21 or newer.
+  - ONNX Runtime 1.12 or newer.
+    - Environment variable `ORT_DIR` set to point to the installation directory.
 
 ## Usage
 
