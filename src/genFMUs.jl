@@ -146,7 +146,7 @@ function generateFMU(modelName::String,
     write(logFile, msg*"\n")
 
     @debug "buildFMU"
-    msg = OMJulia.sendExpression(omc, "buildModelFMU($(modelName), version=\"2.0\", fmuType=\"me\")")
+    msg = OMJulia.sendExpression(omc, "buildModelFMU($(modelName), version=\"2.0\", fmuType=\"me\", platforms={\"dynamic\"})")
     write(logFile, msg*"\n")
     msg = OMJulia.sendExpression(omc, "getErrorString()")
     write(logFile, msg*"\n")

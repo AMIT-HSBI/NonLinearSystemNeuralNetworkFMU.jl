@@ -198,19 +198,10 @@ function modifyCMakeLists(path_to_cmakelists::String)
              """ *
              str[id1+1:end]
 
-    id1 = last(findfirst("set(CMAKE_SHARED_LIBRARY_PREFIX \"\")", newStr))
-    newStr = newStr[1:id1] * EOL *
-             """
-             SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
-             SET(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
-             SET(CMAKE_INSTALL_RPATH "\\\${ORIGIN}/lib")
-             """ *
-             newStr[id1+1:end]
-
     newStr = replace(newStr,
-                     "target_link_libraries(\${FMU_NAME} PRIVATE Threads::Threads)" 
+                     "target_link_libraries(\${FMU_NAME} PRIVATE m Threads::Threads)"
                      =>
-                     "target_link_libraries(\${FMU_NAME} PRIVATE Threads::Threads onnxWrapper)")
+                     "target_link_libraries(\${FMU_NAME} PRIVATE m Threads::Threads onnxWrapper)")
   end
 
   write(path_to_cmakelists, newStr)

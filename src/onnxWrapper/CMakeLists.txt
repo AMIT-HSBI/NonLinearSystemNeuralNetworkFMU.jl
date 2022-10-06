@@ -55,4 +55,7 @@ add_library(onnxWrapper SHARED
 target_include_directories(onnxWrapper PUBLIC ${ORT_INCLUDE})
 target_link_libraries(onnxWrapper PRIVATE ${ORT_LIB})
 
-install(TARGETS onnxWrapper)
+install(TARGETS onnxWrapper
+        ARCHIVE DESTINATION "."
+        LIBRARY DESTINATION "."
+        RUNTIME DESTINATION ".")
