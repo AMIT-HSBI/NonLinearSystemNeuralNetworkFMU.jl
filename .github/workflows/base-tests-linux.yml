@@ -34,6 +34,7 @@ jobs:
         uses: jwlawson/actions-setup-cmake@v1.12
         with:
           cmake-version: '3.21'
+      - run: cmake --version
 
       # Build onnxWrapper library
       - name: Download ONNX Runtime
