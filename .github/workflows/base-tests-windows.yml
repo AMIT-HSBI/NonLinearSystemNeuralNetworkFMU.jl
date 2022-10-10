@@ -29,6 +29,13 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      # Install CMake version 3.21
+      - name: Setup cmake
+        uses: jwlawson/actions-setup-cmake@v1.12
+        with:
+          cmake-version: '3.21'
+      - run: cmake --version
+
       # Build onnxWrapper library
       - name: Download ONNX Runtime
         run: |

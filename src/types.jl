@@ -71,3 +71,25 @@ function Base.show(io::IO, ::MIME"text/plain", profilingInfo::ProfilingInfo)
   Printf.@printf(io, "innerEquations: %s, ", profilingInfo.innerEquations)
   Printf.@printf(io, "usingVars: %s)", profilingInfo.usingVars)
 end
+
+"""
+Program not found in PATH error.
+"""
+struct ProgramNotFoundError <: Exception
+  program::String
+end
+function Base.showerror(io::IO, e::ProgramNotFoundError)
+  println(io, e.program, " not found")
+  print(io, "Looking in PATH \n" *ENV["PATH"])
+end
+
+struct MinimumVersionError <: Exception
+  program::String
+  minimumVersion::String
+  currentVersion::String
+end
+function Base.showerror(io::IO, e::MinimumVersionError)
+  println(io, e.program, " minimum version requierment not satisfied.")
+  println(io, "Minimum version needed is $(e.minimumVersion).")
+  print(io, "Using version $(e.currentVersion).")
+end
