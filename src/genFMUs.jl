@@ -191,15 +191,59 @@ function unzip(file::String, exdir::String)
   omrun(`unzip -q -o $(file) -d $(exdir)`)
 end
 
+"""
+    testCMakeVersion(;minimumVersion = "3.21")
+
+Test if CMake can be found in PATH and minimum version is satisfied.
+Returns used version or throw an error if minimum version is not satisfied.
+"""
+function testCMakeVersion(;minimumVersion = "3.21")
+  try
+    if Sys.iswindows()
+      run(pipeline(`where cmake.exe`; stdout=devnull))
+    else
+      run(pipeline(`which cmake`; stdout=devnull))
+    end
+  catch
+    throw(ProgramNotFoundError("cmake"))
+  end
+
+  version = ""
+  out = IOBuffer()
+  err = IOBuffer()
+  try
+    run(pipeline(`cmake --version`; stdout=out, stderr=err))
+    version = String(take!(out))
+    version = split(strip(version))[1:3]
+    @assert version[1] == "cmake"
+    @assert version[2] == "version"
+    version = version[3]
+  catch e
+    println(String(take!(err)))
+    rethrow(e)
+  finally
+    close(out)
+    close(err)
+  end
+
+  if version < minimumVersion
+    throw(MinimumVersionError("CMake", minimumVersion, version))
+  end
+
+  return version
+end
 
 """
-    compileFMU(fmuRootDir, modelname)
+    compileFMU(fmuRootDir, modelname, workdir)
 
-Run `fmuRootDir/sources/Makefile` to compile FMU binaries.
+Run `fmuRootDir/sources/CMakeLists.txt` to compile FMU binaries.
+Needs CMake version 3.21 or newer.
 """
-function compileFMU(fmuRootDir::String, modelname::String)
+function compileFMU(fmuRootDir::String, modelname::String, workdir::String)
+  testCMakeVersion()
+
   @debug "Compiling FMU"
-  logFile = modelname*"_compile.log"
+  logFile = joinpath(workdir, modelname*"_compile.log")
   @info "Compilation log file: $(logFile)"
 
   if !haskey(ENV, "ORT_DIR")
@@ -209,14 +253,20 @@ function compileFMU(fmuRootDir::String, modelname::String)
     @show ENV["ORT_DIR"]
   end
 
-  redirect_stdio(stdout=logFile, stderr=logFile) do
-    pathToFmiHeader = abspath(joinpath(dirname(@__DIR__), "FMI-Standard-2.0.3", "headers"))
-    omrun(`cmake -S . -B build_cmake -DFMI_INTERFACE_HEADER_FILES_DIRECTORY=$(pathToFmiHeader)`, dir = joinpath(fmuRootDir,"sources"))
-    omrun(`cmake --build build_cmake/ --target install`, dir = joinpath(fmuRootDir, "sources"))
-    rm(joinpath(fmuRootDir, "sources", "build_cmake"), force=true, recursive=true)
-    # Use create_zip instead of calling zip
-    rm(joinpath(dirname(fmuRootDir),modelname*".fmu"), force=true)
-    omrun(`zip -r ../$(modelname).fmu binaries/ resources/ sources/ modelDescription.xml`, dir = fmuRootDir)
+  try
+    redirect_stdio(stdout=logFile, stderr=logFile) do
+      pathToFmiHeader = abspath(joinpath(dirname(@__DIR__), "FMI-Standard-2.0.3", "headers"))
+      omrun(`cmake -S . -B build_cmake -DFMI_INTERFACE_HEADER_FILES_DIRECTORY=$(pathToFmiHeader)`, dir = joinpath(fmuRootDir,"sources"))
+      omrun(`cmake --build build_cmake/ --target install`, dir = joinpath(fmuRootDir, "sources"))
+      rm(joinpath(fmuRootDir, "sources", "build_cmake"), force=true, recursive=true)
+      # Use create_zip instead of calling zip
+      rm(joinpath(dirname(fmuRootDir),modelname*".fmu"), force=true)
+      omrun(`zip -r ../$(modelname).fmu binaries/ resources/ sources/ modelDescription.xml`, dir = fmuRootDir)
+    end
+  catch e
+    @info "Error caught, dumping log file $(logFile)"
+    println(read(logFile, String))
+    rethrow(e)
   end
 end
 
@@ -257,7 +307,7 @@ function addEqInterface2FMU(modelName::String,
   updateCMakeLists(joinpath(fmuPath,"sources", "CMakeLists.txt"))
 
   # Re-compile FMU
-  compileFMU(fmuPath, modelName*".interface")
+  compileFMU(fmuPath, modelName*".interface", workingDir)
 
   return joinpath(workingDir, "$(modelName).interface.fmu")
 end
