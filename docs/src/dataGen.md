@@ -29,13 +29,14 @@ First we need to create a Model-Exchange 2.0 FMU with OpenModelica.
 This can be done directly from OpenModelica or with [`generateFMU`](@ref):
 
 ```@example dataexample
-using NonLinearSystemNeuralNetworkFMU # hide
+using NonLinearSystemNeuralNetworkFMU #hide
 omc = string(strip(read(`which omc`, String))) #hide
 
 fmu = generateFMU("simpleLoop",
                   ["test/simpleLoop.mo"];
                   pathToOmc = omc,
                   workingDir = "tempDir")
+rm("tempDir", recursive=true, force=true) #hide
 ```
 
 Next we need to add non-standard C function
@@ -54,6 +55,7 @@ interfaceFmu = addEqInterface2FMU("simpleLoop",
                                   fmu,
                                   [14],
                                   workingDir = "tempDir")
+rm("tempDir", recursive=true, force=true) #hide
 ```
 
 Now we can create evaluate equation `14` for random values and save the outputs to generate training data.
@@ -70,4 +72,5 @@ generateTrainingData(interfaceFmu,
                      ["y"];
                      N = 10)
 df =  CSV.File("simpleLoop_data.csv")
+rm("simpleLoop_data.csv", force=true) #hide
 ```
