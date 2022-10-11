@@ -77,10 +77,16 @@ Program not found in PATH error.
 """
 struct ProgramNotFoundError <: Exception
   program::String
+  locations::Union{Nothing, Array{String}}
+  ProgramNotFoundError(program) = new(program, nothing)
 end
 function Base.showerror(io::IO, e::ProgramNotFoundError)
   println(io, e.program, " not found")
-  print(io, "Looking in PATH \n" *ENV["PATH"])
+  if e.locations !== nothing
+    for loc in e.locations
+      println(io, "Searched in " * loc)
+    end
+  end
 end
 
 struct MinimumVersionError <: Exception
