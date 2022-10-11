@@ -29,17 +29,16 @@ function getomc(omc::String="")
     if Sys.iswindows()
       @assert(haskey(ENV, "OPENMODELICAHOME"), "Environment variable OPENMODELICAHOME not set.")
       omc = abspath(joinpath(ENV["OPENMODELICAHOME"], "bin", "omc.exe"))
+      if !isfile(omc)
+        throw(ProgramNotFoundError("omc", [omc]))
+      end
     else
       omc = string(strip(read(`which omc`, String)))
     end
   end
 
-  # Check if path points to a file
-  if !isfile(omc)
-    error("omc not found!")
-  else
-    @debug "Using omc: $omc"
-  end
+  # Check minimum version
+  testOmcVersion(omc)
 
   return omc
 end
