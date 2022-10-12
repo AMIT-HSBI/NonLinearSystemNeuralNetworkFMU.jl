@@ -67,22 +67,3 @@ jobs:
         with:
           name: documentation
           path: ${{ github.workspace }}/docs/build/NonLinearSystemNeuralNetworkFMU.jl.pdf
-  deploy:
-    runs-on: ubuntu-latest
-    needs: test
-    #if: github.ref == 'refs/heads/main'
-    steps:
-      - name: Download PDF artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: documentation
-      - name: push to doc branch
-        env:
-          CI_COMMIT_MESSAGE: Documentation for ${{ github.GITHUB_SHA }}
-          CI_COMMIT_AUTHOR: ci-doc-bot
-        run: |
-          git config --global user.name "${{ env.CI_COMMIT_AUTHOR }}"
-          git config --global user.email "username@users.noreply.github.com"
-          git add NonLinearSystemNeuralNetworkFMU.jl.pdf
-          git commit -m "${{ env.CI_COMMIT_MESSAGE }}"
-          git push main:doc
