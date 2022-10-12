@@ -266,7 +266,7 @@ function buildWithOnnx(fmu::String, modelName::String, equations::AbstractArray,
   modifyCMakeLists(path_to_cmakelists)
   copyOnnxFiles(fmuTmpDir, onnxFiles)
   modifyCCode(modelName, cfile, modelDescriptionXmlFile, equations, onnxFiles)
-  compileFMU(fmuTmpDir, modelName*".onnx")
+  compileFMU(fmuTmpDir, modelName*".onnx", tempDir)
 
   return joinpath(tempDir, "$(modelName).onnx.fmu")
 end

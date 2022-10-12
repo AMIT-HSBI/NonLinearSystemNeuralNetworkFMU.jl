@@ -83,7 +83,7 @@ end
 
 
 """
-    generateFMU(modelName, moFiles; [pathToOmc], tempDir=pwd(), clean=false)
+    generateFMU(modelName, moFiles; [pathToOmc], workingDir=pwd(), clean=false)
 
 Generate 2.0 Model Exchange FMU for Modelica model using OMJulia.
 
@@ -193,26 +193,39 @@ end
 
 
 """
-    compileFMU(fmuRootDir, modelname)
+    compileFMU(fmuRootDir, modelname, workdir)
 
-Run `fmuRootDir/sources/Makefile` to compile FMU binaries.
+Run `fmuRootDir/sources/CMakeLists.txt` to compile FMU binaries.
+Needs CMake version 3.21 or newer.
 """
-function compileFMU(fmuRootDir::String, modelname::String)
+function compileFMU(fmuRootDir::String, modelname::String, workdir::String)
+  testCMakeVersion()
+
   @debug "Compiling FMU"
-  logFile = modelname*"_compile.log"
+  logFile = joinpath(workdir, modelname*"_compile.log")
   @info "Compilation log file: $(logFile)"
 
-  @assert haskey(ENV, "ORT_DIR") "Environment variable ORT_DIR not set."
-  @assert isdir(ENV["ORT_DIR"]) "Environment variable ORT_DIR not pointing to a directory.\nORT_DIR:$(ENV["ORT_DIR"])"
+  if !haskey(ENV, "ORT_DIR")
+    @warn "Environment variable ORT_DIR not set."
+  elseif !isdir(ENV["ORT_DIR"])
+    @warn "Environment variable ORT_DIR not pointing to a directory."
+    @show ENV["ORT_DIR"]
+  end
 
-  redirect_stdio(stdout=logFile, stderr=logFile) do
-    pathToFmiHeader = abspath(joinpath(dirname(@__DIR__), "FMI-Standard-2.0.3", "headers"))
-    omrun(`cmake -S . -B build_cmake -DFMI_INTERFACE_HEADER_FILES_DIRECTORY=$(pathToFmiHeader)`, dir = joinpath(fmuRootDir,"sources"))
-    omrun(`cmake --build build_cmake/ --target install`, dir = joinpath(fmuRootDir, "sources"))
-    rm(joinpath(fmuRootDir, "sources", "build_cmake"), force=true, recursive=true)
-    # Use create_zip instead of calling zip
-    rm(joinpath(dirname(fmuRootDir),modelname*".fmu"), force=true)
-    omrun(`zip -r ../$(modelname).fmu binaries/ resources/ sources/ modelDescription.xml`, dir = fmuRootDir)
+  try
+    redirect_stdio(stdout=logFile, stderr=logFile) do
+      pathToFmiHeader = abspath(joinpath(dirname(@__DIR__), "FMI-Standard-2.0.3", "headers"))
+      omrun(`cmake -S . -B build_cmake -DFMI_INTERFACE_HEADER_FILES_DIRECTORY=$(pathToFmiHeader)`, dir = joinpath(fmuRootDir,"sources"))
+      omrun(`cmake --build build_cmake/ --target install`, dir = joinpath(fmuRootDir, "sources"))
+      rm(joinpath(fmuRootDir, "sources", "build_cmake"), force=true, recursive=true)
+      # Use create_zip instead of calling zip
+      rm(joinpath(dirname(fmuRootDir),modelname*".fmu"), force=true)
+      omrun(`zip -r ../$(modelname).fmu binaries/ resources/ sources/ modelDescription.xml`, dir = fmuRootDir)
+    end
+  catch e
+    @info "Error caught, dumping log file $(logFile)"
+    println(read(logFile, String))
+    rethrow(e)
   end
 end
 
@@ -253,7 +266,7 @@ function addEqInterface2FMU(modelName::String,
   updateCMakeLists(joinpath(fmuPath,"sources", "CMakeLists.txt"))
 
   # Re-compile FMU
-  compileFMU(fmuPath, modelName*".interface")
+  compileFMU(fmuPath, modelName*".interface", workingDir)
 
   return joinpath(workingDir, "$(modelName).interface.fmu")
 end

@@ -17,6 +17,33 @@
 # along with NonLinearSystemNeuralNetworkFMU.jl. If not, see <http://www.gnu.org/licenses/>.
 #
 
+"""
+    main(modelName, moFiles;  workdir=joinpath(pwd(),modelName), reuseArtifacts=false, N=1000)
+
+Main routine to generate training data from Modelica file(s).
+Generate BSON artifacts and FMUs for each step. Artifacts can be re-used when restarting
+main routine to skip already performed stepps.
+
+Will perform profiling, min-max value compilation, FMU generation and data
+generation for all non-linear equation systems of `modelName`.
+
+  # Arguments
+  - `modelName::String`:      Name of Modelica model to simulate.
+  - `moFiles::Array{String}`: Path to .mo file(s).
+
+# Keywords
+  - `workingDir::String=pwd()`: Working directory for omc. Defaults to the current directory.
+  - `reuseArtifacts=false`:     Use artifacts to skip already performed steps if true.
+   -`N=1000::Integer`:          Number of data points fto genreate or each non-linear equation system.
+
+# Returns
+  - `csvFiles::Array{String}`:              Array of generate CSV files with training data.
+  - `fmu::String`:                          Path to unmodified 2.0 ME FMU.
+  - `profilingInfo::Array{ProfilingInfo}`:  Array of profiling information for each non-linear equation system.
+
+See also [`profiling`](@ref), [`minMaxValuesReSim`](@ref), [`generateFMU`](@ref),
+[`addEqInterface2FMU`](@ref), [`generateTrainingData`](@ref).
+"""
 function main(modelName::String,
               moFiles::Array{String};
               workdir=joinpath(pwd(),modelName)::String,
@@ -106,4 +133,7 @@ function main(modelName::String,
 
   return csvFiles, fmu, profilingInfo
 end
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/main

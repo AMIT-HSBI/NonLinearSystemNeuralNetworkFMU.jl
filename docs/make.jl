@@ -7,6 +7,7 @@ makedocs(
   workdir=joinpath(@__DIR__,".."),
   pages = [
     "Home" => "index.md",
+    "Main" => "main.md",
     "Profiling" => "profiling.md",
     "Data Generation" => "dataGen.md"
   ]

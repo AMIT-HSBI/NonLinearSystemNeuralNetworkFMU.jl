@@ -37,6 +37,7 @@ import XMLDict
 include("types.jl")
 export EqInfo
 export ProfilingInfo
+include("util.jl")
 include("profiling.jl")
 export profiling
 export minMaxValuesReSim
