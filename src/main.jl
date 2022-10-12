@@ -133,7 +133,3 @@ function main(modelName::String,
 
   return csvFiles, fmu, profilingInfo
 end
-<<<<<<< HEAD
-
-=======
->>>>>>> origin/main
