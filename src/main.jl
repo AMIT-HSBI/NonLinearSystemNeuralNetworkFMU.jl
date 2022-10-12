@@ -34,7 +34,7 @@ generation for all non-linear equation systems of `modelName`.
 # Keywords
   - `workingDir::String=pwd()`: Working directory for omc. Defaults to the current directory.
   - `reuseArtifacts=false`:     Use artifacts to skip already performed steps if true.
-   -`N=1000::Integer`:          Number of data points fto genreate or each non-linear equation system.
+  -`N=1000::Integer`:          Number of data points fto genreate or each non-linear equation system.
 
 # Returns
   - `csvFiles::Array{String}`:              Array of generate CSV files with training data.
