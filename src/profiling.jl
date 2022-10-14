@@ -231,11 +231,14 @@ function findUsedVars(infoFile, eqIndex; filterParameters::Bool = true)::Tuple{A
       if filterParameters && var["kind"] == "parameter"
         push!(removeVars, usedVar)
       end
+      if filterParameters && var["kind"] == "constant"
+        push!(removeVars, usedVar)
+      end
       if var["kind"] == "external object"
         push!(removeVars, usedVar)
       end
     else
-      @error "Variable $usedVar not found. Is it a non-expanded array variable?"
+      @error "Variable $usedVar not found"
       push!(removeVars, usedVar)
       push!(notFoundVars, usedVar)
     end
