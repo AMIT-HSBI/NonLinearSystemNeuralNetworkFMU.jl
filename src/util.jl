@@ -62,12 +62,12 @@ function testCMakeVersion(;minimumVersion = "3.21")
 end
 
 """
-    testOmcVersion(omc;  minimumVersion = "v1.20.0-dev-330")
+    testOmcVersion(omc;  minimumVersion = "v1.20.0-dev-342")
 
 Test if OMC version is higher than minimum version.
 Throw error if omc can't be found or minimum version is not satisfied.
 """
-function testOmcVersion(omc; minimumVersion = "v1.20.0-dev-330")
+function testOmcVersion(omc; minimumVersion = "v1.20.0-dev-342")
   # Check if path points to a file
   if !isfile(omc)
     throw(ProgramNotFoundError("omc", [ENV["PATH"]]))
