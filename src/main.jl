@@ -122,6 +122,9 @@ function main(modelName::String,
   
     for (i,var) in enumerate(inputVars)
       idx = findfirst(x->x==var, allUsedvars)
+      if idx === nothing
+        error("Variable " * var * "not found in all used vars array.")
+      end
       mi[i] = min[idx]
       ma[i] = max[idx]
     end

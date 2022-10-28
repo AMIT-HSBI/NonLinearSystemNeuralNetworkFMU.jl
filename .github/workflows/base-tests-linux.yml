@@ -24,7 +24,7 @@ jobs:
             ort_url: 'https://github.com/microsoft/onnxruntime/releases/download/v1.12.1/onnxruntime-linux-x64-1.12.1.tgz'
             ort_archieve_name: 'onnxruntime-linux-x64-1.12.1.tgz'
             ort_dir: 'onnxruntime-linux-x64-1.12.1'
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v3
@@ -44,7 +44,7 @@ jobs:
           rm ${{ matrix.ort_archieve_name }}
 
       # Setup OpenModelica for OMJulia.jl
-      - uses: AnHeuermann/setup-openmodelica@main
+      - uses: AnHeuermann/setup-openmodelica@v0.3
         with:
           version: 'nightly'
 
