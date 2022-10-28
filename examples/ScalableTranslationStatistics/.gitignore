@@ -3,6 +3,7 @@
 *.out
 data/
 fmus/
+level*/
 onnx/
 profiling/
 results/
