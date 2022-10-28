@@ -132,10 +132,16 @@ end
 """
     isnonlinearequation(eq)
 
-Return `true` if equation is non-linear.
+Return `true` if equation system is non-linear.
 """
 function isnonlinearequation(eq::Dict{String, Any})
-  return eq["tag"] == "tornsystem" && eq["display"] == "non-linear"
+  if eq["tag"] == "tornsystem" && eq["display"] == "non-linear"
+    return true
+  end
+  if eq["tag"] == "system" && eq["display"] == "non-linear"
+    return true
+  end
+  return false
 end
 
 
@@ -145,7 +151,13 @@ end
 Return `true` is equation is part of the initial system.
 """
 function isinitial(eq::Dict{String, Any})
-  return eq["section"] == "initial"
+  if eq["section"] == "initial"
+    return true
+  end
+  if eq["section"] == "initial-lambda0"
+    return true
+  end
+  return false
 end
 
 
