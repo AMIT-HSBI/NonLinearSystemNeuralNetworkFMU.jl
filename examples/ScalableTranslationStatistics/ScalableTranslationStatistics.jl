@@ -14,17 +14,18 @@ using BenchmarkTools
 
 ENV["ORT_DIR"] = "/mnt/home/aheuermann/workdir/julia/NonLinearSystemNeuralNetworkFMU.jl/onnxruntime-linux-x64-1.12.1"
 rootDir = "/mnt/home/aheuermann/workdir/phymos/ScalableTranslationStatistics"
-
+modelicaLib = joinpath(rootDir, "02_SourceModel", "02_Model", "01_AuthoringModel", "ScalableTranslationStatistics", "package.mo")
 sizes = ["5", "10", "20", "40", "80", "160"]
 
-function runScalableTranslationStatistics(rootDir::String; level::Integer=1, N::Integer=10000)
+getmodelname(level) = "ScalableTranslationStatistics.Examples.ScaledNLEquations.NLEquations_$(sizes[level])"
+
+function runScalableTranslationStatistics(lib::String; level::Integer=1, N::Integer=10000)
   # Get lib and model
-  lib = joinpath(rootDir, "02_SourceModel", "02_Model", "01_AuthoringModel", "ScalableTranslationStatistics", "package.mo")
   if !isfile(lib)
     @error "Could not find Modelica library at $(lib)"
   end
   moFiles = [lib]
-  modelName = "ScalableTranslationStatistics.Examples.ScaledNLEquations.NLEquations_$(sizes[level])"
+  modelName = getmodelname(level)
   workdir = joinpath(@__DIR__, "level$level")
 
   # Generate training data
@@ -86,13 +87,14 @@ function genFMUs(levels=1:6)
 end
 
 # Test ONNX FMUs and bench times
-function runBenchmarks(levels=1:6)
+function runBenchmarks(levels=1:6;
+                       resultDir=joinpath(@__DIR__, "results", "level$(string(level))"),
+                       fmuDir=joinpath(@__DIR__, "level$(string(level))"))
   for level in levels
     @info "Benchmarking level $level"
-    resultDir = joinpath(@__DIR__, "results", "level$(string(level))")
-    modelName = "ScalableTranslationStatistics.Examples.ScaledNLEquations.NLEquations_$(sizes[level])"
-    defaultFMU = joinpath(@__DIR__, "level$(string(level))", modelName*".fmu")
-    onnxFMU = joinpath(@__DIR__, "level$(string(level))", modelName*".onnx.fmu")
+    modelName = getmodelname(level)
+    defaultFMU = joinpath(fmuDir, modelName*".fmu")
+    onnxFMU = joinpath(fmuDir, modelName*".onnx.fmu")
     defaultResult = joinpath(resultDir, modelName*".csv")
     onnxResult = joinpath(resultDir, modelName*".onnx.csv")
     redirect_stdio(stdout="bench_level$(string(level)).log", stderr="level$(string(level)).log") do
