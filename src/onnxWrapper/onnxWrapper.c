@@ -70,6 +70,7 @@ void verify_input_output_count(const OrtApi* g_ort, OrtSession* session) {
 /**
  * @brief Initialize ORT data for ONNX model.
  *
+ * @param equationName              Name of equation.
  * @param pathToONNX                Path to ONNX model.
  * @param modelName                 Name of ONNX model.
  * @param nInputs                   Number of inputs to ONNX model.
@@ -78,7 +79,7 @@ void verify_input_output_count(const OrtApi* g_ort, OrtSession* session) {
  * @param output_name               Name of output node of ONNX model.
  * @return struct OrtWrapperData*   Pointer to ORT wrapper data.
  */
-struct OrtWrapperData* initOrtData(const char* pathToONNX, const char* modelName, unsigned int nInputs, unsigned int nOutputs, const char* input_name, const char* output_name) {
+struct OrtWrapperData* initOrtData(const char* equationName, const char* pathToONNX, const char* modelName, unsigned int nInputs, unsigned int nOutputs, const char* input_name, const char* output_name) {
   struct OrtWrapperData* ortData = calloc(1, sizeof (struct OrtWrapperData));
 
   /* Initialize ORT */
@@ -142,6 +143,15 @@ struct OrtWrapperData* initOrtData(const char* pathToONNX, const char* modelName
                                                            output_shape_len, ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,
                                                            &ortData->output_tensor));
 
+  /* Initialize residuum arrays */
+  ortData->nRes = (size_t) nOutputs;
+  ortData->x = calloc(nOutputs, sizeof ortData->x[0]);
+  ortData->res = calloc(nOutputs, sizeof ortData->res[0]);
+  char csvFilePath[2048];
+  snprintf(csvFilePath, 2048, "%s_residuum.csv", equationName);
+  ortData->csvFile = fopen(csvFilePath, "w");
+  fprintf(ortData->csvFile, "time,res\n");
+
   return ortData;
 }
 
@@ -167,6 +177,11 @@ void deinitOrtData(struct OrtWrapperData* ortData) {
   ortData->g_ort->ReleaseSessionOptions(ortData->session_options);
   ortData->g_ort->ReleaseSession(ortData->session);
   ortData->g_ort->ReleaseEnv(ortData->env);
+
+  /* Free residuum data */
+  free(ortData->x);
+  free(ortData->res);
+  fclose(ortData->csvFile);
 
   free(ortData);
 }

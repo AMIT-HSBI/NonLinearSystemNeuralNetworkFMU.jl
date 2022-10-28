@@ -50,6 +50,7 @@ find_library(ORT_LIB
 message(STATUS "Using ORT_LIBR: ${ORT_LIB}")
 
 add_library(onnxWrapper SHARED
+            errorControl.c
             onnxWrapper.c)
 
 target_include_directories(onnxWrapper PUBLIC ${ORT_INCLUDE})

@@ -24,11 +24,15 @@ struct Mapping
 end
 
 function ortDataCode(equations::AbstractArray, modelName::String, onnxNames::Array{String})
+  resPrototypes = ""
   ortstructs = ""
   initCalls = ""
   deinitCalls = ""
   nEq = length(equations)
   for (i,eq) in enumerate(equations)
+    resPrototypes *= """
+      void residualFunc$(eq.eqInfo.id)(RESIDUAL_USERDATA* userData, const double* xloc, double* res, const int* iflag);
+      """
     onnxName = basename(onnxNames[i])
     nInputs = length(eq.usingVars)
     nOutputs = length(eq.iterationVariables)
@@ -38,7 +42,7 @@ function ortDataCode(equations::AbstractArray, modelName::String, onnxNames::Arr
     ortstructs *= "struct OrtWrapperData* ortData_eq_$(eq.eqInfo.id);"
     initCalls *= """
         snprintf(onnxPath, 2048, "%s/%s", data->modelData->resourcesDir, \"$(onnxName)\");
-        ortData_eq_$(eq.eqInfo.id) = initOrtData(onnxPath, \"$modelName\", $nInputs, $nOutputs, \"$input_name\", \"$output_name\");
+        ortData_eq_$(eq.eqInfo.id) = initOrtData(\"$(modelName)_eq$(eq.eqInfo.id)\", onnxPath, \"$modelName\", $nInputs, $nOutputs, \"$input_name\", \"$output_name\");
       """
     deinitCalls *= "  deinitOrtData(ortData_eq_$(eq.eqInfo.id));"
     if i < nEq
@@ -52,8 +56,10 @@ function ortDataCode(equations::AbstractArray, modelName::String, onnxNames::Arr
 
   code = """
     #include "onnxWrapper/onnxWrapper.h"
+    $(resPrototypes)
 
     int USE_JULIA = 1;
+    int LOG_RES = 1;
 
     /* Global ORT structs */
     $(ortstructs)
@@ -126,7 +132,7 @@ function generateNNCall(modelname::String, modelDescriptionXmlFile::String, equa
   for (i,eq) in enumerate(equationToReplace.innerEquations)
     innerEquations *= "$(modelname)_eqFunction_$(eq)(data, threadData);"
     if i < length(equationToReplace.innerEquations)
-      innerEquations *= "$EOL    "
+      innerEquations *= "$EOL      "
     end
   end
 
@@ -142,8 +148,16 @@ function generateNNCall(modelname::String, modelDescriptionXmlFile::String, equa
 
       $outputVarBlock
 
-      /* Eval inner equations */
-      $innerEquations
+      if(LOG_RES) {
+        /* Evaluate residuals */
+        RESIDUAL_USERDATA userData = {data, threadData};
+        evalResiduum(residualFunc$(equationToReplace.eqInfo.id), (void*) &userData, $ortData);
+        //printResiduum($(equationToReplace.eqInfo.id), data->localData[0]->timeValue, $ortData);
+        writeResiduum(data->localData[0]->timeValue, $ortData);
+      } else {
+        /* Eval inner equations */
+        $innerEquations
+      }
   """
 
   return cCode
@@ -240,6 +254,8 @@ function copyOnnxWrapperLib(fmuRootDir::String)
   mkpath(onnxWrapperDir)
 
   files = [
+    joinpath(@__DIR__, "onnxWrapper", "errorControl.h"),
+    joinpath(@__DIR__, "onnxWrapper", "errorControl.c"),
     joinpath(@__DIR__, "onnxWrapper", "onnxWrapper.h"),
     joinpath(@__DIR__, "onnxWrapper", "onnxWrapper.c"),
     joinpath(@__DIR__, "onnxWrapper", "CMakeLists.txt"),
