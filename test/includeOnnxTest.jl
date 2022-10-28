@@ -49,20 +49,30 @@ function runIncludeOnnxTests()
   end
 
   @testset "Simulate ONNX FMU" begin
+    workDir = joinpath(@__DIR__, "fmus")
     modelname = "simpleLoop"
-    pathToFMU = abspath(joinpath(@__DIR__, "fmus", "$(modelname).onnx.fmu"))
-    local nnFMU
-    Suppressor.@suppress begin
-      nnFMU = fmiLoad(pathToFMU)
-    end
-    # Can't use FMI.jl for FMUs without states at the moment
-    #onnx_solution = fmiSimulate(nnFMU, 0.0, 1.0; recordValues=["r", "s", "x", "y"])
-    fmiUnload(nnFMU)
+    resultFile = "model_onnx_res.csv"
+    rm(joinpath(workDir,resultFile))
+    logFile = joinpath(workDir, modelname*"_OMSimulator.log")
 
-    #pathToFMU = abspath(joinpath(@__DIR__, "fmus", "$(modelname).fmu"))
-    #refFMU = fmiLoad(pathToFMU)
-    #ref_solution = fmiSimulate(refFMU, 0.0, 1.0; recordValues=["r", "s", "x", "y"])
-    #fmiUnload(refFMU)
+    cmd = `OMSimulator --resultFile=$resultFile "$(modelname).onnx.fmu"`
+    redirect_stdio(stdout=logFile, stderr=logFile) do
+      run(Cmd(cmd, dir=workDir))
+    end
+
+    @test isfile(joinpath(workDir,resultFile))
+    @test read(logFile, String) == """
+    info:    model doesn't contain any continuous state
+    info:    Result file: model_onnx_res.csv (bufferSize=1)
+    """
+    rm(logFile)
+  end
+
+  @testset "Check results" begin
+    resultFile = joinpath(@__DIR__, "fmus", "model_onnx_res.csv")
+    df_res = CSV.read(resultFile, DataFrames.DataFrame)
+    @test maximum(abs.(df_res.x .- df_res.x_ref)) < 1e-2
+    @test maximum(abs.(df_res.y .- df_res.y_ref)) < 1e-2
   end
 end
 
