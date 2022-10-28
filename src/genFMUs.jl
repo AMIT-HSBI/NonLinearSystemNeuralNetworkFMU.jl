@@ -167,7 +167,7 @@ function updateCMakeLists(path_to_cmakelists::String)
   newStr = ""
   open(path_to_cmakelists, "r") do file
     filestr = read(file, String)
-    id1 = last(findfirst("\${CMAKE_CURRENT_SOURCE_DIR}/external_solvers/*.c", filestr))
+    id1 = last(findStrWError("\${CMAKE_CURRENT_SOURCE_DIR}/external_solvers/*.c", filestr))
     newStr = filestr[1:id1] * EOL *
              "                              \${CMAKE_CURRENT_SOURCE_DIR}/fmi-export/*.c" *
              filestr[id1+1:end]
