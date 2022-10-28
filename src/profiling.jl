@@ -52,7 +52,6 @@ function simulateWithProfiling(modelName::String,
   end
 
   if Sys.iswindows()
-    pathToMo = replace.(moFiles, "\\"=> "\\\\")
     workingDir = replace(workingDir, "\\"=> "\\\\")
   end
 
@@ -74,6 +73,9 @@ function simulateWithProfiling(modelName::String,
         throw(OpenModelicaError("Failed to load file $(file)!", abspath(logFilePath)))
       end
       write(logFile, string(msg)*"\n")
+      if !msg
+        throw(SimulationError("Failed to load file $(file)!", modelName, logFilePath))
+      end
       msg = OMJulia.sendExpression(omc, "getErrorString()")
       write(logFile, msg*"\n")
     end
@@ -90,9 +92,6 @@ function simulateWithProfiling(modelName::String,
     write(logFile, msg["messages"]*"\n")
     msg = OMJulia.sendExpression(omc, "getErrorString()")
     write(logFile, msg*"\n")
-  catch e
-    @error "Failed to simulate $modelName."
-    rethrow(e)
   finally
     close(logFile)
     OMJulia.sendExpression(omc, "quit()", parsed=false)
