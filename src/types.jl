@@ -99,3 +99,11 @@ function Base.showerror(io::IO, e::MinimumVersionError)
   println(io, "Minimum version needed is $(e.minimumVersion).")
   print(io, "Using version $(e.currentVersion).")
 end
+
+
+struct StringNotFoundError <: Exception
+  searchString::String
+end
+function Base.showerror(io::IO, e::StringNotFoundError)
+  print(io, "Could not find string \"", e.searchString, " \"")
+end

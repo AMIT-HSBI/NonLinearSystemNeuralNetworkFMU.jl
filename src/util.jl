@@ -91,7 +91,7 @@ function testOmcVersion(omc; minimumVersion = "v1.20.0-dev-342")
 
   def_min = "9999"
   main_ver_min = minimumVersion
-  loc = findfirst("dev", minimumVersion)
+  loc = findStrWError("dev", minimumVersion)
   if loc !== nothing
     (main_ver_min, def_min) = split(minimumVersion, "-")[1:2:3]
   end
@@ -101,7 +101,7 @@ function testOmcVersion(omc; minimumVersion = "v1.20.0-dev-342")
 
   def_omc = "0"
   main_ver_omc = version
-  loc = findfirst("dev", version)
+  loc = findStrWError("dev", version)
   if loc !== nothing
     (main_ver_omc, def_omc) = split(version, "-")[1:2:3]
   end
@@ -118,3 +118,36 @@ function testOmcVersion(omc; minimumVersion = "v1.20.0-dev-342")
   end
 end
 
+
+"""
+    findStrWError(searchStr, str)
+
+Like findfirst for strings, but throws error if no result was found.
+
+See also `findfirst`.
+"""
+function findStrWError(searchStr::AbstractString, str::AbstractString)
+  result = findfirst(searchStr, str)
+  if result === nothing
+      throw(StringNotFoundError(searchStr))
+  else
+    return result
+  end
+end
+
+
+"""
+    findStrWError(searchStr, str, index)
+
+Like findnext for strings, but throws error if no result was found.
+
+See also `findnext`.
+"""
+function findStrWError(searchStr::AbstractString, str::AbstractString, index::Integer)
+  result = findnext(searchStr, str, index)
+  if result === nothing
+      throw(StringNotFoundError(searchStr))
+  else
+    return result
+  end
+end

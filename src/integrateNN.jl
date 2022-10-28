@@ -145,8 +145,11 @@ function generateNNCall(modelname::String, modelDescriptionXmlFile::String, equa
   return cCode
 end
 
-function modifyCCode(modelName::String, cfile::String, modelDescriptionXmlFile::String, equations::AbstractArray, onnxFiles::Array{String})
-
+"""
+Modify C code in fmuTmpDir/sources/modelname.c to use ONNX instead of algebraic loops.
+"""
+function modifyCCode(modelName::String, fmuTmpDir::String, modelDescriptionXmlFile::String, equations::Array{ProfilingInfo}, onnxFiles::Array{String})
+  cfile = joinpath(fmuTmpDir, "sources", "$(replace(modelName, "."=>"_")).c")
   str = open(cfile, "r") do file
     read(file, String)
   end
@@ -154,21 +157,21 @@ function modifyCCode(modelName::String, cfile::String, modelDescriptionXmlFile::
   modelNameC = replace(modelName, "."=>"_")
 
   # Add init/ deinint ortData
-  id1 = first(findfirst("/* dummy VARINFO and FILEINFO */", str)) - 2
+  id1 = first(findStrWError("/* dummy VARINFO and FILEINFO */", str)) - 2
   initCode = ortDataCode(equations, modelName, onnxFiles)
   str = str[1:id1] * initCode * str[id1+1:end]
 
-  id1 = last(findfirst("$(modelNameC)_setupDataStruc(DATA *data, threadData_t *threadData)", str))
-  id1 = last(findnext("data->modelData->nExtObjs", str, id1))
-  id1 = last(findnext(";$EOL", str, id1))
+  id1 = last(findStrWError("$(modelNameC)_setupDataStruc(DATA *data, threadData_t *threadData)", str))
+  id1 = last(findStrWError("data->modelData->nExtObjs", str, id1))
+  id1 = last(findStrWError(";$EOL", str, id1))
   str = str[1:id1] * "$EOL  initGlobalOrtData(data);$EOL" * str[id1+1:end]
 
   # Replace nls-call in equation
   for equation in equations
     eqInfo = equation.eqInfo
-    id1 = last(findfirst("$(modelNameC)_eqFunction_$(eqInfo.id)(DATA *data, threadData_t *threadData)", str))
-    id1 = first(findnext("/* get old value */", str, id1)) - 1
-    id2 = first(findnext("  TRACE_POP", str, id1)) -1
+    id1 = last(findStrWError("$(modelNameC)_eqFunction_$(eqInfo.id)(DATA *data, threadData_t *threadData)", str))
+    id1 = first(findStrWError("/* get old value */", str, id1)) - 1
+    id2 = first(findStrWError("  TRACE_POP", str, id1)) -1
 
     oldpart = str[id1:id2]
     oldpart = replace(oldpart, "$EOL  "=>"$EOL    ")
@@ -191,7 +194,7 @@ function modifyCMakeLists(path_to_cmakelists::String)
   newStr = ""
   open(path_to_cmakelists, "r") do file
     str = read(file, String)
-    id1 = last(findfirst("project(\${FMU_NAME})", str))
+    id1 = last(findStrWError("project(\${FMU_NAME})", str))
     newStr = str[1:id1] * EOL *
              """
              add_subdirectory(onnxWrapper)
@@ -252,20 +255,36 @@ function copyOnnxFiles(fmuRootDir::String, onnxFiles::Array{String})
 end
 
 
-function buildWithOnnx(fmu::String, modelName::String, equations::AbstractArray, onnxFiles::Array{String}; tempDir=modelName*"_onnx"::String)
+"""
+    buildWithOnnx(fmu, modelName, equations, onnxFiles; tempDir=modelName*"_onnx")
+
+Include ONNX into FMU and recompile to generate FMU with ONNX surrogates.
+
+# Arguments
+  - `fmu::String`:                        Path to FMU to extend with ONNX surrogates.
+  - `modelName::String`:                  Name of model in FMU.
+  - `equations::Array{ProfilingInfo}`:    Profiling info for all equations to replace.
+  - `onnxFiles::Array{String}`:           Array of paths to ONNX surrogates.
+
+# Keywords
+  - `tempDir::String=modelName*"_onnx"`:  Working directory
+
+# Returns
+  - Path to ONNX FMU.
+"""
+function buildWithOnnx(fmu::String, modelName::String, equations::Array{ProfilingInfo}, onnxFiles::Array{String}; tempDir=modelName*"_onnx"::String)
   # Unzip FMU into tmp dir
   fmuTmpDir = abspath(joinpath(tempDir,"FMU"))
   rm(fmuTmpDir, force=true, recursive=true)
   unzip(fmu, fmuTmpDir)
 
-  cfile = joinpath(fmuTmpDir, "sources", "$(replace(modelName, "."=>"_")).c")
   modelDescriptionXmlFile = joinpath(fmuTmpDir, "modelDescription.xml")
   path_to_cmakelists = joinpath(fmuTmpDir,"sources", "CMakeLists.txt")
 
   copyOnnxWrapperLib(fmuTmpDir)
   modifyCMakeLists(path_to_cmakelists)
   copyOnnxFiles(fmuTmpDir, onnxFiles)
-  modifyCCode(modelName, cfile, modelDescriptionXmlFile, equations, onnxFiles)
+  modifyCCode(modelName, fmuTmpDir, modelDescriptionXmlFile, equations, onnxFiles)
   compileFMU(fmuTmpDir, modelName*".onnx", tempDir)
 
   return joinpath(tempDir, "$(modelName).onnx.fmu")
