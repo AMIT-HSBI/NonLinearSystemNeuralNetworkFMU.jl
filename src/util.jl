@@ -61,6 +61,56 @@ function testCMakeVersion(;minimumVersion = "3.21")
   return version
 end
 
+
+"""
+    getomc([omc])
+
+Try to find omc executable.
+Seach order: Given string, `PATH` and then in `OPENMODELICAHOME`.
+Throws error if omc isn't found.
+"""
+function getomc(omc::String="")
+  searchedLocations = []
+
+  # Try provided string
+  if !isempty(strip(omc))
+    testOmcVersion(omc)
+    return omc
+  end
+  push!(searchedLocations, omc)
+
+  # Try PATH
+  try
+    if Sys.iswindows()
+      omc = string(strip(read(`where omc.exe`, String)))
+    else
+      omc = string(strip(read(`which omc`, String)))
+    end
+    testOmcVersion(omc)
+    return omc
+  catch e
+    rethrow(e)
+  end
+  push!(searchedLocations, ENV["PATH"])
+
+  # Try OPENMODELICAHOME
+  if haskey(ENV, "OPENMODELICAHOME")
+    if Sys.iswindows()
+      omc = abspath(joinpath(ENV["OPENMODELICAHOME"], "bin", "omc.exe"))
+    else
+      omc = abspath(joinpath(ENV["OPENMODELICAHOME"], "bin", "omc"))
+    end
+    push!(searchedLocations, ENV["OPENMODELICAHOME"])
+    if isfile(omc)
+      testOmcVersion(omc)
+      return omc
+    end
+  end
+
+  throw(ProgramNotFoundError("omc", searchedLocations))
+end
+
+
 """
     testOmcVersion(omc;  minimumVersion = "v1.20.0-dev-342")
 
@@ -79,7 +129,7 @@ function testOmcVersion(omc; minimumVersion = "v1.20.0-dev-342")
   out = IOBuffer()
   err = IOBuffer()
   try
-    run(pipeline(`omc --version`; stdout=out, stderr=err))
+    run(pipeline(`"$(omc)" --version`; stdout=out, stderr=err))
     version = strip(String(take!(out)))
   catch e
     println(String(take!(err)))
@@ -88,13 +138,14 @@ function testOmcVersion(omc; minimumVersion = "v1.20.0-dev-342")
     close(out)
     close(err)
   end
+  if isempty(version)
+    throw("Failed to get version of $(omc)")
+  end
 
   def_min = "9999"
   main_ver_min = minimumVersion
   loc = findStrWError("dev", minimumVersion)
-  if loc !== nothing
-    (main_ver_min, def_min) = split(minimumVersion, "-")[1:2:3]
-  end
+  (main_ver_min, def_min) = split(minimumVersion, "-")[1:2:3]
   if startswith(main_ver_min, "v")
     main_ver_min = main_ver_min[2:end]
   end
@@ -102,9 +153,7 @@ function testOmcVersion(omc; minimumVersion = "v1.20.0-dev-342")
   def_omc = "0"
   main_ver_omc = version
   loc = findStrWError("dev", version)
-  if loc !== nothing
-    (main_ver_omc, def_omc) = split(version, "-")[1:2:3]
-  end
+  (main_ver_omc, def_omc) = split(version, "-")[1:2:3]
   if startswith(main_ver_omc, "v")
     main_ver_omc = main_ver_omc[2:end]
   end

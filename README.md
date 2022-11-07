@@ -47,6 +47,11 @@ The package generates an FMU from a modelica file in 3 steps (+ 1 user step):
       * Re-compile FMU.
         * Environment variable `ORT_DIR` has to be set and point to the ONNX runtime directory (with include/ and lib/ inside).
 
+## Debugging
+
+  - It's not possible to debug Julia when OMJulia is used, see https://github.com/OpenModelica/OMJulia.jl/issues/66.
+  - Enable debug prints with `ENV["JULIA_DEBUG"] = "all"`.
+
 ## Documentation
 
 Currently HTML documentation is not active, but there is a [PDF](https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/blob/gh-pages/dev/NonLinearSystemNeuralNetworkFMU.jl.pdf).
