@@ -34,6 +34,7 @@ generation for all non-linear equation systems of `modelName`.
 # Keywords
   - `workingDir::String=pwd()`: Working directory for omc. Defaults to the current directory.
   - `reuseArtifacts=false`:     Use artifacts to skip already performed steps if true.
+  - `clean::Bool=true`:         Remove temporary working directories if true.
   -`N=1000::Integer`:          Number of data points fto genreate or each non-linear equation system.
 
 # Returns
@@ -48,11 +49,12 @@ function main(modelName::String,
               moFiles::Array{String};
               workdir=joinpath(pwd(),modelName)::String,
               reuseArtifacts = false,
+              clean = true::Bool,
               N=1000::Integer)
   mkpath(workdir)
-  tempDir = joinpath(workdir, "temp")
 
   # Profiling
+  tempDir = joinpath(workdir, "temp-profiling")
   profilingInfoFile = joinpath(workdir, "profilingInfo.bson")
   local profilingInfo
   if(reuseArtifacts && isfile(profilingInfoFile))
@@ -62,10 +64,13 @@ function main(modelName::String,
     @info "Profile $modelName"
     profilingInfo = profiling(modelName, moFiles; threshold=0, workingDir=tempDir)
     BSON.@save profilingInfoFile profilingInfo
-    rm(tempDir, force=true, recursive=true)
+    if clean
+      rm(tempDir, force=true, recursive=true)
+    end
   end
 
   # Min-max values
+  tempDir = joinpath(workdir, "temp-minmax")
   minMaxFile = joinpath(workdir, "minMax.bson")
   local min
   local max
@@ -77,10 +82,13 @@ function main(modelName::String,
     @info "Find min-max values of used varaibles"
     (min, max) = minMaxValuesReSim(allUsedvars, modelName, moFiles, workingDir=tempDir)
     BSON.@save minMaxFile min max
-    rm(tempDir, force=true, recursive=true)
+    if clean
+      rm(tempDir, force=true, recursive=true)
+    end
   end
 
   # FMU
+  tempDir = joinpath(workdir, "temp-fmu")
   fmuFile = joinpath(workdir, modelName*".fmu")
   local fmu
   if(reuseArtifacts && isfile(fmuFile))
@@ -91,10 +99,13 @@ function main(modelName::String,
     fmu = generateFMU(modelName, moFiles, workingDir=tempDir)
     mv(fmu, joinpath(workdir, basename(fmu)), force=true)
     fmu = joinpath(workdir, basename(fmu))
-    rm(tempDir, force=true, recursive=true)
+    if clean
+      rm(tempDir, force=true, recursive=true)
+    end
   end
 
   # Extended FMU
+  tempDir = joinpath(workdir, "temp-extendfmu")
   fmuFile = joinpath(workdir, modelName*".interface.fmu")
   local fmu
   if(reuseArtifacts && isfile(fmuFile))
@@ -106,7 +117,9 @@ function main(modelName::String,
     fmu_interface = addEqInterface2FMU(modelName, fmu, allEqs, workingDir=tempDir)
     mv(fmu_interface, joinpath(workdir, basename(fmu_interface)), force=true)
     fmu_interface = joinpath(workdir, basename(fmu_interface))
-    rm(tempDir, force=true, recursive=true)
+    if clean
+      rm(tempDir, force=true, recursive=true)
+    end
   end
 
   # Data
