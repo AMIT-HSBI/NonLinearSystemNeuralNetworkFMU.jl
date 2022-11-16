@@ -142,10 +142,16 @@ function testOmcVersion(omc; minimumVersion = "v1.20.0-dev-342")
     throw("Failed to get version of $(omc)")
   end
 
+
+  version="v1.21.0-dev-19-g2a0d7a5e71"
   def_min = "9999"
   main_ver_min = minimumVersion
   loc = findStrWError("dev", minimumVersion)
-  (main_ver_min, def_min) = split(minimumVersion, "-")[1:2:3]
+  if findfirst("~", minimumVersion) !== nothing
+    (main_ver_min, _) = split(minimumVersion, "~")
+  else
+    (main_ver_min, def_min) = split(minimumVersion, "-")[1:2:3]
+  end
   if startswith(main_ver_min, "v")
     main_ver_min = main_ver_min[2:end]
   end
@@ -153,7 +159,11 @@ function testOmcVersion(omc; minimumVersion = "v1.20.0-dev-342")
   def_omc = "0"
   main_ver_omc = version
   loc = findStrWError("dev", version)
-  (main_ver_omc, def_omc) = split(version, "-")[1:2:3]
+  if findfirst("~", version) !== nothing
+    (main_ver_omc, _) = split(version, "~")
+  else
+    (main_ver_omc, def_omc) = split(version, "-")[1:2:3]
+  end
   if startswith(main_ver_omc, "v")
     main_ver_omc = main_ver_omc[2:end]
   end
