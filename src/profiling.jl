@@ -18,33 +18,6 @@
 #
 
 """
-    getomc([omc])
-
-Find omc executable from `PATH`, `OPENMODELICAHOME` or given string.
-"""
-function getomc(omc::String="")
-
-  # Find omc if nothing is provided
-  if isempty(strip(omc))
-    if Sys.iswindows()
-      @assert(haskey(ENV, "OPENMODELICAHOME"), "Environment variable OPENMODELICAHOME not set.")
-      omc = abspath(joinpath(ENV["OPENMODELICAHOME"], "bin", "omc.exe"))
-      if !isfile(omc)
-        throw(ProgramNotFoundError("omc", [omc]))
-      end
-    else
-      omc = string(strip(read(`which omc`, String)))
-    end
-  end
-
-  # Check minimum version
-  testOmcVersion(omc)
-
-  return omc
-end
-
-
-"""
     simulateWithProfiling(modelName, pathToMo; [pathToOmc], workingDir=pwd(), outputFormat="mat", clean=false])
 
 Simulate Modelica model with profiling enabled using given omc.
