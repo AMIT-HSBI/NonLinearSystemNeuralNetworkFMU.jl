@@ -89,6 +89,9 @@ function Base.showerror(io::IO, e::ProgramNotFoundError)
   end
 end
 
+"""
+Minimum version not sattisfied error.
+"""
 struct MinimumVersionError <: Exception
   program::String
   minimumVersion::String
@@ -100,10 +103,27 @@ function Base.showerror(io::IO, e::MinimumVersionError)
   print(io, "Using version $(e.currentVersion).")
 end
 
-
+"""
+String not found in searched string error.
+"""
 struct StringNotFoundError <: Exception
   searchString::String
 end
 function Base.showerror(io::IO, e::StringNotFoundError)
   print(io, "Could not find string \"", e.searchString, " \"")
+end
+
+"""
+OpenModelica error with log file.
+"""
+struct OpenModelicaError <: Exception
+  msg::String
+  logFile::String
+end
+function Base.showerror(io::IO, e::OpenModelicaError)
+  println(io, e.msg)
+  println(io, "Log file: ", e.logFile)
+  if isfile(e.logFile)
+    print(io, read(e.logFile, String))
+  end
 end
