@@ -156,7 +156,7 @@ function generateFMU(modelName::String,
   end
 
   if !isfile(joinpath(workingDir, modelName*".fmu"))
-    error("Could not generate FMU! Check log file:\n$(abspath(logFilePath))")
+    throw(OpenModelicaError("Could not generate FMU!", abspath(logFilePath)))
   end
 
   return joinpath(workingDir, modelName*".fmu")

@@ -107,3 +107,16 @@ end
 function Base.showerror(io::IO, e::StringNotFoundError)
   print(io, "Could not find string \"", e.searchString, " \"")
 end
+
+
+struct OpenModelicaError <: Exception
+  msg::String
+  logFile::String
+end
+function Base.showerror(io::IO, e::OpenModelicaError)
+  println(io, e.msg)
+  println(io, "Log file: ", e.logFile)
+  if isfile(e.logFile)
+    print(io, read(e.logFile, String))
+  end
+end

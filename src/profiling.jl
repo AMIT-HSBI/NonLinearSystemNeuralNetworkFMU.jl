@@ -124,7 +124,9 @@ function simulateWithProfiling(modelName::String,
   profJsonFile = abspath(joinpath(workingDir, modelName*"_prof.json"))
   infoJsonFile = abspath(joinpath(workingDir, modelName*"_info.json"))
   resultFile = abspath(joinpath(workingDir, modelName*"_res."*outputFormat))
-  @assert isfile(profJsonFile) && isfile(infoJsonFile) && isfile(resultFile) "Simulation failed, no files generated."
+  if !(isfile(profJsonFile) && isfile(infoJsonFile) && isfile(resultFile))
+    throw(OpenModelicaError("Simulation failed, no files generated.", abspath(logFilePath)))
+  end
   return (profJsonFile, infoJsonFile, resultFile)
 end
 
