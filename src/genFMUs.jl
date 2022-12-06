@@ -19,11 +19,19 @@
 
 EOL = Sys.iswindows() ? "\r\n" : "\n"
 
+"""
+    omrun(cmd; dir=pwd())
+
+Execute system command.
+
+Add OPENMODELICAHOME to PATH for Windows to get access to Unix tools from MSYS.
+"""
 function omrun(cmd::Cmd; dir=pwd()::String)
   if Sys.iswindows()
-    path = ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "mingw64", "bin"))
+    path = ENV["PATH"] * ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "mingw64", "bin"))
     path *= ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "usr", "bin"))
-    run(Cmd(cmd, env=("PATH" => path,), dir = dir))
+    @debug "PATH: $(path)"
+    run(Cmd(cmd, env=("PATH" => path,"CLICOLOR"=>"0",), dir = dir))
   else
     run(Cmd(cmd, dir = dir))
   end
@@ -215,8 +223,13 @@ function compileFMU(fmuRootDir::String, modelname::String, workdir::String)
   try
     redirect_stdio(stdout=logFile, stderr=logFile) do
       pathToFmiHeader = abspath(joinpath(dirname(@__DIR__), "FMI-Standard-2.0.3", "headers"))
-      omrun(`cmake -S . -B build_cmake -DFMI_INTERFACE_HEADER_FILES_DIRECTORY=$(pathToFmiHeader)`, dir = joinpath(fmuRootDir,"sources"))
-      omrun(`cmake --build build_cmake/ --target install`, dir = joinpath(fmuRootDir, "sources"))
+      if Sys.iswindows()
+        omrun(`cmake -S . -B build_cmake -DFMI_INTERFACE_HEADER_FILES_DIRECTORY=$(pathToFmiHeader) -Wno-dev -G "MSYS Makefiles" -DCMAKE_COLOR_MAKEFILE=OFF`, dir = joinpath(fmuRootDir,"sources"))
+        omrun(`make install -Oline -j`, dir = joinpath(fmuRootDir, "sources", "build_cmake"))
+      else
+        omrun(`cmake -S . -B build_cmake -DFMI_INTERFACE_HEADER_FILES_DIRECTORY=$(pathToFmiHeader)`, dir = joinpath(fmuRootDir,"sources"))
+        omrun(`cmake --build build_cmake/ --target install --parallel`, dir = joinpath(fmuRootDir, "sources"))
+      end
       rm(joinpath(fmuRootDir, "sources", "build_cmake"), force=true, recursive=true)
       # Use create_zip instead of calling zip
       rm(joinpath(dirname(fmuRootDir),modelname*".fmu"), force=true)
