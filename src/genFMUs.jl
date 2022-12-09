@@ -141,9 +141,12 @@ function generateFMU(modelName::String,
     msg = OMJulia.sendExpression(omc, "getVersion()")
     write(logFile, msg*"\n")
     for file in moFiles
-      OMJulia.sendExpression(omc, "loadFile(\"$(file)\")")
-      msg = OMJulia.sendExpression(omc, "getErrorString()")
-      write(logFile, msg*"\n")
+      msg = OMJulia.sendExpression(omc, "loadFile(\"$(file)\")")
+      if (msg != true)
+        msg = OMJulia.sendExpression(omc, "getErrorString()")
+        write(logFile, msg*"\n")
+        throw(OpenModelicaError("Failed to load file $(file)!", abspath(logFilePath)))
+      end
     end
     OMJulia.sendExpression(omc, "cd(\"$(workingDir)\")")
 
@@ -158,6 +161,9 @@ function generateFMU(modelName::String,
     write(logFile, msg*"\n")
     msg = OMJulia.sendExpression(omc, "getErrorString()")
     write(logFile, msg*"\n")
+  catch e
+    @error "Failed to build FMU for $modelName."
+    rethrow(e)
   finally
     close(logFile)
     OMJulia.sendExpression(omc, "quit()",parsed=false)
