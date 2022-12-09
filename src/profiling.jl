@@ -68,7 +68,11 @@ function simulateWithProfiling(modelName::String,
     write(logFile, msg*"\n")
     for file in moFiles
       msg = OMJulia.sendExpression(omc, "loadFile(\"$(file)\")")
-      @assert msg==true "Failed to load file $(file)!"
+      if (msg != true)
+        msg = OMJulia.sendExpression(omc, "getErrorString()")
+        write(logFile, msg*"\n")
+        throw(OpenModelicaError("Failed to load file $(file)!", abspath(logFilePath)))
+      end
       write(logFile, string(msg)*"\n")
       msg = OMJulia.sendExpression(omc, "getErrorString()")
       write(logFile, msg*"\n")
