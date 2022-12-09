@@ -72,15 +72,22 @@ function main(modelName::String,
   # Min-max values
   tempDir = joinpath(workdir, "temp-minmax")
   minMaxFile = joinpath(workdir, "minMax.bson")
-  local min
-  local max
-  allUsedvars = unique(vcat([prof.usingVars for prof in profilingInfo]...))
+  min = Array{Array{Float64}}(undef, length(profilingInfo))
+  max = Array{Array{Float64}}(undef, length(profilingInfo))
+  allUsedVars = unique(vcat([prof.usingVars for prof in profilingInfo]...))
   if(reuseArtifacts && isfile(minMaxFile))
     @info "Reusing $minMaxFile"
     BSON.@load minMaxFile min max
   else
     @info "Find min-max values of used varaibles"
-    (min, max) = minMaxValuesReSim(allUsedvars, modelName, moFiles, workingDir=tempDir)
+    (allMin, allMax) = minMaxValuesReSim(allUsedVars, modelName, moFiles, workingDir=tempDir)
+
+    for (i,prof) in enumerate(profilingInfo)
+      idx = findall(elem -> elem in prof.usingVars, allUsedVars)
+      min[i] = allMin[idx]
+      max[i] = allMax[idx]
+    end
+
     BSON.@save minMaxFile min max
     if clean
       rm(tempDir, force=true, recursive=true)
@@ -125,25 +132,13 @@ function main(modelName::String,
   # Data
   @info "Generate training data"
   csvFiles = String[]
-  for prof in profilingInfo
+  for (i,prof) in enumerate(profilingInfo)
     eqIndex = prof.eqInfo.id
     inputVars = prof.usingVars
     outputVars = prof.iterationVariables
 
-    mi = Array{Float64}(undef, length(inputVars))
-    ma = Array{Float64}(undef, length(inputVars))
-  
-    for (i,var) in enumerate(inputVars)
-      idx = findfirst(x->x==var, allUsedvars)
-      if idx === nothing
-        error("Variable " * var * "not found in all used vars array.")
-      end
-      mi[i] = min[idx]
-      ma[i] = max[idx]
-    end
-
     fileName = abspath(joinpath(workdir, "data", "eq_$(prof.eqInfo.id).csv"))
-    csvFile = generateTrainingData(fmu_interface, fileName, eqIndex, inputVars, mi, ma, outputVars; N = N)
+    csvFile = generateTrainingData(fmu_interface, fileName, eqIndex, inputVars, min[i], max[i], outputVars; N = N)
     push!(csvFiles, csvFile)
   end
 

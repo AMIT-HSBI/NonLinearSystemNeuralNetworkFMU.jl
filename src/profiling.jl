@@ -190,9 +190,13 @@ end
 
 
 """
-    findUsedVars(infoFile, eqIndex; filterParameters = true)
+    findUsedVars(infoFile, eqIndex; filterParameters = true)::Tuple{Array{String}, Array{String}}
 
-Read `infoFile` and return `(definingVars, usingVars)` that are defined or used by equation with `eqIndex`.
+Read `infoFile` and return defined or used variables of equation with index `eqIndex`.
+
+# Returns
+  - `definingVars::Array{String}`:  Variables defined by equation with index `eqIndex`.
+  - `usingVars::Array{String}`:     Variables used by equation with index `eqIndex`.
 """
 function findUsedVars(infoFile, eqIndex; filterParameters::Bool = true)::Tuple{Array{String}, Array{String}}
   equations = infoFile["equations"]
@@ -228,6 +232,8 @@ function findUsedVars(infoFile, eqIndex; filterParameters::Bool = true)::Tuple{A
       if var["kind"] == "external object"
         push!(removeVars, usedVar)
       end
+    elseif usedVar == "time"
+        # do nothing
     else
       @error "Variable $usedVar not found"
       push!(removeVars, usedVar)
@@ -236,8 +242,6 @@ function findUsedVars(infoFile, eqIndex; filterParameters::Bool = true)::Tuple{A
   end
   @debug "Removed $removeVars from usingVars"
   setdiff!(usingVars, removeVars)
-
-  # Expand array variables
 
   return (definingVars, usingVars)
 end
