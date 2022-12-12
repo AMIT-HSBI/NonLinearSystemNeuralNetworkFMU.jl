@@ -56,8 +56,13 @@ profilingInfo[1].iterationVariables
 
 So we can see, that equations `14` is the slowest non-linear equation system. It is called 2512 times and needs around 15% of the total simulation time, in this case that is around 592 $\mu s$.
 
-If we want to get the minimal and maximal values for the used variables `s` and `r` can get we can use [`minMaxValuesReSim`](@ref). This will re-simulate the Modelica model and read the simulation results to find the smallest and largest values for each given variable.
+During [`profiling`](@ref) function [`minMaxValuesReSim`](@ref) is called to re-simulate
+the Modelica model and read the simulation results to find the smallest and largest
+values for each given variable.
+
+We can check them by looking into
 
 ```@repl profilingexample
-(min, max)  = minMaxValuesReSim(profilingInfo[1].usingVars, modelName, moFiles, omc)
+profilingInfo[1].boundary.min
+profilingInfo[1].boundary.min
 ```

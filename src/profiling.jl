@@ -234,7 +234,7 @@ end
 
 
 """
-    findDependentVars(jsonFile, eqIndex)
+    findDependentVars(jsonFile, eqIndex)::Tuple{Array{String}, Array{Int64}, Array{String}}
 
 Read JSON info file `jsonFile` and return iteration, inner and used variables
 `(iterationVariables, innerEquations, usingVars)`.
@@ -338,7 +338,15 @@ function profiling(modelName::String,
 
   for (i,slowEq) in enumerate(slowestEqs)
     (iterationVariables, innerEquations, usingVars) = findDependentVars(infoJsonFile, slowestEqs[i].id)
-    profilingInfo[i] = ProfilingInfo(slowEq, iterationVariables, innerEquations, usingVars)
+    profilingInfo[i] = ProfilingInfo(slowEq, iterationVariables, innerEquations, usingVars, MinMaxBoundaryValues{Float64}(undef, length(usingVars)))
+  end
+
+  allUsedVars = unique(vcat([prof.usingVars for prof in profilingInfo]...))
+  (allMin, allMax) = minMaxValuesReSim(allUsedVars, modelName, moFiles, workingDir=workingDir)
+  for prof in profilingInfo
+    idx = findall(elem -> elem in prof.usingVars, allUsedVars)
+    prof.boundary.min .= allMin[idx]
+    prof.boundary.max .= allMax[idx]
   end
 
   return profilingInfo
