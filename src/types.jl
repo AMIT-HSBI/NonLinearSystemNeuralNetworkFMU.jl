@@ -127,3 +127,39 @@ function Base.showerror(io::IO, e::OpenModelicaError)
     print(io, read(e.logFile, String))
   end
 end
+
+function getUsingVars(bsonFile, eqNumber)
+  # load BSON file
+  dict = BSON.load(bsonFile)
+  profilingInfo = Array{ProfilingInfo}(dict[first(keys(dict))])
+  # Find array element i with eqNumber
+  for i = 1:length(profilingInfo)
+    if profilingInfo[i].eqInfo.id == eqNumber
+      return profilingInfo[i].usingVars , length([profilingInfo[i].usingVars][i])
+    end
+  end
+end
+
+function getIterationVariables(bsonFile, eqNumber)
+  # load BSON file
+  dict = BSON.load(bsonFile)
+  profilingInfo = Array{ProfilingInfo}(dict[first(keys(dict))])
+  # Find array element i with eqNumber
+  for i = 1:length(profilingInfo)
+    if profilingInfo[i].eqInfo.id == eqNumber
+      return [profilingInfo[i].iterationVariables] , length([profilingInfo[i].iterationVariables][i])
+    end
+  end
+end
+
+function getInnerEquations(bsonFile, eqNumber)
+  # load BSON file
+  dict = BSON.load(bsonFile)
+  profilingInfo = Array{ProfilingInfo}(dict[first(keys(dict))])
+  # Find array element i with eqNumber
+  for i = 1:length(profilingInfo)
+    if profilingInfo[i].eqInfo.id == eqNumber
+      return [profilingInfo[i].innerEquations] , length([profilingInfo[i].innerEquations][i])
+    end
+  end
+end

@@ -37,6 +37,9 @@ import XMLDict
 include("types.jl")
 export EqInfo
 export ProfilingInfo
+export getUsingVars
+export getIterationVariables
+export getInnerEquations
 include("util.jl")
 include("profiling.jl")
 export profiling
