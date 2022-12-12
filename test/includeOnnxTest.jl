@@ -32,7 +32,13 @@ function runIncludeOnnxTests()
     interfaceFmu = joinpath(fmuDir, "$(modelname).interface.fmu")
     onnxFmu = joinpath(fmuDir, "$(modelname).onnx.fmu")
     rm(onnxFmu, force=true)
-    profilingInfo = ProfilingInfo[ProfilingInfo(EqInfo(14, 2512, 2.111228e6, 54532.0, 0.12241628639186376), ["y"], [11], ["s", "r"])]
+    profilingInfo = ProfilingInfo[
+      ProfilingInfo(
+        EqInfo(14, 2512, 2.111228e6, 54532.0, 0.12241628639186376),
+        ["y"],
+        [11],
+        ["s", "r"],
+        NonLinearSystemNeuralNetworkFMU.MinMaxBoundaryValues([0.0, 0.95], [1.4087228258248679, 3.15]))]
     onnxFiles = [abspath(@__DIR__, "nn", "simpleLoop_eq14.onnx")]
 
     pathToFmu = NonLinearSystemNeuralNetworkFMU.buildWithOnnx(interfaceFmu, modelname, profilingInfo, onnxFiles; tempDir=tempDir)
