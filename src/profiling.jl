@@ -190,9 +190,13 @@ end
 
 
 """
-    findUsedVars(infoFile, eqIndex; filterParameters = true)
+    findUsedVars(infoFile, eqIndex; filterParameters = true)::Tuple{Array{String}, Array{String}}
 
-Read `infoFile` and return `(definingVars, usingVars)` that are defined or used by equation with `eqIndex`.
+Read `infoFile` and return defined or used variables of equation with index `eqIndex`.
+
+# Returns
+  - `definingVars::Array{String}`:  Variables defined by equation with index `eqIndex`.
+  - `usingVars::Array{String}`:     Variables used by equation with index `eqIndex`.
 """
 function findUsedVars(infoFile, eqIndex; filterParameters::Bool = true)::Tuple{Array{String}, Array{String}}
   equations = infoFile["equations"]
@@ -213,21 +217,31 @@ function findUsedVars(infoFile, eqIndex; filterParameters::Bool = true)::Tuple{A
     definingVars = Array{String}(eq["defines"])
   end
 
-  # Check if used variable is parameter
-  if filterParameters && usingVars !==nothing
-    parameters = String[]
-    variables = infoFile["variables"]
-    for usedVar in usingVars
-      try
-        var = variables[usedVar]
-        if var["kind"] == "parameter"
-          push!(parameters, usedVar)
-        end
-      catch
+  # Remove parameter and external objects used vars
+  removeVars = String[]
+  notFoundVars = String[]
+  for usedVar in usingVars
+    if haskey(variables, usedVar)
+      var = variables[usedVar]
+      if filterParameters && var["kind"] == "parameter"
+        push!(removeVars, usedVar)
       end
+      if filterParameters && var["kind"] == "constant"
+        push!(removeVars, usedVar)
+      end
+      if var["kind"] == "external object"
+        push!(removeVars, usedVar)
+      end
+    elseif usedVar == "time"
+      # do nothing
+    else
+      @error "Variable $usedVar not found"
+      push!(removeVars, usedVar)
+      push!(notFoundVars, usedVar)
     end
-    setdiff!(usingVars, parameters)
   end
+  @debug "Removed $removeVars from usingVars"
+  setdiff!(usingVars, removeVars)
 
   return (definingVars, usingVars)
 end
