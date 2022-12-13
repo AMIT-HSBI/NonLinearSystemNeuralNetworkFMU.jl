@@ -232,6 +232,8 @@ function findUsedVars(infoFile, eqIndex; filterParameters::Bool = true)::Tuple{A
       if var["kind"] == "external object"
         push!(removeVars, usedVar)
       end
+    elseif usedVar == "time"
+      # do nothing
     else
       @error "Variable $usedVar not found"
       push!(removeVars, usedVar)
