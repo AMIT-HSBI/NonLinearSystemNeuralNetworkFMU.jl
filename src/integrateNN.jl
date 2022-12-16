@@ -124,7 +124,7 @@ function generateNNCall(modelname::String, modelDescriptionXmlFile::String, equa
     cVar = getVarCString(var, variablesDict)
     outputVarBlock *= "$(cVar) = output[$(i-1)];"
     if i < length(outputs)
-      outputVarBlock *= "$EOL    "
+      outputVarBlock *= "$EOL      "
     end
   end
 
@@ -146,15 +146,16 @@ function generateNNCall(modelname::String, modelDescriptionXmlFile::String, equa
 
       evalModel($ortData);
 
-      $outputVarBlock
-
       if(LOG_RES) {
         /* Evaluate residuals */
-        RESIDUAL_USERDATA userData = {data, threadData};
+        RESIDUAL_USERDATA userData = {data, threadData, NULL};
         evalResiduum(residualFunc$(equationToReplace.eqInfo.id), (void*) &userData, $ortData);
         //printResiduum($(equationToReplace.eqInfo.id), data->localData[0]->timeValue, $ortData);
         writeResiduum(data->localData[0]->timeValue, $ortData);
       } else {
+        /* Set output variables */
+        $outputVarBlock
+
         /* Eval inner equations */
         $innerEquations
       }

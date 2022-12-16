@@ -47,11 +47,19 @@ void evalResiduum(resFunction f, void* userData, struct OrtWrapperData* ortData)
  */
 void printResiduum(unsigned int id, double time, struct OrtWrapperData* ortData) {
   printf("Non-linear system %u residuum at time %f:\n", id, time);
-  for(int i = 0; i < ortData->nRes; i++) {
-    printf("\t%e\n", ortData->res[i]);
+  printf("res = [");
+  for(int i = 0; i < ortData->nRes-1; i++) {
+    printf("%e, ", ortData->res[i]);
   }
+  printf("%e]\n", ortData->res[ortData->nRes-1]);
 }
 
+/**
+ * @brief Save residuum values to CSV file.
+ *
+ * @param time      Simulation time.
+ * @param ortData   Pointer to ortData with residuum.
+ */
 void writeResiduum(double time, struct OrtWrapperData* ortData) {
   fprintf(ortData->csvFile, "%f,", time);
   for(int i = 0; i < ortData->nRes-1; i++) {
