@@ -42,6 +42,7 @@ rm(tempDir, force=true, recursive=true)
 
 # Simulate FMUs
 #=
+# FMI.jl is broken for this example. It needs forever to simulate, while OMSimulator is nice and fast
 outputVars = ["B1.v", "B2.v", "B3.v", "B6.v", "B8.v"]
 
 resultFile = joinpath(workdir, modelName*".csv")
