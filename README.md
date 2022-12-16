@@ -5,6 +5,22 @@
 
 Generate Neural Networks to replace non-linear systems inside [OpenModelica](https://openmodelica.org/) 2.0 FMUs.
 
+## Working with this repository
+
+This repository uses (private) submodules for the examples.
+
+Clone with `--recursive`:
+
+```bash
+git clone git@github.com:AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl.git --recursive
+```
+
+To initialize or update your local git repository to use the latest submodules run:
+
+```bash
+git submodule update --init
+```
+
 ## Requirements
 
   - Julia v1.7.1 or newer.
@@ -46,6 +62,29 @@ The package generates an FMU from a modelica file in 3 steps (+ 1 user step):
       * Replace equations with ONNX evaluation done by [ONNX Runtime](https://onnxruntime.ai/) in generated C code.
       * Re-compile FMU.
         * Environment variable `ORT_DIR` has to be set and point to the ONNX runtime directory (with include/ and lib/ inside).
+
+## Examples
+
+### IEEE14
+There is one example with some larger algebraic systems in
+[examples/IEEE14/IEEE_14_Buses.jl](./examples/IEEE14/IEEE_14_Buses.jl) using the
+[OpenIPSL](https://github.com/OpenIPSL/OpenIPSL) Modelica library.
+
+To run it first make sure you have submodule [examples/NaiveONNX.jl](./examples/NaiveONNX.jl)
+initialized and updated.
+Then build, test and develop NaiveONNX to make the it available for the example.
+
+```julia
+cd("examples/NaiveONNX.jl")
+import Pkg; Pkg.activate("."); Pkg.build(); Pkg.test(); Pkg.activate(); Pkg.develop(path=".");
+```
+
+Run the example
+```julia
+include("examples/IEEE14/IEEE_14_Buses.jl")
+```
+
+You'll need some additional Julia packages: `Revise`, `BSON`, `CSV`, `DataFrames`, `FMI`.
 
 ## Debugging
 
