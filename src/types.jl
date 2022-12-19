@@ -216,7 +216,7 @@ end
 """
 function getInnerEquations(bsonFile::String, eqNumber::Int)
   # load BSON file
-  dict = BSON.load(bsonFile)
+  dict = BSON.load(bsonFile, @__MODULE__)
   profilingInfo = Array{ProfilingInfo}(dict[first(keys(dict))])
   # Find array element i with eqNumber
   for i = 1:length(profilingInfo)
