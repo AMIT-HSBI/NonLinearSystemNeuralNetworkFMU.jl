@@ -132,9 +132,10 @@ end
     getUsingVars(bsonFile, eqNumber)
 
 # Arguments
-    - `bsonFile::String`:  name of the binary JSON file
-    - `eqNumber::Int`:  number of the slowest equation
-# Return: array of the using variables and length of the array
+  - `bsonFile::String`:  name of the binary JSON file
+  - `eqNumber::Int`:  number of the slowest equation
+# Return:
+  - array of the using variables and length of the array
 """
 function getUsingVars(bsonFile::String, eqNumber::Int)
   # load BSON file
@@ -152,11 +153,12 @@ end
     getIterationVariables(bsonFile, eqNumber)
 
 # Arguments
-    - `bsonFile::String`:  name of the binary JSON file
-    - `eqNumber::Int`:  number of the slowest equation
-# Return: array of the iteration variables and length of the array
+  - `bsonFile::String`:  name of the binary JSON file
+  - `eqNumber::Int`:  number of the slowest equation
+# Return:
+  - array of the iteration variables and length of the array
 """
-function getIterationVariables(bsonFile, eqNumber)
+function getIterationVariables(bsonFile::String, eqNumber::Int)
   # load BSON file
   dict = BSON.load(bsonFile)
   profilingInfo = Array{ProfilingInfo}(dict[first(keys(dict))])
@@ -172,11 +174,12 @@ end
     getInnerEquations(bsonFile, eqNumber)
 
 # Arguments
-    - `bsonFile::String`:  name of the binary JSON file
-    - `eqNumber::Int`:  number of the slowest equation
-# Return: array of the inner equations and length of the array
+  - `bsonFile::String`:  name of the binary JSON file
+  - `eqNumber::Int`:  number of the slowest equation
+# Return:
+  - array of the inner equations and length of the array
 """
-function getInnerEquations(bsonFile, eqNumber)
+function getInnerEquations(bsonFile::String, eqNumber::Int)
   # load BSON file
   dict = BSON.load(bsonFile)
   profilingInfo = Array{ProfilingInfo}(dict[first(keys(dict))])
