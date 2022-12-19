@@ -24,6 +24,7 @@ function runMainTest()
   modelName = "simpleLoop"
   moFiles = [abspath(@__DIR__,"simpleLoop.mo")]
   workingDir = joinpath(abspath(@__DIR__), modelName)
+  rm(joinpath(workingDir), recursive=true, force=true)
 
   @testset "Generate Data (main)" begin
     (csvFiles, fmu, profilingInfo) = NonLinearSystemNeuralNetworkFMU.main(modelName, moFiles; workdir=workingDir, reuseArtifacts=false, N=10)
@@ -39,8 +40,26 @@ function runMainTest()
     @test profilingInfo[1].eqInfo.id == 14
     @test profilingInfo[1].iterationVariables == ["y"]
     @test sort(profilingInfo[1].usingVars) == ["r","s"]
-    rm(joinpath(workingDir), recursive=true, force=true)
   end
+
+  @testset "Test function getUsingVars" begin
+    usingVars, lenUsingVars  = NonLinearSystemNeuralNetworkFMU.getUsingVars(joinpath(workingDir, "profilingInfo.bson"), 14)
+    @test sort(usingVars) == ["r","s"]
+    @test lenUsingVars == 2
+  end
+
+  @testset "Test function getIterationVars" begin
+    iterationVars, lenIterationVars  = NonLinearSystemNeuralNetworkFMU.getIterationVariables(joinpath(workingDir, "profilingInfo.bson"), 14)
+    @test iterationVars == ["y"]
+    @test lenIterationVars == 1
+  end
+
+  @testset "Test function getInnerEquations" begin
+    innerEq, lenInnerEq  = NonLinearSystemNeuralNetworkFMU.getInnerEquations(joinpath(workingDir, "profilingInfo.bson"), 14)
+    @test sort(innerEq) == [11]
+    @test lenInnerEq == 1
+  end
+  rm(joinpath(workingDir), recursive=true, force=true)
 end
 
 runMainTest()

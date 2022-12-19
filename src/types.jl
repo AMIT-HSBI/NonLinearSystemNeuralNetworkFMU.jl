@@ -165,7 +165,7 @@ function getIterationVariables(bsonFile::String, eqNumber::Int)
   # Find array element i with eqNumber
   for i = 1:length(profilingInfo)
     if profilingInfo[i].eqInfo.id == eqNumber
-      return [profilingInfo[i].iterationVariables] , length([profilingInfo[i].iterationVariables][i])
+      return profilingInfo[i].iterationVariables , length([profilingInfo[i].iterationVariables][i])
     end
   end
 end
@@ -186,7 +186,7 @@ function getInnerEquations(bsonFile::String, eqNumber::Int)
   # Find array element i with eqNumber
   for i = 1:length(profilingInfo)
     if profilingInfo[i].eqInfo.id == eqNumber
-      return [profilingInfo[i].innerEquations] , length([profilingInfo[i].innerEquations][i])
+      return profilingInfo[i].innerEquations , length([profilingInfo[i].innerEquations][i])
     end
   end
 end
