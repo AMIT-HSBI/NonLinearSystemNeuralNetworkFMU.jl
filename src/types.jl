@@ -35,6 +35,8 @@ struct EqInfo
   maxTime::Float64
   "Fraction of total simulation time spend on evaluating this equation."
   fraction::Float64
+
+  # Constructors
   EqInfo(id, ncall, time, maxTime, fraction) = new(id, ncall, time, maxTime, fraction)
   EqInfo(;id, ncall, time, maxTime, fraction) = new(id, ncall, time, maxTime, fraction)
 end
@@ -45,6 +47,36 @@ function Base.show(io::IO, ::MIME"text/plain", eqInfo::EqInfo)
   Printf.@printf(io, "time=%s, ", eqInfo.time)
   Printf.@printf(io, "maxTime=%s, ", eqInfo.maxTime)
   Printf.@printf(io, "fraction=%s)", eqInfo.fraction)
+end
+
+"""
+    MinMaxBoundaryValues <: Any
+
+Minimum and maximum boundary values of list of variables.
+"""
+struct MinMaxBoundaryValues{T}
+  "Minimum boundary values."
+  min::Array{T, 1}
+  "Maximum boundary values."
+  max::Array{T, 1}
+
+  # Constructors
+  function MinMaxBoundaryValues{T}(init::UndefInitializer, N) where T
+    min = Array{T}(init, N)
+    max = Array{T}(init, N)
+    new{T}(min, max)
+  end
+  function MinMaxBoundaryValues(min::Array{T,1}, max::Array{T,1}) where T
+    if size(min) != size(max)
+      throw(ArgumentError("Wrong size: min and max argument need to have same size."))
+    end
+    for i in 1:length(min)
+      if min[i] > max[i]
+        throw(ArgumentError("Wrong order: $i-th minimum element bigger than maximum."))
+      end
+    end
+    new{T}(min, max)
+  end
 end
 
 """
@@ -61,15 +93,18 @@ struct ProfilingInfo
   iterationVariables::Array{String}
   "Inner (torn) equations of non-linear system."
   innerEquations::Array{Int64}
-  "Used (input) variables of non-linear system. "
+  "Used (input) variables of non-linear system."
   usingVars::Array{String}
+  "Minimum and maximum boundary values of `usingVars`."
+  boundary::MinMaxBoundaryValues{Float64}
 end
 
 function Base.show(io::IO, ::MIME"text/plain", profilingInfo::ProfilingInfo)
   Printf.@printf(io, "ProfilingInfo(%s, ", profilingInfo.eqInfo)
   Printf.@printf(io, "iterationVariables: %s, ", profilingInfo.iterationVariables)
   Printf.@printf(io, "innerEquations: %s, ", profilingInfo.innerEquations)
-  Printf.@printf(io, "usingVars: %s)", profilingInfo.usingVars)
+  Printf.@printf(io, "usingVars: %s, ", profilingInfo.usingVars)
+  Printf.@printf(io, "boundary: %s)", profilingInfo.boundary)
 end
 
 """

@@ -53,8 +53,8 @@ function main(modelName::String,
               N=1000::Integer)
   mkpath(workdir)
 
-  # Profiling
-  tempDir = joinpath(workdir, "temp-profiling")
+  # Profiling and min-max values
+  tempDirProf = joinpath(workdir, "temp-profiling")
   profilingInfoFile = joinpath(workdir, "profilingInfo.bson")
   local profilingInfo
   if(reuseArtifacts && isfile(profilingInfoFile))
@@ -62,28 +62,11 @@ function main(modelName::String,
     BSON.@load profilingInfoFile profilingInfo
   else
     @info "Profile $modelName"
-    profilingInfo = profiling(modelName, moFiles; threshold=0, workingDir=tempDir)
+    profilingInfo = profiling(modelName, moFiles; threshold=0, workingDir=tempDirProf)
+
     BSON.@save profilingInfoFile profilingInfo
     if clean
-      rm(tempDir, force=true, recursive=true)
-    end
-  end
-
-  # Min-max values
-  tempDir = joinpath(workdir, "temp-minmax")
-  minMaxFile = joinpath(workdir, "minMax.bson")
-  local min
-  local max
-  allUsedvars = unique(vcat([prof.usingVars for prof in profilingInfo]...))
-  if(reuseArtifacts && isfile(minMaxFile))
-    @info "Reusing $minMaxFile"
-    BSON.@load minMaxFile min max
-  else
-    @info "Find min-max values of used varaibles"
-    (min, max) = minMaxValuesReSim(allUsedvars, modelName, moFiles, workingDir=tempDir)
-    BSON.@save minMaxFile min max
-    if clean
-      rm(tempDir, force=true, recursive=true)
+      rm(tempDirProf, force=true, recursive=true)
     end
   end
 
@@ -129,21 +112,11 @@ function main(modelName::String,
     eqIndex = prof.eqInfo.id
     inputVars = prof.usingVars
     outputVars = prof.iterationVariables
-
-    mi = Array{Float64}(undef, length(inputVars))
-    ma = Array{Float64}(undef, length(inputVars))
-  
-    for (i,var) in enumerate(inputVars)
-      idx = findfirst(x->x==var, allUsedvars)
-      if idx === nothing
-        error("Variable " * var * "not found in all used vars array.")
-      end
-      mi[i] = min[idx]
-      ma[i] = max[idx]
-    end
+    minBoundary = prof.boundary.min
+    maxBoundary = prof.boundary.max
 
     fileName = abspath(joinpath(workdir, "data", "eq_$(prof.eqInfo.id).csv"))
-    csvFile = generateTrainingData(fmu_interface, fileName, eqIndex, inputVars, mi, ma, outputVars; N = N)
+    csvFile = generateTrainingData(fmu_interface, fileName, eqIndex, inputVars, minBoundary, maxBoundary, outputVars; N = N)
     push!(csvFiles, csvFile)
   end
 

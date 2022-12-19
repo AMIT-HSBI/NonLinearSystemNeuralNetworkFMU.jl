@@ -27,7 +27,6 @@ function runMainTest()
 
   @testset "Generate Data (main)" begin
     (csvFiles, fmu, profilingInfo) = NonLinearSystemNeuralNetworkFMU.main(modelName, moFiles; workdir=workingDir, reuseArtifacts=false, N=10)
-    @test isfile(joinpath(workingDir, "minMax.bson"))
     @test isfile(joinpath(workingDir, "profilingInfo.bson"))
     @test isfile(joinpath(workingDir, "simpleLoop.fmu"))
     @test isfile(joinpath(workingDir, "simpleLoop.interface.fmu"))
@@ -39,6 +38,8 @@ function runMainTest()
     @test profilingInfo[1].eqInfo.id == 14
     @test profilingInfo[1].iterationVariables == ["y"]
     @test sort(profilingInfo[1].usingVars) == ["r","s"]
+    @test profilingInfo[1].boundary.min[1] ≈ 0.0 && profilingInfo[1].boundary.max[1] ≈ 1.4087228258248679
+    @test profilingInfo[1].boundary.min[2] ≈ 0.95 && profilingInfo[1].boundary.max[2] ≈ 3.15
     rm(joinpath(workingDir), recursive=true, force=true)
   end
 end
