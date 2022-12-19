@@ -128,7 +128,15 @@ function Base.showerror(io::IO, e::OpenModelicaError)
   end
 end
 
-function getUsingVars(bsonFile, eqNumber)
+"""
+    getUsingVars(bsonFile, eqNumber)
+
+# Arguments
+    - `bsonFile::String`:  name of the binary JSON file
+    - `eqNumber::Int`:  number of the slowest equation
+# Return: array of the using variables and length of the array
+"""
+function getUsingVars(bsonFile::String, eqNumber::Int)
   # load BSON file
   dict = BSON.load(bsonFile)
   profilingInfo = Array{ProfilingInfo}(dict[first(keys(dict))])
@@ -140,6 +148,14 @@ function getUsingVars(bsonFile, eqNumber)
   end
 end
 
+"""
+    getIterationVariables(bsonFile, eqNumber)
+
+# Arguments
+    - `bsonFile::String`:  name of the binary JSON file
+    - `eqNumber::Int`:  number of the slowest equation
+# Return: array of the iteration variables and length of the array
+"""
 function getIterationVariables(bsonFile, eqNumber)
   # load BSON file
   dict = BSON.load(bsonFile)
@@ -152,6 +168,14 @@ function getIterationVariables(bsonFile, eqNumber)
   end
 end
 
+"""
+    getInnerEquations(bsonFile, eqNumber)
+
+# Arguments
+    - `bsonFile::String`:  name of the binary JSON file
+    - `eqNumber::Int`:  number of the slowest equation
+# Return: array of the inner equations and length of the array
+"""
 function getInnerEquations(bsonFile, eqNumber)
   # load BSON file
   dict = BSON.load(bsonFile)
