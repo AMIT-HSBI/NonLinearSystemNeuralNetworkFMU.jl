@@ -24,10 +24,10 @@ include("fmiExtensions.jl")
                          fname::String,
                          eqId::Int64,
                          inputVars::Array{String},
-                         min::AbstractVector{<:Number}
-                         max::AbstractVector{<:Number},
+                         min::AbstractVector{T}
+                         max::AbstractVector{T},
                          outputVars::Array{String};
-                         N::Integer=1000)
+                         N::Integer=1000) where T <: Number
 
 Generate training data for given equation of FMU.
 
@@ -39,8 +39,8 @@ All input-output pairs are saved in `fname`.
   - `fname::String`:                  File name to save training data to.
   - `eqId::Int64`:                    Index of equation to generate training data for.
   - `inputVars::Array{String}`:       Array with names of input variables.
-  - `min::AbstractVector{<:Number}`:  Array with minimum value for each input variable.
-  - `max::AbstractVector{<:Number}`:  Array with maximum value for each input variable.
+  - `min::AbstractVector{T}`:         Array with minimum value for each input variable.
+  - `max::AbstractVector{T}`:         Array with maximum value for each input variable.
   - `outputVars::Array{String}`:      Array with names of output variables.
 
 # Keywords
@@ -48,11 +48,34 @@ All input-output pairs are saved in `fname`.
 
 See also [`generateFMU`](@ref), [`generateFMU`](@ref).
 """
-function generateTrainingData(fmuPath::String, fname::String, eqId::Int64, inputVars::Array{String}, min::AbstractVector{<:Number}, max::AbstractVector{<:Number}, outputVars::Array{String}; N::Integer=1000)
+function generateTrainingData(fmuPath::String,
+                              fname::String,
+                              eqId::Int64,
+                              inputVars::Array{String},
+                              min::AbstractVector{T},
+                              max::AbstractVector{T},
+                              outputVars::Array{String};
+                              N::Integer=1000) where T <: Number
   #ENV["JULIA_DEBUG"] = "FMICore"
+
+  # Handle time input variable
+  usesTime = false
+  local timeValues
+  loc = findall(elem->elem=="time", inputVars)
+  if length(loc) >= 1
+    usesTime = true
+    loc = first(loc)
+    timeValues = sort((max[loc]-min[loc]).*rand(N) .+ min[loc])
+    deleteat!(inputVars, loc)
+    deleteat!(min, loc)
+    deleteat!(max, loc)
+  end
+
   nInputs = length(inputVars)
   nOutputs = length(outputVars)
   nVars = nInputs+nOutputs
+
+  @assert length(min) == length(max) == nInputs "Length of min, max and inputVars doesn't match"
 
   # Create empty data frame
   col_names = Symbol.(vcat(inputVars, outputVars))
@@ -76,12 +99,15 @@ function generateTrainingData(fmuPath::String, fname::String, eqId::Int64, input
     row = Array{Float64}(undef, nVars)
     row_vr = FMI.fmiStringToValueReference(fmu.modelDescription, vcat(inputVars,outputVars))
 
-    ProgressMeter.@showprogress 1 "Generating training data ..." for _ in 1:N
+    ProgressMeter.@showprogress 1 "Generating training data ..." for i in 1:N
       # Set input values with random values
       row[1:nInputs] = (max.-min).*rand(nInputs) .+ min
       # Set start values to 0?
       row[nInputs+1:end] .= 0.0
       FMIImport.fmi2SetReal(fmu, row_vr, row)
+      if usesTime
+        FMIImport.fmi2SetTime(fmu, timeValues[i])
+      end
 
       # Evaluate
       status = fmiEvaluateEq(fmu, eqId)
@@ -99,6 +125,10 @@ function generateTrainingData(fmuPath::String, fname::String, eqId::Int64, input
     rethrow(err)
   finally
     FMI.fmiUnload(fmu)
+  end
+
+  if usesTime
+    DataFrames.insertcols!(df, 1, :time => timeValues)
   end
   mkpath(dirname(fname))
   CSV.write(fname, df)

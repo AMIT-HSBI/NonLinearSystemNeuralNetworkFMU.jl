@@ -89,7 +89,11 @@ function getValueReferences(modelDescriptionXML::String)::Dict{String, Mapping}
 end
 
 function getVarCString(varName::String, variables::Dict{String, Mapping})
-  str = "data->localData[0]->realVars[$(variables[varName].valueReference)] /* $(varName) */"
+  if varName == "time"
+    str = "data->localData[0]->timeValue /* time */"
+  else
+    str = "data->localData[0]->realVars[$(variables[varName].valueReference)] /* $(varName) */"
+  end
 
   return str
 end
