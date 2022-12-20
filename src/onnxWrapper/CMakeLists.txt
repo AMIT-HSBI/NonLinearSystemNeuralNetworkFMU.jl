@@ -39,7 +39,12 @@ else()
   message(FATAL_ERROR "ONNX Runtime include directory not found.")
 endif()
 
-set(CMAKE_INSTALL_RPATH "${ORT_DIR}/lib")
+# Set RPATH
+if(APPLE)
+  set(CMAKE_INSTALL_RPATH "@loader_path")
+else()
+  set(CMAKE_INSTALL_RPATH "$ORIGIN")
+endif()
 
 # Find ORT libraries
 find_library(ORT_LIB
@@ -56,6 +61,10 @@ target_include_directories(onnxWrapper PUBLIC ${ORT_INCLUDE})
 target_link_libraries(onnxWrapper PRIVATE ${ORT_LIB})
 
 install(TARGETS onnxWrapper
+        RUNTIME_DEPENDENCIES
+          DIRECTORIES ${ORT_DIR}/lib
+          PRE_EXCLUDE_REGEXES "api-ms-" "ext-ms-"
+          POST_EXCLUDE_REGEXES "^\\/lib.*" "^\\/usr\\/lib.*" "^\\/usr\\/local\\/lib.*" ".*system32/.*\\.dll"
         ARCHIVE DESTINATION "."
         LIBRARY DESTINATION "."
         RUNTIME DESTINATION ".")
