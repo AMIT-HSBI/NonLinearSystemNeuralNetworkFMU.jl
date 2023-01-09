@@ -151,6 +151,8 @@ struct OrtWrapperData* initOrtData(const char* equationName, const char* pathToO
   snprintf(csvFilePath, 2048, "%s_residuum.csv", equationName);
   ortData->csvFile = fopen(csvFilePath, "w");
   fprintf(ortData->csvFile, "time,");
+  fprintf(ortData->csvFile, "rel_error,");
+  fprintf(ortData->csvFile, "res_norm,");
   for(int i=0; i<ortData->nRes-1; i++) {
     fprintf(ortData->csvFile, "res[%i],", i);
   }

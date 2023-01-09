@@ -150,8 +150,17 @@ function generateNNCall(modelname::String, modelDescriptionXmlFile::String, equa
         /* Evaluate residuals */
         RESIDUAL_USERDATA userData = {data, threadData, NULL};
         evalResiduum(residualFunc$(equationToReplace.eqInfo.id), (void*) &userData, $ortData);
+        double norm_res = norm($ortData->res, $ortData->nRes);
+        double norm_x = norm($ortData->x, $ortData->nRes);
+        double rel_error = 0;
+        if(norm_x != 0) {
+          rel_error = norm_res / norm_x;
+        } else {
+          rel_error = norm_res;
+        }
+
         //printResiduum($(equationToReplace.eqInfo.id), data->localData[0]->timeValue, $ortData);
-        writeResiduum(data->localData[0]->timeValue, $ortData);
+        writeResiduum(data->localData[0]->timeValue, rel_error, norm_res, $ortData);
       } else {
         /* Set output variables */
         $outputVarBlock

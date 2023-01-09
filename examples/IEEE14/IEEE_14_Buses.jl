@@ -1,22 +1,26 @@
 # $ nohup time julia -e "include(\"IEEE_14_Buses.jl\");" &
 
 using Revise
-import Pkg; Pkg.activate(joinpath(@__DIR__, "..", ".."))
-using NonLinearSystemNeuralNetworkFMU
 using BSON
 using CSV
 using DataFrames
 using FMI
 using NaiveONNX
 
+import Pkg; Pkg.activate(joinpath(@__DIR__, "..", ".."))
+using NonLinearSystemNeuralNetworkFMU
+
 cd(@__DIR__)
+
+N = 100
+
 modelName = "IEEE_14_Buses"
 moFiles = ["IEEE_14_Buses.mo"]
-workdir = joinpath(@__DIR__, modelName)
+workdir = joinpath(@__DIR__, modelName*"_$(N)")
 
-main(modelName, moFiles; workdir=joinpath(pwd(),modelName), reuseArtifacts=true, clean=false, N=10000)
+main(modelName, moFiles; workdir=workdir, reuseArtifacts=true, clean=false, N=N)
 
-dict = BSON.load("IEEE_14_Buses/profilingInfo.bson")
+dict = BSON.load(joinpath(workdir, "profilingInfo.bson"))
 profilingInfo = Array{ProfilingInfo}(dict[first(keys(dict))])
 
 # Train ONNX

@@ -39,6 +39,24 @@ void evalResiduum(resFunction f, void* userData, struct OrtWrapperData* ortData)
 }
 
 /**
+ * @brief Euclidean vector norm.
+ *
+ *  sqrt(x_1^2 + ... + x_n^2)
+ *
+ * @param vec       Vector to compute norm for.
+ * @param length    Length of vector vec.
+ * @return double   Norm of vector vec.
+ */
+double norm(double* vec, size_t length) {
+  double norm = 0;
+  for(size_t i=0; i<length; i++) {
+    norm += vec[i]*vec[i];
+  }
+
+  return sqrt(norm);
+}
+
+/**
  * @brief Print residuum values to stdout.
  *
  * @param id        Equation number of non-linear system.
@@ -60,8 +78,10 @@ void printResiduum(unsigned int id, double time, struct OrtWrapperData* ortData)
  * @param time      Simulation time.
  * @param ortData   Pointer to ortData with residuum.
  */
-void writeResiduum(double time, struct OrtWrapperData* ortData) {
+void writeResiduum(double time, double rel_error, double res_norm, struct OrtWrapperData* ortData) {
   fprintf(ortData->csvFile, "%f,", time);
+  fprintf(ortData->csvFile, "%f,", rel_error);
+  fprintf(ortData->csvFile, "%f,", res_norm);
   for(int i = 0; i < ortData->nRes-1; i++) {
     fprintf(ortData->csvFile, "%e,", ortData->res[i]);
   }
