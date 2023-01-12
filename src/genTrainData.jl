@@ -19,58 +19,16 @@
 
 include("fmiExtensions.jl")
 
-"""
-    generateTrainingData(fmuPath::String,
-                         fname::String,
-                         eqId::Int64,
-                         inputVars::Array{String},
-                         min::AbstractVector{T}
-                         max::AbstractVector{T},
-                         outputVars::Array{String};
-                         N::Integer=1000) where T <: Number
 
-Generate training data for given equation of FMU.
-
-Generate random inputs between `min` and `max`, evalaute equation and compute output.
-All input-output pairs are saved in `fname`.
-
-# Arguments
-  - `fmuPath::String`:                Path to FMU.
-  - `fname::String`:                  File name to save training data to.
-  - `eqId::Int64`:                    Index of equation to generate training data for.
-  - `inputVars::Array{String}`:       Array with names of input variables.
-  - `min::AbstractVector{T}`:         Array with minimum value for each input variable.
-  - `max::AbstractVector{T}`:         Array with maximum value for each input variable.
-  - `outputVars::Array{String}`:      Array with names of output variables.
-
-# Keywords
-  - `N::Integer = 1000`: Number of input-output pairs to generate.
-
-See also [`generateFMU`](@ref), [`generateFMU`](@ref).
-"""
-function generateTrainingData(fmuPath::String,
-                              fname::String,
-                              eqId::Int64,
-                              inputVars::Array{String},
-                              min::AbstractVector{T},
-                              max::AbstractVector{T},
-                              outputVars::Array{String};
-                              N::Integer=1000,
-                              append::Bool=false) where T <: Number
-  #ENV["JULIA_DEBUG"] = "FMICore"
-
-  # Handle time input variable
-  usesTime = false
-  local timeValues
-  loc = findall(elem->elem=="time", inputVars)
-  if length(loc) >= 1
-    usesTime = true
-    loc = first(loc)
-    timeValues = sort((max[loc]-min[loc]).*rand(N) .+ min[loc])
-    deleteat!(inputVars, loc)
-    deleteat!(min, loc)
-    deleteat!(max, loc)
-  end
+function simulateFMU(fmuPath::String,
+                     fname::String,
+                     eqId::Int64,
+                     inputVars::Array{String},
+                     min::AbstractVector{T},
+                     max::AbstractVector{T},
+                     outputVars::Array{String},
+                     usesTime::Bool;
+                     N::Integer = 1000) where T <: Number
 
   nInputs = length(inputVars)
   nOutputs = length(outputVars)
@@ -81,7 +39,7 @@ function generateTrainingData(fmuPath::String,
   # Create empty data frame
   col_names = Symbol.(vcat(inputVars, outputVars))
   col_types = fill(Float64, nVars)
-  named_tuple = NamedTuple{Tuple(col_names)}(type[] for type in col_types )
+  named_tuple = NamedTuple{Tuple(col_names)}(type[] for type in col_types)
   df = DataFrames.DataFrame(named_tuple)
 
   local fmu
@@ -132,6 +90,84 @@ function generateTrainingData(fmuPath::String,
     DataFrames.insertcols!(df, 1, :time => timeValues)
   end
   mkpath(dirname(fname))
-  CSV.write(fname, df, append=append)
+  CSV.write(fname, df)
+end
+
+
+"""
+    generateTrainingData(fmuPath, workDir, fname, eqId, inputVars, min max, outputVars;
+                         N=1000, nthreads=1, append=false)
+
+Generate training data for given equation of FMU.
+
+Generate random inputs between `min` and `max`, evalaute equation and compute output.
+All input-output pairs are saved in `fname`.
+
+# Arguments
+  - `fmuPath::String`:                Path to FMU.
+  - `workDir::String`:                Working directory for generateTrainingData.
+  - `fname::String`:                  File name to save training data to.
+  - `eqId::Int64`:                    Index of equation to generate training data for.
+  - `inputVars::Array{String}`:       Array with names of input variables.
+  - `min::AbstractVector{T}`:         Array with minimum value for each input variable.
+  - `max::AbstractVector{T}`:         Array with maximum value for each input variable.
+  - `outputVars::Array{String}`:      Array with names of output variables.
+
+# Keywords
+  - `N::Integer = 1000`: Number of input-output pairs to generate.
+  - `nthreads::Integer = 1`: Number of threads to use to generate data in parallel.
+  - `append::Bool=false`: Append to existing CSV file `fname` if true.
+
+See also [`generateFMU`](@ref), [`generateFMU`](@ref).
+"""
+function generateTrainingData(fmuPath::String,
+                              workDir::String,
+                              fname::String,
+                              eqId::Int64,
+                              inputVars::Array{String},
+                              min::AbstractVector{T},
+                              max::AbstractVector{T},
+                              outputVars::Array{String};
+                              N::Integer = 1000,
+                              nthreads::Integer = 1,
+                              append::Bool=false) where T <: Number
+  #ENV["JULIA_DEBUG"] = "FMICore"
+
+  # Handle time input variable
+  usesTime = false
+  local timeValues
+  loc = findall(elem->elem=="time", inputVars)
+  if length(loc) >= 1
+    usesTime = true
+    loc = first(loc)
+    timeValues = sort((max[loc]-min[loc]).*rand(N) .+ min[loc])
+    deleteat!(inputVars, loc)
+    deleteat!(min, loc)
+    deleteat!(max, loc)
+  end
+
+  if Threads.nthreads() < nthreads
+    @warn "Not enough threads available to generate data for $(nthreads) threads."
+  end
+
+  perThread = Integer(ceil(N / nthreads))
+  Threads.@threads for i = 1:nthreads
+    tempCsvFile = joinpath(workDir, "trainingData_eq_$(eqId)_tread_$(i).csv")
+    simulateFMU(fmuPath, tempCsvFile, eqId, inputVars, min, max, outputVars, usesTime; N=perThread)
+  end
+
+  # Combine CSV files
+  mkpath(dirname(fname))
+  for i = 1:nthreads
+    tempCsvFile = joinpath(workDir, "trainingData_eq_$(eqId)_tread_$(i).csv")
+    df = CSV.read(tempCsvFile, DataFrames.DataFrame)
+    if i==1
+      CSV.write(fname, df; append=append)
+    else
+      CSV.write(fname, df; append=true)
+    end
+    rm(tempCsvFile);
+  end
+
   return fname
 end

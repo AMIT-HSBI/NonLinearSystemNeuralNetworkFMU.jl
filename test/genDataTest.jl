@@ -22,18 +22,20 @@ import NonLinearSystemNeuralNetworkFMU
 
 function runGenDataTest()
   pathToFMU = abspath(joinpath(@__DIR__, "fmus", "simpleLoop.interface.fmu"))
+  workDir = abspath(joinpath(@__DIR__, "data"))
   eqIndex = 14
   inputVars = ["s", "r"]
   outputVars = ["y"]
   min = [0.0, 0.95]
   max = [1.5, 3.15]
-  fileName = abspath(joinpath(@__DIR__, "data", "simpleLoop_eq14.csv"))
+  fileName = joinpath(workDir, "simpleLoop_eq14.csv")
   N = 100
 
-  NonLinearSystemNeuralNetworkFMU.generateTrainingData(pathToFMU, fileName,
+  NonLinearSystemNeuralNetworkFMU.generateTrainingData(pathToFMU, workDir, fileName,
                                                        eqIndex, inputVars,
                                                        min, max, outputVars;
-                                                       N = N)
+                                                       N = N,
+                                                       nthreads = 2)
 
   @test isfile(fileName)
   nLines = 0
