@@ -28,6 +28,7 @@ struct OrtWrapperData {
   OrtEnv* env;
   OrtSessionOptions* session_options;
   OrtSession* session;
+  size_t nInputs;                     /* Number of inputs */
   float* model_input;                 /* Input variables (used variables) */
   const char** input_names;           /* Names of input variables */
   float* model_output;                /* Output variables (iteration variables x) */
@@ -36,10 +37,15 @@ struct OrtWrapperData {
   OrtValue* input_tensor;
   OrtValue* output_tensor;
 
+  /* Residuum */
   double* x;                          /* Double version of model_output */
   double* res;                        /* Residuum f(x), x is model_output */
   size_t nRes;                        /* Length of arrays x and res */
   FILE * csvFile;                     /* Log file for residuum values */
+
+  /* Training area */
+  double* min;                        /* Minimum allowed values for model_input, size nInputs */
+  double* max;                        /* Maximum allowed values for model_input, size nInputs */
 };
 
 struct OrtWrapperData* initOrtData(const char* equationName, const char* pathToONNX, const char* modelName, unsigned int nInputs, unsigned int nOutputs, const char* input_name, const char* output_name);

@@ -30,8 +30,7 @@ typedef void (*resFunction)(void*, const double*, double*, const int*);
 
 /* Function prototypes */
 void evalResiduum(resFunction f, void* userData, struct OrtWrapperData* ortData);
-double norm(double* vec, size_t length);
 void printResiduum(unsigned int id, double time, struct OrtWrapperData* ortData);
-void writeResiduum(double time, double rel_error, double res_norm, struct OrtWrapperData* ortData);
+double writeResiduum(double time, struct OrtWrapperData* ortData);
 
 #endif  // ERROR_CONTROL_H

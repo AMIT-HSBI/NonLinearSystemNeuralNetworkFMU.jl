@@ -55,7 +55,8 @@ function generateTrainingData(fmuPath::String,
                               min::AbstractVector{T},
                               max::AbstractVector{T},
                               outputVars::Array{String};
-                              N::Integer=1000) where T <: Number
+                              N::Integer=1000,
+                              append::Bool=false) where T <: Number
   #ENV["JULIA_DEBUG"] = "FMICore"
 
   # Handle time input variable
@@ -131,6 +132,6 @@ function generateTrainingData(fmuPath::String,
     DataFrames.insertcols!(df, 1, :time => timeValues)
   end
   mkpath(dirname(fname))
-  CSV.write(fname, df)
+  CSV.write(fname, df, append=append)
   return fname
 end

@@ -20,6 +20,8 @@
 #include "onnxWrapper.h"
 #include "errorControl.h"
 
+#include <math.h>
+
 /* Private function prototypes */
 void float2DoubleArray(const float* floatArray, double* doubleArray, const size_t len);
 
@@ -57,6 +59,27 @@ double norm(double* vec, size_t length) {
 }
 
 /**
+ * @brief Return 1 if vector x is inside bounds of min and max.
+ *
+ * @param x       Vector x.
+ * @param min     Array with minimum allowed values for x.
+ * @param max     Array with maximum allowed values for x.
+ * @param length  Length of arrays x, min, max.
+ * @return int    Return 1 if for all elements min[i]<x[i]<max[i] holds true.
+ *                Return 0 otherwise.
+ */
+int isInBounds(float* inputs, double* min, double* max, size_t length) {
+  int inBounds = 1;
+  for(size_t i=0; i<length; i++) {
+    if (inputs[i] <= min[i] || inputs[i] >= max[i]) {
+      inBounds = 0;
+      break;
+    }
+  }
+  return inBounds;
+}
+
+/**
  * @brief Print residuum values to stdout.
  *
  * @param id        Equation number of non-linear system.
@@ -75,17 +98,37 @@ void printResiduum(unsigned int id, double time, struct OrtWrapperData* ortData)
 /**
  * @brief Save residuum values to CSV file.
  *
+ * Checks if vector x was in bounds of min and max and saves boolean value to CSV file.
+ * Computes euclidean norm of residuum and relative error of residuum and saves those to
+ * CSV file as well.
+ *
  * @param time      Simulation time.
  * @param ortData   Pointer to ortData with residuum.
+ * @return          Return relative error rel_error.
  */
-void writeResiduum(double time, double rel_error, double res_norm, struct OrtWrapperData* ortData) {
+double writeResiduum(double time, struct OrtWrapperData* ortData) {
+
+  int inBounds = isInBounds(ortData->model_input, ortData->min, ortData->max, ortData->nInputs);
+
+  double res_norm = norm(ortData->res, ortData->nRes);
+  double norm_x = norm(ortData->x, ortData->nRes);
+  double rel_error = 0;
+  if(norm_x != 0) {
+    rel_error = res_norm / norm_x;
+  } else {
+    rel_error = res_norm;
+  }
+
   fprintf(ortData->csvFile, "%f,", time);
+  fprintf(ortData->csvFile, "%i,", inBounds);
   fprintf(ortData->csvFile, "%f,", rel_error);
   fprintf(ortData->csvFile, "%f,", res_norm);
   for(int i = 0; i < ortData->nRes-1; i++) {
     fprintf(ortData->csvFile, "%e,", ortData->res[i]);
   }
   fprintf(ortData->csvFile, "%e\n", ortData->res[ortData->nRes-1]);
+
+  return rel_error;
 }
 
 /**

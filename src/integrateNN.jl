@@ -23,7 +23,7 @@ struct Mapping
   #type::String
 end
 
-function ortDataCode(equations::AbstractArray, modelName::String, onnxNames::Array{String})
+function ortDataCode(equations::Array{ProfilingInfo}, modelName::String, onnxNames::Array{String})
   resPrototypes = ""
   ortstructs = ""
   initCalls = ""
@@ -43,6 +43,11 @@ function ortDataCode(equations::AbstractArray, modelName::String, onnxNames::Arr
     initCalls *= """
         snprintf(onnxPath, 2048, "%s/%s", data->modelData->resourcesDir, \"$(onnxName)\");
         ortData_eq_$(eq.eqInfo.id) = initOrtData(\"$(modelName)_eq$(eq.eqInfo.id)\", onnxPath, \"$modelName\", $nInputs, $nOutputs, \"$input_name\", \"$output_name\");
+        ortData_eq_$(eq.eqInfo.id)->nInputs = $nInputs;
+        double min_$(eq.eqInfo.id)[$nInputs] = {$(string(eq.boundary.min)[2:end-1])};
+        memcpy(ortData_eq_$(eq.eqInfo.id)->min, min_$(eq.eqInfo.id), $nInputs);
+        double max_$(eq.eqInfo.id)[$nInputs] = {$(string(eq.boundary.max)[2:end-1])};
+        memcpy(ortData_eq_$(eq.eqInfo.id)->max, max_$(eq.eqInfo.id), $nInputs);
       """
     deinitCalls *= "  deinitOrtData(ortData_eq_$(eq.eqInfo.id));"
     if i < nEq
@@ -150,17 +155,12 @@ function generateNNCall(modelname::String, modelDescriptionXmlFile::String, equa
         /* Evaluate residuals */
         RESIDUAL_USERDATA userData = {data, threadData, NULL};
         evalResiduum(residualFunc$(equationToReplace.eqInfo.id), (void*) &userData, $ortData);
-        double norm_res = norm($ortData->res, $ortData->nRes);
-        double norm_x = norm($ortData->x, $ortData->nRes);
-        double rel_error = 0;
-        if(norm_x != 0) {
-          rel_error = norm_res / norm_x;
-        } else {
-          rel_error = norm_res;
-        }
 
         //printResiduum($(equationToReplace.eqInfo.id), data->localData[0]->timeValue, $ortData);
-        writeResiduum(data->localData[0]->timeValue, rel_error, norm_res, $ortData);
+        double rel_error = writeResiduum(data->localData[0]->timeValue, $ortData);
+        if (rel_error > 1e-1) {
+          goto GOTO_NLS_SOLVER_$(equationToReplace.eqInfo.id);
+        }
       } else {
         /* Set output variables */
         $outputVarBlock
@@ -209,6 +209,7 @@ function modifyCCode(modelName::String, fmuTmpDir::String, modelDescriptionXmlFi
     if(USE_JULIA) {
     $newpart
       } else {
+        GOTO_NLS_SOLVER_$(eqInfo.id):
         $oldpart
       }
     """
