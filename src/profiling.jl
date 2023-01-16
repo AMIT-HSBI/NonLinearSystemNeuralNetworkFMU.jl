@@ -35,28 +35,24 @@ Simulate Modelica model with profiling enabled using given omc.
 """
 function simulateWithProfiling(modelName::String,
                                moFiles::Array{String};
-                               pathToOmc::String="",
-                               workingDir::String=pwd(),
-                               outputFormat::String="mat",
-                               clean::Bool=false)
+                               options::Options=Options("", pwd(), "mat", false, false, nothing))
 
-  pathToOmc = getomc(pathToOmc)
+  pathToOmc = getomc(options.pathToOmc)
+  @assert options.outputFormat === "mat" || options.outputFormat === "csv"  "Output format has to be \"mat\" or \"csv\"."
 
-  @assert outputFormat === "mat" || outputFormat === "csv"  "Output format has to be \"mat\" or \"csv\"."
-
-  if !isdir(workingDir)
-    mkpath(workingDir)
-  elseif clean
-    rm(workingDir, force=true, recursive=true)
-    mkpath(workingDir)
+  if !isdir(options.workingDir)
+    mkpath(options.workingDir)
+  elseif options.clean
+    rm(options.workingDir, force=true, recursive=true)
+    mkpath(options.workingDir)
   end
 
   if Sys.iswindows()
     pathToMo = replace.(moFiles, "\\"=> "\\\\")
-    workingDir = replace(workingDir, "\\"=> "\\\\")
+    options.workingDir = replace(options.workingDir, "\\"=> "\\\\")
   end
 
-  logFilePath = joinpath(workingDir,"calls.log")
+  logFilePath = joinpath(options.workingDir,"calls.log")
   logFile = open(logFilePath, "w")
 
   local omc
@@ -77,16 +73,16 @@ function simulateWithProfiling(modelName::String,
       msg = OMJulia.sendExpression(omc, "getErrorString()")
       write(logFile, msg*"\n")
     end
-    OMJulia.sendExpression(omc, "cd(\"$(workingDir)\")")
+    OMJulia.sendExpression(omc, "cd(\"$(options.workingDir)\")")
 
     @debug "setCommandLineOptions"
-    msg = OMJulia.sendExpression(omc, "setCommandLineOptions(\"-d=newInst,infoXmlOperations,backenddaeinfo --profiling=all\")")
+    msg = OMJulia.sendExpression(omc, "setCommandLineOptions(\"-d=newInst,infoXmlOperations,backenddaeinfo --profiling=all "*options.simulationSettings*"\")")
     write(logFile, string(msg)*"\n")
     msg = OMJulia.sendExpression(omc, "getErrorString()")
     write(logFile, msg*"\n")
 
     @debug "simulate"
-    msg = OMJulia.sendExpression(omc, "simulate($(modelName), outputFormat=\"$(outputFormat)\", simflags=\"-lv=LOG_STATS -clock=RT -cpu -w\")")
+    msg = OMJulia.sendExpression(omc, "simulate($(modelName), outputFormat=\"$(options.outputFormat)\", simflags=\"-lv=LOG_STATS -clock=RT -cpu -w\")")
     write(logFile, msg["messages"]*"\n")
     msg = OMJulia.sendExpression(omc, "getErrorString()")
     write(logFile, msg*"\n")
@@ -98,9 +94,9 @@ function simulateWithProfiling(modelName::String,
     OMJulia.sendExpression(omc, "quit()", parsed=false)
   end
 
-  profJsonFile = abspath(joinpath(workingDir, modelName*"_prof.json"))
-  infoJsonFile = abspath(joinpath(workingDir, modelName*"_info.json"))
-  resultFile = abspath(joinpath(workingDir, modelName*"_res."*outputFormat))
+  profJsonFile = abspath(joinpath(options.workingDir, modelName*"_prof.json"))
+  infoJsonFile = abspath(joinpath(options.workingDir, modelName*"_info.json"))
+  resultFile = abspath(joinpath(options.workingDir, modelName*"_res."*options.outputFormat))
   if !(isfile(profJsonFile) && isfile(infoJsonFile) && isfile(resultFile))
     throw(OpenModelicaError("Simulation failed, no files generated.", abspath(logFilePath)))
   end
@@ -335,16 +331,15 @@ Find equations of Modelica model that are slower then threashold.
 """
 function profiling(modelName::String,
                    moFiles::Array{String};
-                   pathToOmc::String="",
-                   workingDir::String=pwd(),
+                   options::Options=Options("", pwd(), nothing, false, true, nothing),
                    threshold=0.01,
                    ignoreInit::Bool=true)::Vector{ProfilingInfo}
 
-  omcWorkingDir = abspath(joinpath(workingDir, modelName))
+  omcWorkingDir = abspath(joinpath(options.workingDir, modelName))
+  options.workingDir = omcWorkingDir
   (profJsonFile, infoJsonFile, _) = simulateWithProfiling(modelName,
                                                           moFiles;
-                                                          pathToOmc = pathToOmc,
-                                                          workingDir = omcWorkingDir)
+                                                          options)
 
   slowestEqs = findSlowEquations(profJsonFile, infoJsonFile; threshold=threshold, ignoreInit=ignoreInit)
 
@@ -356,7 +351,7 @@ function profiling(modelName::String,
   end
 
   allUsedVars = unique(vcat([prof.usingVars for prof in profilingInfo]...))
-  (allMin, allMax) = minMaxValuesReSim(allUsedVars, modelName, moFiles, workingDir=workingDir)
+  (allMin, allMax) = minMaxValuesReSim(allUsedVars, modelName, moFiles; options)
   for prof in profilingInfo
     idx = findall(elem -> elem in prof.usingVars, allUsedVars)
     prof.boundary.min .= allMin[idx]
@@ -390,17 +385,16 @@ See also [`profiling`](@ref).
 function minMaxValuesReSim(vars::Array{String},
                            modelName::String,
                            moFiles::Array{String};
-                           pathToOmc::String="",
-                           workingDir::String=pwd())::Tuple{Array{Float64},Array{Float64}}
+                           options::Options=Options("", pwd(), nothing, nothing, nothing, nothing))::Tuple{Array{Float64},Array{Float64}}
 
   # FIXME don't simulate twice and use mat instead
   # But the MAT.jl doesn't work with v4 mat files.....
-  omcWorkingDir = abspath(joinpath(workingDir, modelName))
+  omcWorkingDir = abspath(joinpath(options.workingDir, modelName))
+  options.workingDir = omcWorkingDir
+  options.outputFormat = "csv"
   (_,_,result_file_csv) = simulateWithProfiling(modelName,
-                                                moFiles,
-                                                pathToOmc=pathToOmc,
-                                                workingDir = omcWorkingDir,
-                                                outputFormat="csv")
+                                                moFiles;
+                                                options)
   (min, max) = minMaxValues(result_file_csv, vars)
 
   return (min, max)

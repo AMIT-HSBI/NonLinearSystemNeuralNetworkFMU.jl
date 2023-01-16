@@ -112,25 +112,23 @@ See also [`addEqInterface2FMU`](@ref), [`generateTrainingData`](@ref).
 """
 function generateFMU(modelName::String,
                      moFiles::Array{String};
-                     pathToOmc::String="",
-                     workingDir::String=pwd(),
-                     clean::Bool = false)
+                     options::Options)
 
-  pathToOmc = getomc(pathToOmc)
+  pathToOmc = getomc(options.pathToOmc)
 
-  if !isdir(workingDir)
-    mkpath(workingDir)
-  elseif clean
-    rm(workingDir, force=true, recursive=true)
-    mkpath(workingDir)
+  if !isdir(options.workingDir)
+    mkpath(options.workingDir)
+  elseif options.clean
+    rm(options.workingDir, force=true, recursive=true)
+    mkpath(options.workingDir)
   end
 
   if Sys.iswindows()
     moFiles::Array{String} = replace.(moFiles::Array{String}, "\\"=> "\\\\")
-    workingDir = replace(workingDir, "\\"=> "\\\\")
+    options.workingDir = replace(options.workingDir, "\\"=> "\\\\")
   end
 
-  logFilePath = joinpath(workingDir,"callsFMI.log")
+  logFilePath = joinpath(options.workingDir,"callsFMI.log")
   logFile = open(logFilePath, "w")
 
   local omc
@@ -148,10 +146,10 @@ function generateFMU(modelName::String,
         throw(OpenModelicaError("Failed to load file $(file)!", abspath(logFilePath)))
       end
     end
-    OMJulia.sendExpression(omc, "cd(\"$(workingDir)\")")
+    OMJulia.sendExpression(omc, "cd(\"$(options.workingDir)\")")
 
     @debug "setCommandLineOptions"
-    msg = OMJulia.sendExpression(omc, "setCommandLineOptions(\"-d=newInst --fmiFilter=internal --fmuCMakeBuild=true --fmuRuntimeDepends=modelica\")")
+    msg = OMJulia.sendExpression(omc, "setCommandLineOptions(\"-d=newInst --fmiFilter=internal --fmuCMakeBuild=true --fmuRuntimeDepends=modelica "*options.simulationSettings*"\")")
     write(logFile, string(msg)*"\n")
     msg = OMJulia.sendExpression(omc, "getErrorString()")
     write(logFile, msg*"\n")
@@ -169,11 +167,11 @@ function generateFMU(modelName::String,
     OMJulia.sendExpression(omc, "quit()",parsed=false)
   end
 
-  if !isfile(joinpath(workingDir, modelName*".fmu"))
+  if !isfile(joinpath(options.workingDir, modelName*".fmu"))
     throw(OpenModelicaError("Could not generate FMU!", abspath(logFilePath)))
   end
 
-  return joinpath(workingDir, modelName*".fmu")
+  return joinpath(options.workingDir, modelName*".fmu")
 end
 
 

@@ -164,6 +164,40 @@ function Base.showerror(io::IO, e::OpenModelicaError)
 end
 
 """
+    Options <: Any
+
+Collection of optional settings for profiling and simulation.
+"""
+mutable struct Options
+  "Path to omc used for simulating the model."
+  pathToOmc::Union{String,Nothing,Missing}
+  "Working directory for omc. Defaults to the current directory."
+  workingDir::Union{String,Nothing,Missing}
+  """Output format for result file. Can be `"mat"` or `"csv"`."""
+  outputFormat::Union{String,Nothing,Missing}
+  "Use artifacts to skip already performed steps if true."
+  reuseArtifacts::Union{Bool,Nothing,Missing}
+  "Remove everything in `workingDir` when set to `true`."
+  clean::Union{Bool,Nothing,Missing}
+  "Disable creation of CSE variables when set to `true`."
+  disableCSE::Union{Bool,Nothing,Missing}
+  "Add simulation settings in `setCommandLineOptions`."
+  simulationSettings::Union{String,Nothing,Missing}
+
+  # Constructor
+  function Options(pathToOmc::Union{String,Nothing,Missing}, workingDir::Union{String,Nothing,Missing}, outputFormat::Union{String,Nothing,Missing}, reuseArtifacts::Union{Bool,Nothing,Missing}, clean::Union{Bool,Nothing,Missing}, disableCSE::Union{Bool,Nothing,Missing})
+    if disableCSE == true
+      simulationSettings = "--preOptModules-=wrapFunctionCalls --postOptModules-=wrapFunctionCalls"
+      new(pathToOmc, workingDir, outputFormat, reuseArtifacts, clean, disableCSE, simulationSettings)
+    else
+      simulationSettings = ""
+      new(pathToOmc, workingDir, outputFormat, reuseArtifacts, clean, disableCSE, simulationSettings)
+    end
+  end
+
+end
+
+"""
     getUsingVars(bsonFile, eqNumber)
 
 # Arguments
