@@ -1,7 +1,7 @@
 # $ nohup time julia --threads auto -e "include(\"IEEE_14_Buses.jl\");" &
 # Run julia with --threads auto
 
-#using Revise
+using Revise
 using BSON
 using CSV
 using DataFrames
@@ -13,13 +13,13 @@ using NonLinearSystemNeuralNetworkFMU
 
 cd(@__DIR__)
 
-N = 20000
+N = 100000
 
 modelName = "IEEE_14_Buses"
 moFiles = ["IEEE_14_Buses.mo"]
 workdir = joinpath(@__DIR__, modelName*"_$(N)")
 
-main(modelName, moFiles; workdir=workdir, reuseArtifacts=false, clean=false, N=N)
+#@time main(modelName, moFiles; workdir=workdir, reuseArtifacts=true, clean=false, N=N)
 
 dict = BSON.load(joinpath(workdir, "profilingInfo.bson"))
 profilingInfo = Array{ProfilingInfo}(dict[first(keys(dict))])
@@ -28,7 +28,7 @@ fmu_interface = joinpath(workdir, modelName*".interface.fmu")
 # Generate Data
 @info "Generate training data"
 csvFiles = String[]
-for prof in profilingInfo
+for (i,prof) in enumerate(profilingInfo)
   eqIndex = prof.eqInfo.id
   inputVars = prof.usingVars
   outputVars = prof.iterationVariables
@@ -36,7 +36,9 @@ for prof in profilingInfo
   maxBoundary = prof.boundary.max
 
   fileName = abspath(joinpath(workdir, "data", "eq_$(prof.eqInfo.id).csv"))
-  csvFile = generateTrainingData(fmu_interface, fileName, eqIndex, inputVars, minBoundary, maxBoundary, outputVars; N = 4000)
+  tempDir = joinpath(workdir, "temp-data")
+  N_tmp = i==1 ? N : min(4000,N)
+  csvFile = generateTrainingData(fmu_interface, tempDir, fileName, eqIndex, inputVars, minBoundary, maxBoundary, outputVars; N = N_tmp)
   push!(csvFiles, csvFile)
 end
 
@@ -47,7 +49,7 @@ for (i, prof) in enumerate(profilingInfo)
   push!(onnxFiles, onnxModel)
   nInputs = length(prof.usingVars)
   csvFile = joinpath(workdir, "data", "eq_$(prof.eqInfo.id).csv")
-  epochs = i==1 ? 10000 : 100
+  epochs = i==1 ? 10000 : 1000
   @showtime trainONNX(csvFile, onnxModel, nInputs; nepochs=epochs, losstol=1e-8)
 end
 
@@ -77,19 +79,30 @@ finally
   close(out)
   close(err)
 end
+=#
 
+#=
+resultFile = joinpath(@__DIR__, "IEEE_14_Buses_10000/", "model_res.csv")
 allUsedVars = unique(vcat([prof.usingVars for prof in profilingInfo]...))
-(allMin, allMax) = NonLinearSystemNeuralNetworkFMU.minMaxValues(joinpath(workdir, resultFile), allUsedVars; epsilon=0.05)
+(allMin, allMax) = NonLinearSystemNeuralNetworkFMU.minMaxValues(resultFile, allUsedVars; epsilon=0.05)
 for prof in profilingInfo
   idx = findall(elem -> elem in prof.usingVars, allUsedVars)
 
   @info "Old min,max"
   @show prof.boundary.min, prof.boundary.max
-  prof.boundary.min .= allMin[idx]
-  prof.boundary.max .= allMax[idx]
+  for i in 1:length(prof.boundary.min)
+    if allMin[idx][i] < prof.boundary.min[i]
+      prof.boundary.min[i] = allMin[idx][i]
+    end
+    if allMax[idx][i] > prof.boundary.max[i]
+      prof.boundary.max[i] = allMax[idx][i]
+    end
+  end
   @info "New min,max"
   @show prof.boundary.min, prof.boundary.max
 end
+mkpath(dirname(joinpath(workdir, "profilingInfo.bson")))
+BSON.@save joinpath(workdir, "profilingInfo.bson") profilingInfo
 
 # Generate more trainng data
 for prof in profilingInfo[1:1]

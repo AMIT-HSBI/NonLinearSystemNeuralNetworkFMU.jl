@@ -70,7 +70,7 @@ function runIncludeOnnxTests()
 
   @testset "Check results" begin
     resultFile = joinpath(@__DIR__, "fmus", "model_onnx_res.csv")
-    df_res = CSV.read(resultFile, DataFrames.DataFrame)
+    df_res = CSV.read(resultFile, DataFrames.DataFrame; ntasks=1)
     @test maximum(abs.(df_res.x .- df_res.x_ref)) < 1e-2
     @test maximum(abs.(df_res.y .- df_res.y_ref)) < 1e-2
   end
