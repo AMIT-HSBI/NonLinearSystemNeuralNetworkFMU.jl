@@ -23,7 +23,7 @@ struct Mapping
   #type::String
 end
 
-function ortDataCode(equations::AbstractArray, modelName::String, onnxNames::Array{String})
+function ortDataCode(equations::Array{ProfilingInfo}, modelName::String, onnxNames::Array{String})
   ortstructs = ""
   initCalls = ""
   deinitCalls = ""
@@ -202,6 +202,7 @@ function modifyCMakeLists(path_to_cmakelists::String)
     newStr = str[1:id1] * EOL *
              """
              add_subdirectory(onnxWrapper)
+             set(CMAKE_BUILD_TYPE "RelWithDebInfo")
              """ *
              str[id1+1:end]
 

@@ -158,7 +158,10 @@ end
 function Base.showerror(io::IO, e::OpenModelicaError)
   println(io, e.msg)
   println(io, "Log file: ", e.logFile)
-  if isfile(e.logFile)
+  if e.logFile !== nothing && isfile(e.logFile)
+    println(io, "Printing log file: ", e.logFile)
     print(io, read(e.logFile, String))
+  else
+    println(io, "No log file")
   end
 end
