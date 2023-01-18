@@ -107,6 +107,7 @@ function main(modelName::String,
 
   # Data
   @info "Generate training data"
+  tempDir = joinpath(workdir, "temp-data")
   csvFiles = String[]
   for prof in profilingInfo
     eqIndex = prof.eqInfo.id
@@ -116,8 +117,12 @@ function main(modelName::String,
     maxBoundary = prof.boundary.max
 
     fileName = abspath(joinpath(workdir, "data", "eq_$(prof.eqInfo.id).csv"))
-    csvFile = generateTrainingData(fmu_interface, fileName, eqIndex, inputVars, minBoundary, maxBoundary, outputVars; N = N)
+    nBatches = 2*Threads.nthreads()
+    csvFile = generateTrainingData(fmu_interface, tempDir, fileName, eqIndex, inputVars, minBoundary, maxBoundary, outputVars; N = N, nBatches=nBatches)
     push!(csvFiles, csvFile)
+  end
+  if clean
+    rm(tempDir, force=true, recursive=true)
   end
 
   return csvFiles, fmu, profilingInfo
