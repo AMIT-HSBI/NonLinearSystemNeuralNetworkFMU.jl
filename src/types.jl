@@ -165,3 +165,66 @@ function Base.showerror(io::IO, e::OpenModelicaError)
     println(io, "No log file")
   end
 end
+
+"""
+    getUsingVars(bsonFile, eqNumber)
+
+# Arguments
+  - `bsonFile::String`:  name of the binary JSON file
+  - `eqNumber::Int`:  number of the slowest equation
+# Return:
+  - array of the using variables and length of the array
+"""
+function getUsingVars(bsonFile::String, eqNumber::Int)
+  # load BSON file
+  dict = BSON.load(bsonFile, @__MODULE__)
+  profilingInfo = Array{ProfilingInfo}(dict[first(keys(dict))])
+  # Find array element i with eqNumber
+  for i = 1:length(profilingInfo)
+    if profilingInfo[i].eqInfo.id == eqNumber
+      return profilingInfo[i].usingVars , length([profilingInfo[i].usingVars][i])
+    end
+  end
+end
+
+"""
+    getIterationVariables(bsonFile, eqNumber)
+
+# Arguments
+  - `bsonFile::String`:  name of the binary JSON file
+  - `eqNumber::Int`:  number of the slowest equation
+# Return:
+  - array of the iteration variables and length of the array
+"""
+function getIterationVariables(bsonFile::String, eqNumber::Int)
+  # load BSON file
+  dict = BSON.load(bsonFile, @__MODULE__)
+  profilingInfo = Array{ProfilingInfo}(dict[first(keys(dict))])
+  # Find array element i with eqNumber
+  for i = 1:length(profilingInfo)
+    if profilingInfo[i].eqInfo.id == eqNumber
+      return profilingInfo[i].iterationVariables , length([profilingInfo[i].iterationVariables][i])
+    end
+  end
+end
+
+"""
+    getInnerEquations(bsonFile, eqNumber)
+
+# Arguments
+  - `bsonFile::String`:  name of the binary JSON file
+  - `eqNumber::Int`:  number of the slowest equation
+# Return:
+  - array of the inner equations and length of the array
+"""
+function getInnerEquations(bsonFile::String, eqNumber::Int)
+  # load BSON file
+  dict = BSON.load(bsonFile, @__MODULE__)
+  profilingInfo = Array{ProfilingInfo}(dict[first(keys(dict))])
+  # Find array element i with eqNumber
+  for i = 1:length(profilingInfo)
+    if profilingInfo[i].eqInfo.id == eqNumber
+      return profilingInfo[i].innerEquations , length([profilingInfo[i].innerEquations][i])
+    end
+  end
+end

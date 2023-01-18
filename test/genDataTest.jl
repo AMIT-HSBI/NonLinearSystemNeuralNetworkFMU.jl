@@ -35,12 +35,12 @@ function runGenDataTest()
                                                        eqIndex, inputVars,
                                                        min, max, outputVars;
                                                        N = N,
-                                                       nthreads = 2)
+                                                       nBatches = 2)
 
   @test isfile(fileName)
   nLines = 0
   # Check if s,r,y solve algebraic loop
-  open(fileName,"r") do f
+  open(fileName, "r") do f
     @test readline(f) === "s,r,y"
     isequal = true
     while !eof(f) && isequal

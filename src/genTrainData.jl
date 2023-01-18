@@ -34,13 +34,14 @@ function simulateFMU(fmu,
   nInputs = length(inputVars)
   nOutputs = length(outputVars)
   nVars = nInputs+nOutputs
+  useTime = timeValues !== nothing
 
   @assert length(min) == length(max) == nInputs "Length of min, max and inputVars doesn't match"
 
   # Create empty data frame
   local col_names
   local col_types
-  if timeValues !== nothing
+  if useTime
     col_names = Symbol.(vcat("time", inputVars, outputVars))
     col_types = fill(Float64, nVars+1)
   else
@@ -69,16 +70,13 @@ function simulateFMU(fmu,
       # Set start values to 0?
       row[nInputs+1:end] .= 0.0
       FMIImport.fmi2SetReal(fmu, row_vr, row)
-      if timeValues !== nothing
+      if useTime
         FMIImport.fmi2SetTime(fmu, timeValues[i])
       end
 
       # Evaluate equation
-      # TODO: Suppressor is not thread safe
-      #local status
-      #Suppressor.@suppress begin
-        status = fmiEvaluateEq(fmu, eqId)
-      #end
+      # TODO: Supress stream prints, but Suppressor.jl is not thread safe
+      status = fmiEvaluateEq(fmu, eqId)
       if status != fmi2OK
         continue
       end
@@ -87,7 +85,7 @@ function simulateFMU(fmu,
       row[nInputs+1:end] .= FMIImport.fmi2GetReal(fmu, row_vr[nInputs+1:end])
 
       # Update data frame
-      if timeValues !== nothing
+      if useTime
         push!(df, vcat([timeValues[i]], row))
       else
         push!(df, row)
@@ -124,9 +122,9 @@ All input-output pairs are saved in `fname`.
   - `outputVars::Array{String}`:      Array with names of output variables.
 
 # Keywords
-  - `N::Integer = 1000`: Number of input-output pairs to generate.
-  - `nBatches::Integer = 1`: Number of batches to separate `N` into  to generate data in parallel.
-  - `append::Bool=false`: Append to existing CSV file `fname` if true.
+  - `N::Integer = 1000`:      Number of input-output pairs to generate.
+  - `nBatches::Integer = 1`:  Number of batches to separate `N` into  to generate data in parallel.
+  - `append::Bool=false`:     Append to existing CSV file `fname` if true.
 
 See also [`generateFMU`](@ref), [`generateFMU`](@ref).
 """
@@ -145,6 +143,8 @@ function generateTrainingData(fmuPath::String,
 
   N_perThread = Integer(ceil(N / nBatches))
 
+  inputVarsCopy = copy(inputVars)
+
   # Handle time input variable
   usesTime = false
   local allTimeValues
@@ -153,11 +153,12 @@ function generateTrainingData(fmuPath::String,
     usesTime = true
     loc = first(loc)
     allTimeValues = sort((max[loc]-min[loc]).*rand(N_perThread*nBatches) .+ min[loc])
-    deleteat!(inputVars, loc)
+    deleteat!(inputVarsCopy, loc)
     deleteat!(min, loc)
     deleteat!(max, loc)
   end
 
+  @info "Starting data generation on $(nBatches) batches."
   p = ProgressMeter.Progress(N; desc="Generating training data ...")
   local fmuBatch
   Suppressor.@suppress begin
@@ -169,7 +170,7 @@ function generateTrainingData(fmuPath::String,
     if usesTime
       timeValues = allTimeValues[(i-1)*N_perThread+1:(i*N_perThread)]
     end
-    simulateFMU(fmu, tempCsvFile, eqId, timeValues, inputVars, min, max, outputVars, p; N=N_perThread)
+    simulateFMU(fmu, tempCsvFile, eqId, timeValues, inputVarsCopy, min, max, outputVars, p; N=N_perThread)
   end
 
   # Combine CSV files
