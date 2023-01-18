@@ -20,6 +20,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(onnxWrapper)
+set(CMAKE_BUILD_TYPE "Debug")
 
 if(NOT DEFINED ENV{ORT_DIR} AND NOT DEFINED ORT_DIR)
   message(FATAL_ERROR "Environment variable ORT_DIR not set.")

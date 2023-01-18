@@ -85,17 +85,6 @@ function filterData(data_in, data_out)
   return (filtered_data_in, filtered_data_out)
 end
 
-#=
-function plotData(data_in, data_out)
-  s = [x[1] for x in data_in];
-  r = [x[2] for x in data_in];
-  y = [x[1] for x in data_out];
-  x = r.*s.-y
-
-  Plots.scatter(x,y, aspect_ratio=1.0)
-end
-=#
-
 """
     trainSurrogate!(model, dataloader, test_in, test_out, savename; losstol=1e-6, nepochs=100, eta=1e-3)
 

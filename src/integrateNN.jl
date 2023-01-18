@@ -45,9 +45,9 @@ function ortDataCode(equations::Array{ProfilingInfo}, modelName::String, onnxNam
         ortData_eq_$(eq.eqInfo.id) = initOrtData(\"$(modelName)_eq$(eq.eqInfo.id)\", onnxPath, \"$modelName\", $nInputs, $nOutputs, \"$input_name\", \"$output_name\");
         ortData_eq_$(eq.eqInfo.id)->nInputs = $nInputs;
         double min_$(eq.eqInfo.id)[$nInputs] = {$(string(eq.boundary.min)[2:end-1])};
-        memcpy(ortData_eq_$(eq.eqInfo.id)->min, min_$(eq.eqInfo.id), $nInputs);
+        memcpy(ortData_eq_$(eq.eqInfo.id)->min, min_$(eq.eqInfo.id), sizeof(double)*$nInputs);
         double max_$(eq.eqInfo.id)[$nInputs] = {$(string(eq.boundary.max)[2:end-1])};
-        memcpy(ortData_eq_$(eq.eqInfo.id)->max, max_$(eq.eqInfo.id), $nInputs);
+        memcpy(ortData_eq_$(eq.eqInfo.id)->max, max_$(eq.eqInfo.id), sizeof(double)*$nInputs);
       """
     deinitCalls *= "  deinitOrtData(ortData_eq_$(eq.eqInfo.id));"
     if i < nEq
