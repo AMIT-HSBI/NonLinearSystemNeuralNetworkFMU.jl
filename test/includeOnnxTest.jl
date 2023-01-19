@@ -17,10 +17,12 @@
 # along with NonLinearSystemNeuralNetworkFMU.jl. If not, see <http://www.gnu.org/licenses/>.
 #
 
+import CSV
+import DataFrames
 using FMI
+using NonLinearSystemNeuralNetworkFMU
 using Suppressor
 using Test
-using NonLinearSystemNeuralNetworkFMU
 
 function runIncludeOnnxTests()
   @assert haskey(ENV, "ORT_DIR") "Environamet variable `ORT_DIR` has to be set and point to ONNX Runtime directory for testing."
@@ -52,7 +54,7 @@ function runIncludeOnnxTests()
     workDir = joinpath(@__DIR__, "fmus")
     modelname = "simpleLoop"
     resultFile = "model_onnx_res.csv"
-    rm(joinpath(workDir,resultFile))
+    rm(joinpath(workDir,resultFile), force=true)
     logFile = joinpath(workDir, modelname*"_OMSimulator.log")
 
     cmd = `OMSimulator --resultFile=$resultFile "$(modelname).onnx.fmu"`
