@@ -29,7 +29,8 @@ function simulateFMU(fmu,
                      inMax::AbstractVector{T},
                      outputVars::Array{String},
                      p::ProgressMeter.Progress;
-                     N::Integer = 1000) where T <: Number
+                     N::Integer = 1000,
+                     delta::T = 1e-3) where T <: Number
 
   nInputs = length(inputVars)
   nOutputs = length(outputVars)
@@ -67,36 +68,79 @@ function simulateFMU(fmu,
     row = Array{Float64}(undef, nVars)
     row_vr = FMI.fmiStringToValueReference(fmu.modelDescription, vcat(inputVars,outputVars))
 
-    if useTime
-      # TODO time always increases, is this necessary
-      timeValues = sort((timeBounds[2]-timeBounds[1]).*rand(N-1) .+ timeBounds[1])
-    end
-    for i in 1:N
+    # Generate first point (try a few times)
+    found = false
+    for _ in 1:10
       # Set input values with random values
       row[1:nInputs] = (inMax.-inMin).*rand(nInputs) .+ inMin
       # Set start values to 0?
+      # TODO start values from Modelica attributes?
       row[nInputs+1:end] .= 0.0
       FMIImport.fmi2SetReal(fmu, row_vr, row)
       if useTime
-        FMIImport.fmi2SetTime(fmu, timeValues[i])
+        FMIImport.fmi2SetTime(fmu, timeBounds[1])
       end
 
       # Evaluate equation
-      # TODO: Supress stream prints, but Suppressor.jl is not thread safe
+      # TODO: Suppress stream prints, but Suppressor.jl is not thread safe
       status = fmiEvaluateEq(fmu, eqId)
-      if status != fmi2OK
-        continue
+
+      # Found a point: break
+      if status == fmi2OK
+        ProgressMeter.next!(p)
+        found = true
+        # Get output values
+        row[nInputs+1:end] .= FMIImport.fmi2GetReal(fmu, row_vr[nInputs+1:end])
+
+        # Update data frame
+        if useTime
+          push!(df, vcat([timeBounds[1]], row))
+        else
+          push!(df, row)
+        end
+        break
       end
-      ProgressMeter.next!(p)
+    end
 
-      # Get output values
-      row[nInputs+1:end] .= FMIImport.fmi2GetReal(fmu, row_vr[nInputs+1:end])
-
-      # Update data frame
+    if !found
+      @warn "No initial solution found"
+    else
+      # Generate remaining points by doing a random walk
+      timeValues = nothing
       if useTime
-        push!(df, vcat([timeValues[i]], row))
-      else
-        push!(df, row)
+        # TODO time always increases, is this necessary
+        timeValues = sort((timeBounds[2]-timeBounds[1]).*rand(N-1) .+ timeBounds[1])
+      end
+      for i in 1:N-1
+        # Move input values in random direction
+        row[1:nInputs] .+= (inMax.-inMin).*(2.0 .*rand(nInputs) .- 1.0).*delta
+        # Check bounds
+        row[1:nInputs] .= max.(row[1:nInputs], inMin)
+        row[1:nInputs] .= min.(row[1:nInputs], inMax)
+        # Keep start values from previous step
+        #row[nInputs+1:end] .= 0.0
+        FMIImport.fmi2SetReal(fmu, row_vr, row)
+        if useTime
+          FMIImport.fmi2SetTime(fmu, timeValues[i])
+        end
+
+        # Evaluate equation
+        # TODO: Supress stream prints, but Suppressor.jl is not thread safe
+        status = fmiEvaluateEq(fmu, eqId)
+        if status != fmi2OK
+          @warn "No solution found"
+          continue
+        end
+        ProgressMeter.next!(p)
+        # Get output values
+        row[nInputs+1:end] .= FMIImport.fmi2GetReal(fmu, row_vr[nInputs+1:end])
+
+        # Update data frame
+        if useTime
+          push!(df, vcat([timeValues[i]], row))
+        else
+          push!(df, row)
+        end
       end
     end
   catch err
