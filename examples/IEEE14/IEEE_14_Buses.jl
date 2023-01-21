@@ -6,9 +6,11 @@ using BSON
 using CSV
 using DataFrames
 using FMI
-using NaiveONNX
 
-import Pkg; Pkg.activate(joinpath(@__DIR__, "..", ".."))
+import Pkg
+Pkg.activate()
+using NaiveONNX
+Pkg.activate(joinpath(@__DIR__, "..", ".."))
 using NonLinearSystemNeuralNetworkFMU
 
 cd(@__DIR__)
