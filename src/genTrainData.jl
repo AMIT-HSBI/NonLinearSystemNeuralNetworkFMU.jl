@@ -72,7 +72,6 @@ function simulateFMU(fmu,
       timeValues = sort((timeBounds[2]-timeBounds[1]).*rand(N-1) .+ timeBounds[1])
     end
     for i in 1:N
-      ProgressMeter.next!(p)
       # Set input values with random values
       row[1:nInputs] = (inMax.-inMin).*rand(nInputs) .+ inMin
       # Set start values to 0?
@@ -88,6 +87,7 @@ function simulateFMU(fmu,
       if status != fmi2OK
         continue
       end
+      ProgressMeter.next!(p)
 
       # Get output values
       row[nInputs+1:end] .= FMIImport.fmi2GetReal(fmu, row_vr[nInputs+1:end])
@@ -168,7 +168,7 @@ function generateTrainingData(fmuPath::String,
   end
 
   @info "Starting data generation on $(nBatches) batches."
-  p = ProgressMeter.Progress(N; desc="Generating training data ...")
+  p = ProgressMeter.Progress(N_perThread*nBatches; desc="Generating training data ...")
   local fmuBatch
   Suppressor.@suppress begin
     fmuBatch = [(i, FMI.fmiLoad(fmuPath)) for i in 1:nBatches]
@@ -177,6 +177,7 @@ function generateTrainingData(fmuPath::String,
     tempCsvFile = joinpath(workDir, "trainingData_eq_$(eqId)_tread_$(i).csv")
     simulateFMU(fmu, tempCsvFile, eqId, timeBounds, inputVarsCopy, min, max, outputVars, p; N=N_perThread)
   end
+  ProgressMeter.finish!(p)
 
   # Combine CSV files
   mkpath(dirname(fname))
