@@ -25,8 +25,8 @@ function simulateFMU(fmu,
                      eqId::Int64,
                      timeBounds::Union{Tuple{T,T}, Nothing},
                      inputVars::Array{String},
-                     min::AbstractVector{T},
-                     max::AbstractVector{T},
+                     inMin::AbstractVector{T},
+                     inMax::AbstractVector{T},
                      outputVars::Array{String},
                      p::ProgressMeter.Progress;
                      N::Integer = 1000) where T <: Number
@@ -36,7 +36,7 @@ function simulateFMU(fmu,
   nVars = nInputs+nOutputs
   useTime = timeBounds !== nothing
 
-  @assert length(min) == length(max) == nInputs "Length of min, max and inputVars doesn't match"
+  @assert length(inMin) == length(inMax) == nInputs "Length of min, max and inputVars doesn't match"
 
   # Create empty data frame
   local col_names
@@ -74,7 +74,7 @@ function simulateFMU(fmu,
     for i in 1:N
       ProgressMeter.next!(p)
       # Set input values with random values
-      row[1:nInputs] = (max.-min).*rand(nInputs) .+ min
+      row[1:nInputs] = (inMax.-inMin).*rand(nInputs) .+ inMin
       # Set start values to 0?
       row[nInputs+1:end] .= 0.0
       FMIImport.fmi2SetReal(fmu, row_vr, row)
