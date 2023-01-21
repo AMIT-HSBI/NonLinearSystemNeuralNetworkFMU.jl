@@ -20,6 +20,30 @@
 include("fmiExtensions.jl")
 
 
+"""
+    simulateFMU(fmu, fname, eqId, timeBounds, inputVars, inMin, inMax, outputVars, p;
+                N = 1000, delta = 1e-3) where T <: Number
+
+Generate data points for given equation of FMU.
+
+Generate random inputs between `inMin` and `inMax`, evalaute equation and compute output.
+All input-output pairs are saved in `fname`.
+
+# Arguments
+  - `fmu`:                                    Instance of the FMU struct.
+  - `fname::String`:                          File name to save training data to.
+  - `eqId::Int64`:                            Index of equation to generate training data for.
+  - `timeBounds::Union{Tuple{T,T}, Nothing}`: Minimum and maximum for time if it is an input variable, otherwise `nothing`.
+  - `inputVars::Array{String}`:               Array with names of input variables.
+  - `inMin::AbstractVector{T}`:               Array with minimum value for each input variable.
+  - `inMax::AbstractVector{T}`:               Array with maximum value for each input variable.
+  - `outputVars::Array{String}`:              Array with names of output variables.
+  - `p::ProgressMeter.Progress`:              ProgressMeter to show computation progress.
+
+# Keywords
+  - `N::Integer = 1000`:   Number of input-output pairs to generate.
+  - `delta::T = 1e-3`:     Stepsize of random walk relative to the input space size
+"""
 function simulateFMU(fmu,
                      fname::String,
                      eqId::Int64,
@@ -155,7 +179,7 @@ end
 
 
 """
-    generateTrainingData(fmuPath, workDir, fname, eqId, inputVars, min max, outputVars;
+    generateTrainingData(fmuPath, workDir, fname, eqId, inputVars, min, max, outputVars;
                          N=1000, nBatches=1, append=false)
 
 Generate training data for given equation of FMU.
@@ -175,10 +199,10 @@ All input-output pairs are saved in `fname`.
 
 # Keywords
   - `N::Integer = 1000`:      Number of input-output pairs to generate.
-  - `nBatches::Integer = 1`:  Number of batches to separate `N` into  to generate data in parallel.
+  - `nBatches::Integer = 1`:  Number of batches to separate `N` into to generate data in parallel.
   - `append::Bool=false`:     Append to existing CSV file `fname` if true.
 
-See also [`generateFMU`](@ref), [`generateFMU`](@ref).
+See also [`generateFMU`](@ref).
 """
 function generateTrainingData(fmuPath::String,
                               workDir::String,
