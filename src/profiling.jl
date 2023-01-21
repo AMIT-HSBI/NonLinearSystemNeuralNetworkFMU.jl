@@ -48,7 +48,6 @@ function simulateWithProfiling(modelName::String,
   end
 
   if Sys.iswindows()
-    pathToMo = replace.(moFiles, "\\"=> "\\\\")
     options.workingDir = replace(options.workingDir, "\\"=> "\\\\")
   end
 
@@ -70,6 +69,9 @@ function simulateWithProfiling(modelName::String,
         throw(OpenModelicaError("Failed to load file $(file)!", abspath(logFilePath)))
       end
       write(logFile, string(msg)*"\n")
+      if !msg
+        throw(SimulationError("Failed to load file $(file)!", modelName, logFilePath))
+      end
       msg = OMJulia.sendExpression(omc, "getErrorString()")
       write(logFile, msg*"\n")
     end
@@ -86,9 +88,6 @@ function simulateWithProfiling(modelName::String,
     write(logFile, msg["messages"]*"\n")
     msg = OMJulia.sendExpression(omc, "getErrorString()")
     write(logFile, msg*"\n")
-  catch e
-    @error "Failed to simulate $modelName."
-    rethrow(e)
   finally
     close(logFile)
     OMJulia.sendExpression(omc, "quit()", parsed=false)
@@ -194,7 +193,7 @@ Read `infoFile` and return defined or used variables of equation with index `eqI
   - `definingVars::Array{String}`:  Variables defined by equation with index `eqIndex`.
   - `usingVars::Array{String}`:     Variables used by equation with index `eqIndex`.
 """
-function findUsedVars(infoFile, eqIndex; filterParameters::Bool = true)::Tuple{Array{String}, Array{String}}
+function findUsedVars(infoFile, eqIndex::Integer; filterParameters::Bool = true)::Tuple{Array{String}, Array{String}}
   equations = infoFile["equations"]
   eq = (equations[eqIndex+1])
   variables = infoFile["variables"]
@@ -280,6 +279,14 @@ function findDependentVars(jsonFile::String, eqIndex)::Tuple{Array{String}, Arra
 
   for v in vcat(innerVars, iterationVariables)
     deleteat!(usingVars, findall(x->x==v, usingVars))
+  end
+
+  # Move "time" to beginning of usingVars
+  loc = findall(elem->elem=="time", usingVars)
+  if length(loc) >= 1
+    loc = first(loc)
+    idx = vcat([loc], 1:loc-1, loc+1:length(usingVars))
+    usingVars .= usingVars[idx]
   end
 
   # Workaround for Windows until https://github.com/JuliaIO/JSON.jl/issues/347 is fixed.

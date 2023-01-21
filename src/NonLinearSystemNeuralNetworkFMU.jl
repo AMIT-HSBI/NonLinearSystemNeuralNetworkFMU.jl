@@ -38,6 +38,9 @@ include("types.jl")
 export EqInfo
 export ProfilingInfo
 export Options
+export getUsingVars
+export getIterationVariables
+export getInnerEquations
 include("util.jl")
 include("profiling.jl")
 export profiling
