@@ -170,22 +170,20 @@ Collection of optional settings for profiling and simulation.
 """
 mutable struct Options
   "Path to omc used for simulating the model."
-  pathToOmc::Union{String,Nothing,Missing}
+  pathToOmc::Union{String,Nothing}
   "Working directory for omc. Defaults to the current directory."
-  workingDir::Union{String,Nothing,Missing}
+  workingDir::Union{String,Nothing}
   """Output format for result file. Can be `"mat"` or `"csv"`."""
-  outputFormat::Union{String,Nothing,Missing}
+  outputFormat::Union{String,Nothing}
   "Use artifacts to skip already performed steps if true."
-  reuseArtifacts::Union{Bool,Nothing,Missing}
+  reuseArtifacts::Union{Bool,Nothing}
   "Remove everything in `workingDir` when set to `true`."
-  clean::Union{Bool,Nothing,Missing}
-  "Disable creation of CSE variables when set to `true`."
-  disableCSE::Union{Bool,Nothing,Missing}
+  clean::Union{Bool,Nothing}
   "Add simulation settings in `setCommandLineOptions`."
-  simulationSettings::Union{String,Nothing,Missing}
+  simulationSettings::Union{String,Nothing}
 
   # Constructor
-  function Options(pathToOmc::Union{String,Nothing,Missing}, workingDir::Union{String,Nothing,Missing}, outputFormat::Union{String,Nothing,Missing}, reuseArtifacts::Union{Bool,Nothing,Missing}, clean::Union{Bool,Nothing,Missing}, disableCSE::Union{Bool,Nothing,Missing})
+  function Options(pathToOmc::Union{String,Nothing}, workingDir::Union{String,Nothing}, outputFormat::Union{String,Nothing}, reuseArtifacts::Union{Bool,Nothing}, clean::Union{Bool,Nothing}, disableCSE::Union{Bool,Nothing})
     if disableCSE == true
       simulationSettings = "--preOptModules-=wrapFunctionCalls --postOptModules-=wrapFunctionCalls"
       new(pathToOmc, workingDir, outputFormat, reuseArtifacts, clean, disableCSE, simulationSettings)
