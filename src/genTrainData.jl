@@ -23,7 +23,7 @@ include("fmiExtensions.jl")
 function simulateFMU(fmu,
                      fname::String,
                      eqId::Int64,
-                     timeValues::Union{AbstractVector{T}, Nothing},
+                     timeBounds::Union{Tuple{T,T}, Nothing},
                      inputVars::Array{String},
                      min::AbstractVector{T},
                      max::AbstractVector{T},
@@ -34,7 +34,7 @@ function simulateFMU(fmu,
   nInputs = length(inputVars)
   nOutputs = length(outputVars)
   nVars = nInputs+nOutputs
-  useTime = timeValues !== nothing
+  useTime = timeBounds !== nothing
 
   @assert length(min) == length(max) == nInputs "Length of min, max and inputVars doesn't match"
 
@@ -55,7 +55,11 @@ function simulateFMU(fmu,
     # Load FMU and initialize
     FMI.fmiInstantiate!(fmu; loggingOn = false, externalCallbacks=false)
 
-    FMI.fmiSetupExperiment(fmu, 0.0, 1.0)
+    if useTime
+      FMI.fmiSetupExperiment(fmu, timeBounds[1], timeBounds[2])
+    else
+      FMI.fmiSetupExperiment(fmu)
+    end
     FMI.fmiEnterInitializationMode(fmu)
     FMI.fmiExitInitializationMode(fmu)
 
@@ -63,6 +67,10 @@ function simulateFMU(fmu,
     row = Array{Float64}(undef, nVars)
     row_vr = FMI.fmiStringToValueReference(fmu.modelDescription, vcat(inputVars,outputVars))
 
+    if useTime
+      # TODO time always increases, is this necessary
+      timeValues = sort((timeBounds[2]-timeBounds[1]).*rand(N-1) .+ timeBounds[1])
+    end
     for i in 1:N
       ProgressMeter.next!(p)
       # Set input values with random values
@@ -147,12 +155,13 @@ function generateTrainingData(fmuPath::String,
 
   # Handle time input variable
   usesTime = false
-  local allTimeValues
+  timeBounds = nothing
   loc = findall(elem->elem=="time", inputVars)
   if length(loc) >= 1
+    @assert length(loc) == 1 "time variable occurs more than once"
     usesTime = true
     loc = first(loc)
-    allTimeValues = sort((max[loc]-min[loc]).*rand(N_perThread*nBatches) .+ min[loc])
+    timeBounds = (min[loc], max[loc])
     deleteat!(inputVarsCopy, loc)
     deleteat!(min, loc)
     deleteat!(max, loc)
@@ -166,11 +175,7 @@ function generateTrainingData(fmuPath::String,
   end
   Threads.@threads for (i, fmu) in fmuBatch
     tempCsvFile = joinpath(workDir, "trainingData_eq_$(eqId)_tread_$(i).csv")
-    timeValues = nothing
-    if usesTime
-      timeValues = allTimeValues[(i-1)*N_perThread+1:(i*N_perThread)]
-    end
-    simulateFMU(fmu, tempCsvFile, eqId, timeValues, inputVarsCopy, min, max, outputVars, p; N=N_perThread)
+    simulateFMU(fmu, tempCsvFile, eqId, timeBounds, inputVarsCopy, min, max, outputVars, p; N=N_perThread)
   end
 
   # Combine CSV files
