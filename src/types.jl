@@ -17,6 +17,10 @@
 # along with NonLinearSystemNeuralNetworkFMU.jl. If not, see <http://www.gnu.org/licenses/>.
 #
 
+ #=
+ #   General types
+=#
+
 """
     EqInfo <: Any
 
@@ -107,6 +111,42 @@ function Base.show(io::IO, ::MIME"text/plain", profilingInfo::ProfilingInfo)
   Printf.@printf(io, "boundary: %s)", profilingInfo.boundary)
 end
 
+
+"""
+    Options <: Any
+
+Collection of optional settings for profiling and simulation.
+"""
+mutable struct Options
+  "Path to omc used for simulating the model."
+  pathToOmc::Union{String,Nothing}
+  "Working directory for omc. Defaults to the current directory."
+  workingDir::Union{String,Nothing}
+  """Output format for result file. Can be `"mat"` or `"csv"`."""
+  outputFormat::Union{String,Nothing}
+  "Use artifacts to skip already performed steps if true."
+  reuseArtifacts::Union{Bool,Nothing}
+  "Remove everything in `workingDir` when set to `true`."
+  clean::Union{Bool,Nothing}
+  "Add simulation settings in `setCommandLineOptions`."
+  simulationSettings::Union{String,Nothing}
+
+  # Constructor
+  function Options(pathToOmc::Union{String,Nothing}, workingDir::Union{String,Nothing}, outputFormat::Union{String,Nothing}, reuseArtifacts::Union{Bool,Nothing}, clean::Union{Bool,Nothing}, disableCSE::Union{Bool,Nothing})
+    if disableCSE == true
+      simulationSettings = "--preOptModules-=wrapFunctionCalls --postOptModules-=wrapFunctionCalls"
+      new(pathToOmc, workingDir, outputFormat, reuseArtifacts, clean, disableCSE, simulationSettings)
+    else
+      simulationSettings = ""
+      new(pathToOmc, workingDir, outputFormat, reuseArtifacts, clean, disableCSE, simulationSettings)
+    end
+  end
+end
+
+ #=
+ #   Error types
+=#
+
 """
 Program not found in PATH error.
 """
@@ -165,6 +205,10 @@ function Base.showerror(io::IO, e::OpenModelicaError)
     println(io, "No log file")
   end
 end
+
+ #=
+ #   Getter and setter functions
+=#
 
 """
     getUsingVars(bsonFile, eqNumber)
@@ -225,98 +269,6 @@ function getInnerEquations(bsonFile::String, eqNumber::Int)
   for i = 1:length(profilingInfo)
     if profilingInfo[i].eqInfo.id == eqNumber
       return profilingInfo[i].innerEquations , length([profilingInfo[i].innerEquations][i])
-    end
-  end
-end
-
-"""
-    Options <: Any
-
-Collection of optional settings for profiling and simulation.
-"""
-mutable struct Options
-  "Path to omc used for simulating the model."
-  pathToOmc::Union{String,Nothing}
-  "Working directory for omc. Defaults to the current directory."
-  workingDir::Union{String,Nothing}
-  """Output format for result file. Can be `"mat"` or `"csv"`."""
-  outputFormat::Union{String,Nothing}
-  "Use artifacts to skip already performed steps if true."
-  reuseArtifacts::Union{Bool,Nothing}
-  "Remove everything in `workingDir` when set to `true`."
-  clean::Union{Bool,Nothing}
-  "Add simulation settings in `setCommandLineOptions`."
-  simulationSettings::Union{String,Nothing}
-
-  # Constructor
-  function Options(pathToOmc::Union{String,Nothing}, workingDir::Union{String,Nothing}, outputFormat::Union{String,Nothing}, reuseArtifacts::Union{Bool,Nothing}, clean::Union{Bool,Nothing}, disableCSE::Union{Bool,Nothing})
-    if disableCSE == true
-      simulationSettings = "--preOptModules-=wrapFunctionCalls --postOptModules-=wrapFunctionCalls"
-      new(pathToOmc, workingDir, outputFormat, reuseArtifacts, clean, disableCSE, simulationSettings)
-    else
-      simulationSettings = ""
-      new(pathToOmc, workingDir, outputFormat, reuseArtifacts, clean, disableCSE, simulationSettings)
-    end
-  end
-
-end
-
-"""
-    getUsingVars(bsonFile, eqNumber)
-
-# Arguments
-    - `bsonFile::String`:  name of the binary JSON file
-    - `eqNumber::Int`:  number of the slowest equation
-# Return: array of the using variables and length of the array
-"""
-function getUsingVars(bsonFile::String, eqNumber::Int)
-  # load BSON file
-  dict = BSON.load(bsonFile)
-  profilingInfo = Array{ProfilingInfo}(dict[first(keys(dict))])
-  # Find array element i with eqNumber
-  for i = 1:length(profilingInfo)
-    if profilingInfo[i].eqInfo.id == eqNumber
-      return profilingInfo[i].usingVars , length([profilingInfo[i].usingVars][i])
-    end
-  end
-end
-
-"""
-    getIterationVariables(bsonFile, eqNumber)
-
-# Arguments
-    - `bsonFile::String`:  name of the binary JSON file
-    - `eqNumber::Int`:  number of the slowest equation
-# Return: array of the iteration variables and length of the array
-"""
-function getIterationVariables(bsonFile, eqNumber)
-  # load BSON file
-  dict = BSON.load(bsonFile)
-  profilingInfo = Array{ProfilingInfo}(dict[first(keys(dict))])
-  # Find array element i with eqNumber
-  for i = 1:length(profilingInfo)
-    if profilingInfo[i].eqInfo.id == eqNumber
-      return [profilingInfo[i].iterationVariables] , length([profilingInfo[i].iterationVariables][i])
-    end
-  end
-end
-
-"""
-    getInnerEquations(bsonFile, eqNumber)
-
-# Arguments
-    - `bsonFile::String`:  name of the binary JSON file
-    - `eqNumber::Int`:  number of the slowest equation
-# Return: array of the inner equations and length of the array
-"""
-function getInnerEquations(bsonFile, eqNumber)
-  # load BSON file
-  dict = BSON.load(bsonFile)
-  profilingInfo = Array{ProfilingInfo}(dict[first(keys(dict))])
-  # Find array element i with eqNumber
-  for i = 1:length(profilingInfo)
-    if profilingInfo[i].eqInfo.id == eqNumber
-      return [profilingInfo[i].innerEquations] , length([profilingInfo[i].innerEquations][i])
     end
   end
 end
