@@ -23,36 +23,26 @@
 Simulate Modelica model with profiling enabled using given omc.
 
 # Arguments
-- `modelName::String`:  Name of the Modelica model.
+- `modelName::String`:        Name of the Modelica model.
 - `moFiles::Array{String}`:   Path to the *.mo file(s) containing the model.
 
 # Keywords
-  - `pathToOmc::String=""`:       Path to omc used for simulating the model.
-                                  Use omc from `PATH`/`OPENMODELICAHOME` if nothing is provided.
-  - `workingDir::String=pwd()`:   Working directory for omc. Defaults to the current directory.
-  - `outputFormat::String="mat"`: Output format for result file. Can be `"mat"` or `"csv"`.
-  - `clean::Bool=false`:          Remove everything in `workingDir` when set to `true`.
+  - `options::OMOptions`:     Options for OpenModelica compiler.
 """
 function simulateWithProfiling(modelName::String,
                                moFiles::Array{String};
-                               pathToOmc::String="",
-                               workingDir::String=pwd(),
-                               outputFormat::String="mat",
-                               clean::Bool=false)
+                               options::OMOptions)
 
-  pathToOmc = getomc(pathToOmc)
-
-  @assert outputFormat === "mat" || outputFormat === "csv"  "Output format has to be \"mat\" or \"csv\"."
+  workingDir = options.workingDir
+  if Sys.iswindows()
+    workingDir = replace(options.workingDir, "\\"=> "\\\\")
+  end
 
   if !isdir(workingDir)
     mkpath(workingDir)
-  elseif clean
+  elseif options.clean
     rm(workingDir, force=true, recursive=true)
     mkpath(workingDir)
-  end
-
-  if Sys.iswindows()
-    workingDir = replace(workingDir, "\\"=> "\\\\")
   end
 
   logFilePath = joinpath(workingDir,"calls.log")
@@ -60,7 +50,7 @@ function simulateWithProfiling(modelName::String,
 
   local omc
   Suppressor.@suppress begin
-    omc = OMJulia.OMCSession(pathToOmc)
+    omc = OMJulia.OMCSession(options.pathToOmc)
   end
   try
     msg = OMJulia.sendExpression(omc, "getVersion()")
@@ -82,12 +72,13 @@ function simulateWithProfiling(modelName::String,
     OMJulia.sendExpression(omc, "cd(\"$(workingDir)\")")
 
     @debug "setCommandLineOptions"
-    msg = OMJulia.sendExpression(omc, "setCommandLineOptions(\"-d=newInst,infoXmlOperations,backenddaeinfo --profiling=all\")")
+    msg = OMJulia.sendExpression(omc, "setCommandLineOptions(\"-d=newInst,infoXmlOperations,backenddaeinfo --profiling=all " * options.commandLineOptions * "\")")
     write(logFile, string(msg)*"\n")
     msg = OMJulia.sendExpression(omc, "getErrorString()")
     write(logFile, msg*"\n")
 
     @debug "simulate"
+    outputFormat = options.outputFormat === Nothing ? "csv" : options.outputFormat
     msg = OMJulia.sendExpression(omc, "simulate($(modelName), outputFormat=\"$(outputFormat)\", simflags=\"-lv=LOG_STATS -clock=RT -cpu -w\")")
     write(logFile, msg["messages"]*"\n")
     msg = OMJulia.sendExpression(omc, "getErrorString()")
@@ -99,7 +90,7 @@ function simulateWithProfiling(modelName::String,
 
   profJsonFile = abspath(joinpath(workingDir, modelName*"_prof.json"))
   infoJsonFile = abspath(joinpath(workingDir, modelName*"_info.json"))
-  resultFile = abspath(joinpath(workingDir, modelName*"_res."*outputFormat))
+  resultFile = abspath(joinpath(workingDir, modelName*"_res."*options.outputFormat))
   if !(isfile(profJsonFile) && isfile(infoJsonFile) && isfile(resultFile))
     throw(OpenModelicaError("Simulation failed, no files generated.", abspath(logFilePath)))
   end
@@ -331,9 +322,7 @@ Find equations of Modelica model that are slower then threashold.
   - `moFiles::Array{String}`:   Path to the *.mo file(s) containing the model.
 
 # Keywords
-  - `pathToOm::String=""`:      Path to omc used for simulating the model.
-                                Use omc from PATH/OPENMODELICAHOME if nothing is provided.
-  - `workingDir::String=pwd()`: Working directory for omc. Defaults to the current directory.
+  - `options::OMOptions`:       Options for OpenModelica compiler.
   - `threshold=0.01`:           Slowest equations that need more then `threshold` of total simulation time.
   - `ignoreInit::Bool=true`:    Ignore equations from initialization system if `true`.
 
@@ -342,16 +331,13 @@ Find equations of Modelica model that are slower then threashold.
 """
 function profiling(modelName::String,
                    moFiles::Array{String};
-                   pathToOmc::String="",
-                   workingDir::String=pwd(),
-                   threshold=0.01,
-                   ignoreInit::Bool=true)::Vector{ProfilingInfo}
+                   options::OMOptions = OMOptions(workingDir=joinpath(pwd(), modelName, "temp-profiling"), outputFormat="csv"),
+                   threshold = 0.01,
+                   ignoreInit::Bool = true)::Vector{ProfilingInfo}
 
-  omcWorkingDir = abspath(joinpath(workingDir, modelName))
   (profJsonFile, infoJsonFile, _) = simulateWithProfiling(modelName,
                                                           moFiles;
-                                                          pathToOmc = pathToOmc,
-                                                          workingDir = omcWorkingDir)
+                                                          options)
 
   slowestEqs = findSlowEquations(profJsonFile, infoJsonFile; threshold=threshold, ignoreInit=ignoreInit)
 
@@ -363,7 +349,7 @@ function profiling(modelName::String,
   end
 
   allUsedVars = unique(vcat([prof.usingVars for prof in profilingInfo]...))
-  (allMin, allMax) = minMaxValuesReSim(allUsedVars, modelName, moFiles, workingDir=workingDir)
+  (allMin, allMax) = minMaxValuesReSim(allUsedVars, modelName, moFiles; options)
   for prof in profilingInfo
     idx = findall(elem -> elem in prof.usingVars, allUsedVars)
     prof.boundary.min .= allMin[idx]
@@ -397,17 +383,14 @@ See also [`profiling`](@ref).
 function minMaxValuesReSim(vars::Array{String},
                            modelName::String,
                            moFiles::Array{String};
-                           pathToOmc::String="",
-                           workingDir::String=pwd())::Tuple{Array{Float64},Array{Float64}}
+                           options::OMOptions)::Tuple{Array{Float64},Array{Float64}}
 
   # FIXME don't simulate twice and use mat instead
   # But the MAT.jl doesn't work with v4 mat files.....
-  omcWorkingDir = abspath(joinpath(workingDir, modelName))
+  @assert options.outputFormat == "csv" "minMaxValuesReSim() needs outputFormat=csv"
   (_,_,result_file_csv) = simulateWithProfiling(modelName,
-                                                moFiles,
-                                                pathToOmc=pathToOmc,
-                                                workingDir = omcWorkingDir,
-                                                outputFormat="csv")
+                                                moFiles;
+                                                options)
   (min, max) = minMaxValues(result_file_csv, vars)
 
   return (min, max)

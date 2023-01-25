@@ -17,6 +17,10 @@
 # along with NonLinearSystemNeuralNetworkFMU.jl. If not, see <http://www.gnu.org/licenses/>.
 #
 
+ #=
+ #   General types
+=#
+
 """
     EqInfo <: Any
 
@@ -107,6 +111,53 @@ function Base.show(io::IO, ::MIME"text/plain", profilingInfo::ProfilingInfo)
   Printf.@printf(io, "boundary: %s)", profilingInfo.boundary)
 end
 
+
+"""
+    OMOptions <: Any
+
+Settings for profiling and simulating with the OpenModelica Compiler (OMC).
+"""
+struct OMOptions
+  "Path to omc used for simulating the model."
+  pathToOmc::String
+  "Working directory for omc. Defaults to the current directory."
+  workingDir::String
+  """Output format for result file. Can be `"mat"` or `"csv"`."""
+  outputFormat::Union{String,Nothing}
+  "Remove everything in `workingDir` when set to `true`."
+  clean::Bool
+  "Additional comannd line options for `setCommandLineOptions`."
+  commandLineOptions::String
+
+  # Constructor
+  function OMOptions(;pathToOmc::String = "",
+                     workingDir::String = pwd(),
+                     outputFormat::Union{String,Nothing} = "csv",
+                     clean::Bool = false,
+                     commandLineOptions::String = "",
+                     disableCSE = true)
+
+    # Try to find omc executable
+    pathToOmc = getomc(pathToOmc)
+
+    # Assert output format
+    if outputFormat != "csv" && outputFormat != "mat" && outputFormat !== nothing
+      error("output format $(outputFormat) not supperted. Has to be \"csv\" or \"mat\".")
+    end
+
+    # Disable CSE variables in loops
+    if disableCSE
+      commandLineOptions *= " --preOptModules-=wrapFunctionCalls --postOptModules-=wrapFunctionCalls"
+    end
+
+    new(pathToOmc, workingDir, outputFormat, clean, commandLineOptions)
+  end
+end
+
+ #=
+ #   Error types
+=#
+
 """
 Program not found in PATH error.
 """
@@ -165,6 +216,10 @@ function Base.showerror(io::IO, e::OpenModelicaError)
     println(io, "No log file")
   end
 end
+
+ #=
+ #   Getter and setter functions
+=#
 
 """
     getUsingVars(bsonFile, eqNumber)

@@ -18,7 +18,7 @@
 #
 
 """
-    main(modelName, moFiles;  workdir=joinpath(pwd(),modelName), reuseArtifacts=false, N=1000)
+    main(modelName, moFiles;  options=OMOptions(workingDir=joinpath(pwd(), modelName)), reuseArtifacts=false, N=1000)
 
 Main routine to generate training data from Modelica file(s).
 Generate BSON artifacts and FMUs for each step. Artifacts can be re-used when restarting
@@ -32,10 +32,9 @@ generation for all non-linear equation systems of `modelName`.
   - `moFiles::Array{String}`: Path to .mo file(s).
 
 # Keywords
-  - `workingDir::String=pwd()`: Working directory for omc. Defaults to the current directory.
+  - `options::OMOptions`:       Settings for OpenModelcia compiler.
   - `reuseArtifacts=false`:     Use artifacts to skip already performed steps if true.
-  - `clean::Bool=true`:         Remove temporary working directories if true.
-  -`N=1000::Integer`:          Number of data points fto genreate or each non-linear equation system.
+  - `N=1000::Integer`:          Number of data points fto genreate or each non-linear equation system.
 
 # Returns
   - `csvFiles::Array{String}`:              Array of generate CSV files with training data.
@@ -47,49 +46,57 @@ See also [`profiling`](@ref), [`minMaxValuesReSim`](@ref), [`generateFMU`](@ref)
 """
 function main(modelName::String,
               moFiles::Array{String};
-              workdir=joinpath(pwd(),modelName)::String,
-              reuseArtifacts = false,
-              clean = true::Bool,
+              options::OMOptions = OMOptions(workingDir=joinpath(pwd(), modelName)),
+              reuseArtifacts::Bool = false,
               N=1000::Integer)
-  mkpath(workdir)
+
+  mkpath(options.workingDir)
 
   # Profiling and min-max values
-  tempDirProf = joinpath(workdir, "temp-profiling")
-  profilingInfoFile = joinpath(workdir, "profilingInfo.bson")
+  profilingInfoFile = joinpath(options.workingDir, "profilingInfo.bson")
+  profOptions = OMOptions(pathToOmc = options.pathToOmc,
+                          workingDir = joinpath(options.workingDir, "temp-profiling"),
+                          outputFormat = "csv",
+                          clean = options.clean,
+                          commandLineOptions = options.commandLineOptions)
   local profilingInfo
   if(reuseArtifacts && isfile(profilingInfoFile))
     @info "Reusing $profilingInfoFile"
     BSON.@load profilingInfoFile profilingInfo
   else
     @info "Profile $modelName"
-    profilingInfo = profiling(modelName, moFiles; threshold=0, workingDir=tempDirProf)
+    profilingInfo = profiling(modelName, moFiles; options=profOptions, threshold=0)
 
     BSON.@save profilingInfoFile profilingInfo
-    if clean
-      rm(tempDirProf, force=true, recursive=true)
+    if options.clean
+      rm(profOptions.workingDir, force=true, recursive=true)
     end
   end
 
   # FMU
-  tempDir = joinpath(workdir, "temp-fmu")
-  fmuFile = joinpath(workdir, modelName*".fmu")
+  genFmuOptions = OMOptions(pathToOmc = options.pathToOmc,
+                            workingDir = joinpath(options.workingDir, "temp-fmu"),
+                            outputFormat = nothing,
+                            clean = options.clean,
+                            commandLineOptions = options.commandLineOptions)
+  fmuFile = joinpath(options.workingDir, modelName*".fmu")
   local fmu
   if(reuseArtifacts && isfile(fmuFile))
     @info "Reusing $fmuFile"
     fmu = fmuFile
   else
     @info "Generate default FMU"
-    fmu = generateFMU(modelName, moFiles, workingDir=tempDir)
-    mv(fmu, joinpath(workdir, basename(fmu)), force=true)
-    fmu = joinpath(workdir, basename(fmu))
-    if clean
-      rm(tempDir, force=true, recursive=true)
+    fmu = generateFMU(modelName, moFiles, options=genFmuOptions)
+    mv(fmu, joinpath(options.workingDir, basename(fmu)), force=true)
+    fmu = joinpath(options.workingDir, basename(fmu))
+    if options.clean
+      rm(genFmuOptions.workingDir, force=true, recursive=true)
     end
   end
 
   # Extended FMU
-  tempDir = joinpath(workdir, "temp-extendfmu")
-  fmuFile = joinpath(workdir, modelName*".interface.fmu")
+  tempDir = joinpath(options.workingDir, "temp-extendfmu")
+  fmuFile = joinpath(options.workingDir, modelName*".interface.fmu")
   local fmu
   if(reuseArtifacts && isfile(fmuFile))
     @info "Reusing $fmuFile"
@@ -98,16 +105,16 @@ function main(modelName::String,
     @info "Generate extended FMU"
     allEqs = [prof.eqInfo.id for prof in profilingInfo]
     fmu_interface = addEqInterface2FMU(modelName, fmu, allEqs, workingDir=tempDir)
-    mv(fmu_interface, joinpath(workdir, basename(fmu_interface)), force=true)
-    fmu_interface = joinpath(workdir, basename(fmu_interface))
-    if clean
+    mv(fmu_interface, joinpath(options.workingDir, basename(fmu_interface)), force=true)
+    fmu_interface = joinpath(options.workingDir, basename(fmu_interface))
+    if options.clean
       rm(tempDir, force=true, recursive=true)
     end
   end
 
   # Data
   @info "Generate training data"
-  tempDir = joinpath(workdir, "temp-data")
+  tempDir = joinpath(options.workingDir, "temp-data")
   csvFiles = String[]
   for prof in profilingInfo
     eqIndex = prof.eqInfo.id
@@ -116,12 +123,12 @@ function main(modelName::String,
     minBoundary = prof.boundary.min
     maxBoundary = prof.boundary.max
 
-    fileName = abspath(joinpath(workdir, "data", "eq_$(prof.eqInfo.id).csv"))
+    fileName = abspath(joinpath(options.workingDir, "data", "eq_$(prof.eqInfo.id).csv"))
     nBatches = 2*Threads.nthreads()
     csvFile = generateTrainingData(fmu_interface, tempDir, fileName, eqIndex, inputVars, minBoundary, maxBoundary, outputVars; N = N, nBatches=nBatches)
     push!(csvFiles, csvFile)
   end
-  if clean
+  if options.clean
     rm(tempDir, force=true, recursive=true)
   end
 
