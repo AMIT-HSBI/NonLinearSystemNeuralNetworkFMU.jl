@@ -37,7 +37,7 @@ import XMLDict
 include("types.jl")
 export EqInfo
 export ProfilingInfo
-export Options
+export OMOptions
 export getUsingVars
 export getIterationVariables
 export getInnerEquations

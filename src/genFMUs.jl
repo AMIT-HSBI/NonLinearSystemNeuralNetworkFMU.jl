@@ -100,10 +100,7 @@ Generate 2.0 Model Exchange FMU for Modelica model using OMJulia.
   - `moFiles::Array{String}`:   Path to the *.mo file(s) containing the model.
 
 # Keywords
-  - `pathToOmc::String=""`:     Path to omc used for simulating the model.
-                                Use omc from PATH/OPENMODELICAHOME if nothing is provided.
-  - `workingDir::String=pwd()`: Path to temp directory in which FMU will be saved to.
-  - `clean::Bool=false`:        True if workingDir should be removed and re-created before working in it.
+  - `options::OMOptions`:       Options for OpenModelica compiler.
 
 # Returns
   - Path to generated FMU `workingDir/<modelName>.fmu`.
@@ -112,10 +109,9 @@ See also [`addEqInterface2FMU`](@ref), [`generateTrainingData`](@ref).
 """
 function generateFMU(modelName::String,
                      moFiles::Array{String};
-                     options::Options)
+                     options::OMOptions)
 
-  pathToOmc = getomc(options.pathToOmc)
-
+  # Create / clean working diretory
   if !isdir(options.workingDir)
     mkpath(options.workingDir)
   elseif options.clean
@@ -133,7 +129,7 @@ function generateFMU(modelName::String,
 
   local omc
   Suppressor.@suppress begin
-    omc = OMJulia.OMCSession(pathToOmc)
+    omc = OMJulia.OMCSession(options.pathToOmc)
   end
   try
     msg = OMJulia.sendExpression(omc, "getVersion()")
@@ -149,7 +145,7 @@ function generateFMU(modelName::String,
     OMJulia.sendExpression(omc, "cd(\"$(options.workingDir)\")")
 
     @debug "setCommandLineOptions"
-    msg = OMJulia.sendExpression(omc, "setCommandLineOptions(\"-d=newInst --fmiFilter=internal --fmuCMakeBuild=true --fmuRuntimeDepends=modelica "*options.simulationSettings*"\")")
+    msg = OMJulia.sendExpression(omc, "setCommandLineOptions(\"-d=newInst --fmiFilter=internal --fmuCMakeBuild=true --fmuRuntimeDepends=modelica "*options.commandLineOptions*"\")")
     write(logFile, string(msg)*"\n")
     msg = OMJulia.sendExpression(omc, "getErrorString()")
     write(logFile, msg*"\n")

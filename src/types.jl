@@ -113,33 +113,44 @@ end
 
 
 """
-    Options <: Any
+    OMOptions <: Any
 
-Collection of optional settings for profiling and simulation.
+Settings for profiling and simulating with the OpenModelica Compiler (OMC).
 """
-mutable struct Options
+struct OMOptions
   "Path to omc used for simulating the model."
-  pathToOmc::Union{String,Nothing}
+  pathToOmc::String
   "Working directory for omc. Defaults to the current directory."
-  workingDir::Union{String,Nothing}
+  workingDir::String
   """Output format for result file. Can be `"mat"` or `"csv"`."""
   outputFormat::Union{String,Nothing}
-  "Use artifacts to skip already performed steps if true."
-  reuseArtifacts::Union{Bool,Nothing}
   "Remove everything in `workingDir` when set to `true`."
-  clean::Union{Bool,Nothing}
-  "Add simulation settings in `setCommandLineOptions`."
-  simulationSettings::Union{String,Nothing}
+  clean::Bool
+  "Additional comannd line options for `setCommandLineOptions`."
+  commandLineOptions::String
 
   # Constructor
-  function Options(pathToOmc::Union{String,Nothing}, workingDir::Union{String,Nothing}, outputFormat::Union{String,Nothing}, reuseArtifacts::Union{Bool,Nothing}, clean::Union{Bool,Nothing}, disableCSE::Union{Bool,Nothing})
-    if disableCSE == true
-      simulationSettings = "--preOptModules-=wrapFunctionCalls --postOptModules-=wrapFunctionCalls"
-      new(pathToOmc, workingDir, outputFormat, reuseArtifacts, clean, disableCSE, simulationSettings)
-    else
-      simulationSettings = ""
-      new(pathToOmc, workingDir, outputFormat, reuseArtifacts, clean, disableCSE, simulationSettings)
+  function OMOptions(;pathToOmc::String = "",
+                     workingDir::String = pwd(),
+                     outputFormat::Union{String,Nothing} = "csv",
+                     clean::Bool = false,
+                     commandLineOptions::String = "",
+                     disableCSE = true)
+
+    # Try to find omc executable
+    pathToOmc = getomc(pathToOmc)
+
+    # Assert output format
+    if outputFormat != "csv" && outputFormat != "mat" && outputFormat !== nothing
+      error("output format $(outputFormat) not supperted. Has to be \"csv\" or \"mat\".")
     end
+
+    # Disable CSE variables in loops
+    if disableCSE
+      commandLineOptions *= " --preOptModules-=wrapFunctionCalls --postOptModules-=wrapFunctionCalls"
+    end
+
+    new(pathToOmc, workingDir, outputFormat, clean, commandLineOptions)
   end
 end
 
