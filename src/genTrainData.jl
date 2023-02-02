@@ -193,8 +193,8 @@ All input-output pairs are saved in `fname`.
   - `fname::String`:                  File name to save training data to.
   - `eqId::Int64`:                    Index of equation to generate training data for.
   - `inputVars::Array{String}`:       Array with names of input variables.
-  - `min::AbstractVector{T}`:         Array with minimum value for each input variable.
-  - `max::AbstractVector{T}`:         Array with maximum value for each input variable.
+  - `minBound::AbstractVector{T}`:    Array with minimum value for each input variable.
+  - `maxBound::AbstractVector{T}`:    Array with maximum value for each input variable.
   - `outputVars::Array{String}`:      Array with names of output variables.
 
 # Keywords
@@ -209,15 +209,16 @@ function generateTrainingData(fmuPath::String,
                               fname::String,
                               eqId::Int64,
                               inputVars::Array{String},
-                              min::AbstractVector{T},
-                              max::AbstractVector{T},
+                              minBound::AbstractVector{T},
+                              maxBound::AbstractVector{T},
                               outputVars::Array{String};
                               N::Integer = 1000,
                               nBatches::Integer = 1,
                               append::Bool=false) where T <: Number
   #ENV["JULIA_DEBUG"] = "FMICore"
 
-  N_perThread = Integer(ceil(N / nBatches))
+  N_perBatch = Integer(ceil(N / nBatches))
+  @assert N >= nBatches "nBatches smaller than N"
 
   inputVarsCopy = copy(inputVars)
 
@@ -229,21 +230,31 @@ function generateTrainingData(fmuPath::String,
     @assert length(loc) == 1 "time variable occurs more than once"
     usesTime = true
     loc = first(loc)
-    timeBounds = (min[loc], max[loc])
+    timeBounds = (minBound[loc], maxBound[loc])
     deleteat!(inputVarsCopy, loc)
-    deleteat!(min, loc)
-    deleteat!(max, loc)
+    deleteat!(minBound, loc)
+    deleteat!(maxBound, loc)
   end
 
   @info "Starting data generation on $(nBatches) batches."
-  p = ProgressMeter.Progress(N_perThread*nBatches; desc="Generating training data ...")
-  local fmuBatch
-  Suppressor.@suppress begin
-    fmuBatch = [(i, FMI.fmiLoad(fmuPath)) for i in 1:nBatches]
-  end
-  Threads.@threads for (i, fmu) in fmuBatch
-    tempCsvFile = joinpath(workDir, "trainingData_eq_$(eqId)_tread_$(i).csv")
-    simulateFMU(fmu, tempCsvFile, eqId, timeBounds, inputVarsCopy, min, max, outputVars, p; N=N_perThread)
+  p = ProgressMeter.Progress(N_perBatch*nBatches; desc="Generating training data ...")
+
+  i = 0
+  tmpnBatches = nBatches
+  while tmpnBatches > 0
+    @info "Mini-Batch $i"
+    nMiniBatch = min(tmpnBatches, 4*Threads.nthreads())
+    tmpnBatches = tmpnBatches - nMiniBatch
+    local fmuBatch
+    Suppressor.@suppress begin
+      fmuBatch = [(j, FMI.fmiLoad(fmuPath)) for j in 1:nMiniBatch]
+    end
+    Threads.@threads for (j, fmu) in fmuBatch
+      idx = i + j
+      tempCsvFile = joinpath(workDir, "trainingData_eq_$(eqId)_tread_$(idx).csv")
+      simulateFMU(fmu, tempCsvFile, eqId, timeBounds, inputVarsCopy, minBound, maxBound, outputVars, p; N=N_perBatch)
+    end
+    i += nMiniBatch
   end
   ProgressMeter.finish!(p)
 
@@ -251,6 +262,9 @@ function generateTrainingData(fmuPath::String,
   mkpath(dirname(fname))
   for i = 1:nBatches
     tempCsvFile = joinpath(workDir, "trainingData_eq_$(eqId)_tread_$(i).csv")
+    if !isfile(tempCsvFile)
+      continue
+    end
     df = CSV.read(tempCsvFile, DataFrames.DataFrame; ntasks=1)
     if i==1
       CSV.write(fname, df; append=append)

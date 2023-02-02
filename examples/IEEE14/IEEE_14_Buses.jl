@@ -1,15 +1,13 @@
 # $ nohup time julia --threads auto -e "include(\"IEEE_14_Buses.jl\");" &
 # Run julia with --threads auto
 
+import Pkg; Pkg.activate()
 using Revise
 using BSON
 using CSV
 using DataFrames
 using FMI
 
-import Pkg
-Pkg.activate()
-using NaiveONNX
 Pkg.activate(joinpath(@__DIR__, "..", ".."))
 using NonLinearSystemNeuralNetworkFMU
 
