@@ -8,30 +8,12 @@ using DataFrames
 using CSV
 using CairoMakie
 
-# Changable parameters
-N = 100
-
-# Model and plot parameters
-b = -0.5
-
-FH_Colors = ["#009BBB",
-             "#E98300",
-             "#C50084",
-             "#722EA5",
-             "#A2AD00"]
-
 # Genrate data for SimpleLoop
 modelName = "simpleLoop"
-moFiles = [abspath(srcdir(),"simpleLoop.mo")]
-workingDir = datadir("sims", modelName*"_$N")
-options = NonLinearSystemNeuralNetworkFMU.OMOptions(workingDir=workingDir)
+moFiles = [(srcdir("simpleLoop.mo"))]
 
-# Clean up
-#rm(joinpath(workingDir), recursive=true, force=true)
-
-# Generate data
-(csvFiles, fmu, profilingInfo) = NonLinearSystemNeuralNetworkFMU.main(modelName, moFiles; options=options, reuseArtifacts=false, N=N)
-
+# Model parameters
+b = -0.5
 
 """
 Filter data for `x = r*s + b -y <= y` to get uniqe data points.
@@ -41,51 +23,60 @@ function isRight(s,r,y; b)
   return x > y
 end
 
-# Plot data
-function plotData(df::DataFrame; title = "SimpleLoop: Training Data")
-  fig = Figure(fontsize = 18,
-               resolution = (800, 800))
+"""
+    runExample(N)
 
-  axis = Axis(fig[1,1],
-              title = title,
-              xlabel = "x",
-              ylabel = "y")
+Run example for given number of data points N.
+  1. Generate N data points
+  2. Train ANN on filtered data set.
+  3. Include ONNX into FMU
+"""
+function runExamples(N)
+  workingDir = datadir("sims", modelName*"_$N")
+  rm(workingDir, force=true, recursive=true)
+  options = NonLinearSystemNeuralNetworkFMU.OMOptions(workingDir=workingDir)
 
-  limits!(axis, -2.5, 3.5, -2.5, 3.5)
+  (csvFiles, fmu, profilingInfo) = NonLinearSystemNeuralNetworkFMU.main(modelName, moFiles; options=options, reuseArtifacts=false, N=N)
+  df =  CSV.read(csvFiles[1], DataFrame; ntasks=1)
 
-  # Expected solutions
-  X1 = 0.5 .* ( -sqrt.(-b^2 .- 2*b .* df.r .* df.s - (df.r).^2 .* ((df.s).^2 .- 2)) .+ b .+ df.r .* df.s)
-  Y1 = df.r .* df.s .+ b .- X1
-  s1 = scatter!(axis, X1, Y1, color=(FH_Colors[1], 0.5), markersize = 21)
+  # Save (filtered) data
+  name = basename(csvFiles[1])
+  csvFile = datadir("exp_raw", split(name, ".")[1] * "_N$N." * split(name, ".")[2])
+  if !isdir(dirname(csvFile))
+    mkpath(dirname(csvFile))
+  end
+  CSV.write(csvFile, df)
 
-  X1 = 0.5 .* ( sqrt.(-b^2 .- 2*b .* df.r .* df.s - (df.r).^2 .* ((df.s).^2 .- 2)) .+ b .+ df.r .* df.s)
-  Y1 = df.r .* df.s .+ b .- X1
-  s2 = scatter!(axis, X1, Y1, color=(FH_Colors[2], 0.5), markersize = 21)
+  df_filtered = filter(row -> !isRight(row.s, row.r, row.y; b=b), df)
+  csvFileFiltered = datadir("exp_pro", split(name, ".")[1] * "_N$N." * split(name, ".")[2])
+  if !isdir(dirname(csvFileFiltered))
+    mkpath(dirname(csvFileFiltered))
+  end
+  CSV.write(csvFileFiltered, df_filtered)
 
-  # Generated data
-  X_train = df.r.*df.s .+ b .- df.y;
-  s3 = scatter!(axis, X_train, df.y, color=FH_Colors[3], markersize=12, marker=:xcross)
+  # Train surrogate
+  onnxFiles = String[]
+  for (i, prof) in enumerate(profilingInfo)
+    onnxModel = abspath(joinpath(workingDir, "onnx", "eq_$(prof.eqInfo.id).onnx"))
+    push!(onnxFiles, onnxModel)
 
-  marker = [MarkerElement(color=(FH_Colors[1], 0.5), marker = :circle, markersize = 21, points = Point2f[(0, 0.5)]),
-            MarkerElement(color=(FH_Colors[2], 0.5), marker = :circle, markersize = 21, points = Point2f[(0.75, 0.5)])]
+    @showtime trainONNX(csvFileFiltered, onnxModel, prof.usingVars, prof.iterationVariables; nepochs=1000, losstol=1e-8)
+  end
 
-  Legend(fig[1,1],
-         [marker, s3],
-         ["Expected", "Generated"],
-         tellheight = false,
-         tellwidth = false,
-         margin = (50, 50, 50, 50),
-         halign = :left, valign = :bottom,
-         labelsize = 21)
+  # Include ONNX into FMU
+  fmu_interface = joinpath(workingDir, modelName*".interface.fmu")
+  tempDir = joinpath(workingDir, "temp")
+  fmu_onnx = buildWithOnnx(fmu_interface,
+                          modelName,
+                          profilingInfo,
+                          onnxFiles;
+                          tempDir=tempDir)
 
-  return fig
+  if !isdir(datadir("sims", "fmus"))
+    mkpath(datadir("sims", "fmus"))
+  end
+  cp(fmu_onnx, datadir("sims", "fmus", modelName*".onnx_N$N.fmu"), force=true)
 end
 
-# Save plots
-df =  CSV.read(csvFiles[1], DataFrame)
-fig = plotData(df)
-save(plotsdir("SimpleLoop_data.svg"), fig)
-
-df_filtered = filter(row -> !isRight(row.s, row.r, row.y; b=b), df)
-fig = plotData(df_filtered; title = "SimpleLoop: Training Data (filtered)")
-save(plotsdir("SimpleLoop_data_filtered.svg"), fig)
+# Run examples
+runExamples.([100, 500, 750, 1000])

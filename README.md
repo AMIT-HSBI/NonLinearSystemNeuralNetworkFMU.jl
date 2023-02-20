@@ -65,8 +65,17 @@ The package generates an FMU from a modelica file in 3 steps (+ 1 user step):
 
 ## Examples
 
+### SimpleLoop
+
+In [examples/SimpleLoop/](examples/SimpleLoop/) is a simple example
+of a non-linear system with two unknowns replaced by a ONNX surrogate. It's less
+explanatory but was used to generate plots for a presentation.
+
+All dependencies are managed by [DrWatson](https://juliadynamics.github.io/DrWatson.jl/stable/),
+checkout the [README.md](examples/SimpleLoop/README.md) for more details.
+
 ### IEEE14
-There is one example with some larger algebraic systems in
+There is another example with some larger algebraic systems in
 [examples/IEEE14/IEEE_14_Buses.jl](./examples/IEEE14/IEEE_14_Buses.jl) using the
 [OpenIPSL](https://github.com/OpenIPSL/OpenIPSL) Modelica library.
 
