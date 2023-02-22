@@ -12,4 +12,5 @@ Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 
 [compat]
 DrWatson = "2.12.1"
+NonLinearSystemNeuralNetworkFMU = "0.2.0"
 julia = "1.8.1"
