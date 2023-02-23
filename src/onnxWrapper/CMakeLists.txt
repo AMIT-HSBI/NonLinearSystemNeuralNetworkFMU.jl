@@ -20,6 +20,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(onnxWrapper)
+set(CMAKE_BUILD_TYPE "Debug")
 
 if(NOT DEFINED ENV{ORT_DIR} AND NOT DEFINED ORT_DIR)
   message(FATAL_ERROR "Environment variable ORT_DIR not set.")
@@ -55,6 +56,7 @@ find_library(ORT_LIB
 message(STATUS "Using ORT_LIBR: ${ORT_LIB}")
 
 add_library(onnxWrapper SHARED
+            errorControl.c
             onnxWrapper.c)
 
 target_include_directories(onnxWrapper PUBLIC ${ORT_INCLUDE})

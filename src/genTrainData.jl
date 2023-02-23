@@ -34,7 +34,7 @@ function simulateFMU(fmu,
   nInputs = length(inputVars)
   nOutputs = length(outputVars)
   nVars = nInputs+nOutputs
-  useTime =  timeValues !== nothing
+  useTime = timeValues !== nothing
 
   @assert length(min) == length(max) == nInputs "Length of min, max and inputVars doesn't match"
 

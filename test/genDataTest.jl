@@ -26,10 +26,10 @@ function runGenDataTest()
   eqIndex = 14
   inputVars = ["s", "r"]
   outputVars = ["y"]
-  min = [0.0, 0.95]
-  max = [1.5, 3.15]
+  min = [0.8, 0.95]
+  max = [1.5, 2.05]
   fileName = joinpath(workDir, "simpleLoop_eq14.csv")
-  N = 100
+  N = 2000
 
   NonLinearSystemNeuralNetworkFMU.generateTrainingData(pathToFMU, workDir, fileName,
                                                        eqIndex, inputVars,

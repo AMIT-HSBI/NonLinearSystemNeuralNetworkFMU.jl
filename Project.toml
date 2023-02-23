@@ -1,7 +1,7 @@
 name = "NonLinearSystemNeuralNetworkFMU"
 uuid = "cef0780c-fc83-4b94-9c0c-d964a51a3c65"
 authors = ["AnHeuermann <andreas.heuermann@fh-bielefeld.de>"]
-version = "0.2.0"
+version = "0.3.0"
 
 [deps]
 BSON = "fbb218c0-5317-5bc6-957e-2ee96dd4b1f0"
@@ -26,5 +26,6 @@ XMLDict = "228000da-037f-5747-90a9-8195ccbf91a5"
 
 [compat]
 Cbc = "1.0.3"
+DataFrames = "0.19.4, 0.20, 0.21, 0.22, 1"
 julia = ">=1.7.0"
 OMJulia = "0.2.1"

@@ -44,7 +44,7 @@ ONNXNaiveNASflux.refresh()
   - `shuffle::Bool=true`: Shufle training and testing from data.
 """
 function readData(filename::String, nInputs::Integer; ratio=0.8, shuffle::Bool=true)
-  m = Matrix{Float32}(CSV.read(filename, DataFrames.DataFrame))
+  m = Matrix{Float32}(CSV.read(filename, DataFrames.DataFrame; ntasks=1))
   n = length(m[:,1])
   num_train = Integer(round(n*ratio))
   if shuffle
@@ -84,17 +84,6 @@ function filterData(data_in, data_out)
   filtered_data_out = data_out[keep]
   return (filtered_data_in, filtered_data_out)
 end
-
-#=
-function plotData(data_in, data_out)
-  s = [x[1] for x in data_in];
-  r = [x[2] for x in data_in];
-  y = [x[1] for x in data_out];
-  x = r.*s.-y
-
-  Plots.scatter(x,y, aspect_ratio=1.0)
-end
-=#
 
 """
     trainSurrogate!(model, dataloader, test_in, test_out, savename; losstol=1e-6, nepochs=100, eta=1e-3)

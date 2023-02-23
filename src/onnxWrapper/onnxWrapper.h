@@ -17,22 +17,39 @@
 // along with NonLinearSystemNeuralNetworkFMU.jl. If not, see <http://www.gnu.org/licenses/>.
 //
 
+#ifndef ONNX_WWRAPPER_H
+#define ONNX_WWRAPPER_H
+
 #include "onnxruntime_c_api.h"
+#include "errorControl.h"
 
 struct OrtWrapperData {
   const OrtApi* g_ort;
   OrtEnv* env;
   OrtSessionOptions* session_options;
   OrtSession* session;
-  float* model_input;
-  const char** input_names;
-  float* model_output;
-  const char** output_names;
+  size_t nInputs;                     /* Number of inputs */
+  float* model_input;                 /* Input variables (used variables) */
+  const char** input_names;           /* Names of input variables */
+  float* model_output;                /* Output variables (iteration variables x) */
+  const char** output_names;          /* Names of output variables */
   OrtMemoryInfo* memory_info;
   OrtValue* input_tensor;
   OrtValue* output_tensor;
+
+  /* Residuum */
+  double* x;                          /* Double version of model_output */
+  double* res;                        /* Residuum f(x), x is model_output */
+  size_t nRes;                        /* Length of arrays x and res */
+  FILE * csvFile;                     /* Log file for residuum values */
+
+  /* Training area */
+  double* min;                        /* Minimum allowed values for model_input, size nInputs */
+  double* max;                        /* Maximum allowed values for model_input, size nInputs */
 };
 
-struct OrtWrapperData* initOrtData(const char* pathToONNX, const char* modelName, unsigned int nInputs, unsigned int nOutputs, const char* input_name, const char* output_name);
+struct OrtWrapperData* initOrtData(const char* equationName, const char* pathToONNX, const char* modelName, unsigned int nInputs, unsigned int nOutputs, const char* input_name, const char* output_name);
 void deinitOrtData(struct OrtWrapperData* ortData);
 void evalModel(struct OrtWrapperData* ortData);
+
+#endif // ONNX_WWRAPPER_H

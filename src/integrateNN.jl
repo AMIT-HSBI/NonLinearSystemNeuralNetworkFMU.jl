@@ -24,11 +24,15 @@ struct Mapping
 end
 
 function ortDataCode(equations::Array{ProfilingInfo}, modelName::String, onnxNames::Array{String})
+  resPrototypes = ""
   ortstructs = ""
   initCalls = ""
   deinitCalls = ""
   nEq = length(equations)
   for (i,eq) in enumerate(equations)
+    resPrototypes *= """
+      void residualFunc$(eq.eqInfo.id)(RESIDUAL_USERDATA* userData, const double* xloc, double* res, const int* iflag);
+      """
     onnxName = basename(onnxNames[i])
     nInputs = length(eq.usingVars)
     nOutputs = length(eq.iterationVariables)
@@ -38,7 +42,12 @@ function ortDataCode(equations::Array{ProfilingInfo}, modelName::String, onnxNam
     ortstructs *= "struct OrtWrapperData* ortData_eq_$(eq.eqInfo.id);"
     initCalls *= """
         snprintf(onnxPath, 2048, "%s/%s", data->modelData->resourcesDir, \"$(onnxName)\");
-        ortData_eq_$(eq.eqInfo.id) = initOrtData(onnxPath, \"$modelName\", $nInputs, $nOutputs, \"$input_name\", \"$output_name\");
+        ortData_eq_$(eq.eqInfo.id) = initOrtData(\"$(modelName)_eq$(eq.eqInfo.id)\", onnxPath, \"$modelName\", $nInputs, $nOutputs, \"$input_name\", \"$output_name\");
+        ortData_eq_$(eq.eqInfo.id)->nInputs = $nInputs;
+        double min_$(eq.eqInfo.id)[$nInputs] = {$(string(eq.boundary.min)[2:end-1])};
+        memcpy(ortData_eq_$(eq.eqInfo.id)->min, min_$(eq.eqInfo.id), sizeof(double)*$nInputs);
+        double max_$(eq.eqInfo.id)[$nInputs] = {$(string(eq.boundary.max)[2:end-1])};
+        memcpy(ortData_eq_$(eq.eqInfo.id)->max, max_$(eq.eqInfo.id), sizeof(double)*$nInputs);
       """
     deinitCalls *= "  deinitOrtData(ortData_eq_$(eq.eqInfo.id));"
     if i < nEq
@@ -52,8 +61,10 @@ function ortDataCode(equations::Array{ProfilingInfo}, modelName::String, onnxNam
 
   code = """
     #include "onnxWrapper/onnxWrapper.h"
+    $(resPrototypes)
 
     int USE_JULIA = 1;
+    int LOG_RES = 1;
 
     /* Global ORT structs */
     $(ortstructs)
@@ -118,7 +129,7 @@ function generateNNCall(modelname::String, modelDescriptionXmlFile::String, equa
     cVar = getVarCString(var, variablesDict)
     outputVarBlock *= "$(cVar) = output[$(i-1)];"
     if i < length(outputs)
-      outputVarBlock *= "$EOL    "
+      outputVarBlock *= "$EOL      "
     end
   end
 
@@ -126,7 +137,7 @@ function generateNNCall(modelname::String, modelDescriptionXmlFile::String, equa
   for (i,eq) in enumerate(equationToReplace.innerEquations)
     innerEquations *= "$(modelname)_eqFunction_$(eq)(data, threadData);"
     if i < length(equationToReplace.innerEquations)
-      innerEquations *= "$EOL    "
+      innerEquations *= "$EOL      "
     end
   end
 
@@ -140,10 +151,23 @@ function generateNNCall(modelname::String, modelDescriptionXmlFile::String, equa
 
       evalModel($ortData);
 
-      $outputVarBlock
+      if(LOG_RES) {
+        /* Evaluate residuals */
+        RESIDUAL_USERDATA userData = {data, threadData, NULL};
+        evalResiduum(residualFunc$(equationToReplace.eqInfo.id), (void*) &userData, $ortData);
 
-      /* Eval inner equations */
-      $innerEquations
+        //printResiduum($(equationToReplace.eqInfo.id), data->localData[0]->timeValue, $ortData);
+        double rel_error = writeResiduum(data->localData[0]->timeValue, $ortData);
+        if (rel_error > 1e-4) {
+          goto GOTO_NLS_SOLVER_$(equationToReplace.eqInfo.id);
+        }
+      } else {
+        /* Set output variables */
+        $outputVarBlock
+
+        /* Eval inner equations */
+        $innerEquations
+      }
   """
 
   return cCode
@@ -185,6 +209,7 @@ function modifyCCode(modelName::String, fmuTmpDir::String, modelDescriptionXmlFi
     if(USE_JULIA) {
     $newpart
       } else {
+        GOTO_NLS_SOLVER_$(eqInfo.id):
         $oldpart
       }
     """
@@ -241,6 +266,8 @@ function copyOnnxWrapperLib(fmuRootDir::String)
   mkpath(onnxWrapperDir)
 
   files = [
+    joinpath(@__DIR__, "onnxWrapper", "errorControl.h"),
+    joinpath(@__DIR__, "onnxWrapper", "errorControl.c"),
     joinpath(@__DIR__, "onnxWrapper", "onnxWrapper.h"),
     joinpath(@__DIR__, "onnxWrapper", "onnxWrapper.c"),
     joinpath(@__DIR__, "onnxWrapper", "CMakeLists.txt"),
