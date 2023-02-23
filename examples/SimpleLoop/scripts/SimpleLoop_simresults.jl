@@ -21,7 +21,7 @@ FH_Colors = ["#009BBB",
 sol = DataFrame[]
 for N in Ns
   local workingDir = datadir("sims", "fmus")
-  fmu = datadir(local workingDir, "$(modelName).onnx_N$(N).fmu")
+  local fmu = datadir(workingDir, "$(modelName).onnx_N$(N).fmu")
 
   resultFile = "simpleLoop_onnx_res_N$(N).csv"
   logFile = joinpath(workingDir, modelName*"_OMSimulator_N$(N).log")
