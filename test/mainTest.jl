@@ -24,10 +24,11 @@ function runMainTest()
   modelName = "simpleLoop"
   moFiles = [abspath(@__DIR__,"simpleLoop.mo")]
   workingDir = joinpath(abspath(@__DIR__), modelName)
+  options = NonLinearSystemNeuralNetworkFMU.OMOptions(workingDir=workingDir)
   rm(joinpath(workingDir), recursive=true, force=true)
 
   @testset "Generate Data (main)" begin
-    (csvFiles, fmu, profilingInfo) = NonLinearSystemNeuralNetworkFMU.main(modelName, moFiles; workdir=workingDir, reuseArtifacts=false, N=10)
+    (csvFiles, fmu, profilingInfo) = NonLinearSystemNeuralNetworkFMU.main(modelName, moFiles; options=options, reuseArtifacts=false, N=10)
     @test isfile(joinpath(workingDir, "profilingInfo.bson"))
     @test isfile(joinpath(workingDir, "simpleLoop.fmu"))
     @test isfile(joinpath(workingDir, "simpleLoop.interface.fmu"))
