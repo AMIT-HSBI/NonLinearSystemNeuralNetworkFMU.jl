@@ -158,7 +158,7 @@ function generateNNCall(modelname::String, modelDescriptionXmlFile::String, equa
 
         //printResiduum($(equationToReplace.eqInfo.id), data->localData[0]->timeValue, $ortData);
         double rel_error = writeResiduum(data->localData[0]->timeValue, $ortData);
-        if (rel_error > 1e-1) {
+        if (rel_error > 1e-4) {
           goto GOTO_NLS_SOLVER_$(equationToReplace.eqInfo.id);
         }
       } else {

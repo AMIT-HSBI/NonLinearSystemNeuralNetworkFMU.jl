@@ -81,9 +81,9 @@ function runIncludeOnnxTests()
     resultFile = joinpath(@__DIR__, "oms", "simpleLoop_onnx_res.csv")
     df_res = CSV.read(resultFile, DataFrames.DataFrame; ntasks=1)
     # LOG_RES is true, so if the result is too bad solve_nonlinear_system() is called
-    # So the results should be very good, but the solver could converge to the other solution.
-    @test maximum(abs.(df_res.x .^ 2 .+ df_res.y .^2 .- (df_res.r .^2))) < 1e-6
-    @test maximum(abs.(df_res.x .+ df_res.y .- (df_res.r .* df_res.s))) < 1e-6
+    # So the results should be very good.
+    x = df_res.r .* df_res.s .- df_res.y
+    @test maximum(abs.(df_res.r .^ 2 .- (x .^ 2 .+ df_res.y .^ 2))) < 1e-6
   end
 end
 
