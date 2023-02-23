@@ -1048,9 +1048,9 @@ version = "0.2.4"
 
 [[deps.JumpProcesses]]
 deps = ["ArrayInterface", "DataStructures", "DiffEqBase", "DocStringExtensions", "FunctionWrappers", "Graphs", "LinearAlgebra", "Markdown", "PoissonRandom", "Random", "RandomNumbers", "RecursiveArrayTools", "Reexport", "SciMLBase", "StaticArrays", "TreeViews", "UnPack"]
-git-tree-sha1 = "e25f4212a393a24d68851a58bcad23eec31468b9"
+git-tree-sha1 = "7af8d30e281ce558807917b69ba16575d05f412b"
 uuid = "ccbc3e58-028d-4f4c-8cd5-9ae44345cda5"
-version = "9.5.0"
+version = "9.5.1"
 
 [[deps.KLU]]
 deps = ["LinearAlgebra", "SparseArrays", "SuiteSparse_jll"]
@@ -1482,9 +1482,9 @@ version = "1.4.0"
 
 [[deps.OMJulia]]
 deps = ["DataFrames", "DataStructures", "LightXML", "Random", "ZMQ"]
-git-tree-sha1 = "feee7d9d7e1c356ca3832dba8955cd47231e6d33"
+git-tree-sha1 = "cf0dbd5aace52f602147ec23b2cbe5ccd298ae07"
 uuid = "0f4fe800-344e-11e9-2949-fb537ad918e1"
-version = "0.2.0"
+version = "0.2.1"
 
 [[deps.ONNX]]
 deps = ["Ghost", "LinearAlgebra", "NNlib", "Pkg", "ProtoBuf", "StaticArrays", "Statistics", "Test"]
@@ -1940,9 +1940,9 @@ version = "0.3.3"
 
 [[deps.SciMLBase]]
 deps = ["ArrayInterface", "CommonSolve", "ConstructionBase", "Distributed", "DocStringExtensions", "EnumX", "FunctionWrappersWrappers", "IteratorInterfaceExtensions", "LinearAlgebra", "Logging", "Markdown", "Preferences", "RecipesBase", "RecursiveArrayTools", "Reexport", "RuntimeGeneratedFunctions", "SciMLOperators", "StaticArraysCore", "Statistics", "SymbolicIndexingInterface", "Tables"]
-git-tree-sha1 = "33f031423eedc1f9e43f6112da6f13d5b49ea7da"
+git-tree-sha1 = "f0fa74c1460b9db3afa749e87e4180a09059f4b0"
 uuid = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
-version = "1.86.2"
+version = "1.86.3"
 
 [[deps.SciMLNLSolve]]
 deps = ["DiffEqBase", "LineSearches", "NLsolve", "Reexport", "SciMLBase"]
