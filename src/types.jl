@@ -237,13 +237,13 @@ function getUsingVars(bsonFile::String, eqNumber::Int)
   # Find array element with eqNumber
   for prof in profilingInfo
     if prof.eqInfo.id == eqNumber
-      return prof.usingVars , length([prof.usingVars])
+      return prof.usingVars , length(prof.usingVars)
     end
   end
 end
 
 """
-    getIterationVariables(bsonFile, eqNumber)
+    getIterationVars(bsonFile, eqNumber)
 
 # Arguments
   - `bsonFile::String`:  name of the binary JSON file
@@ -258,7 +258,7 @@ function getIterationVars(bsonFile::String, eqNumber::Int)
   # Find array element with eqNumber
   for prof in profilingInfo
     if prof.eqInfo.id == eqNumber
-      return prof.iterationVariables , length([prof.iterationVariables])
+      return prof.iterationVariables , length(prof.iterationVariables)
     end
   end
 end
@@ -279,7 +279,7 @@ function getInnerEquations(bsonFile::String, eqNumber::Int)
   # Find array element with eqNumber
   for prof in profilingInfo
     if prof.eqInfo.id == eqNumber
-      return [prof.innerEquations]
+      return prof.innerEquations, length(prof.innerEquations)
     end
   end
 end
@@ -301,13 +301,13 @@ function getMinMax(bsonFile::String, eqNumber::Int, inputArray::Vector{String})
   for prof in profilingInfo
     if prof.eqInfo.id == eqNumber
       # get using variables; length is not necessary
-      inputs = getUsingVars(bsonFile,eqNumber)[1]
+      inputs = prof.usingVars
       # compare strings of inputArray with strings of inputs
       indices = indexin(inputs,inputArray)
-      if length(inputs)>length(inputArray)
+      if length(inputs) > length(inputArray)
         deleteat!(indices, findall(x -> x === nothing,indices))
       end
-      return [[[min,max] for (min,max) in zip(prof.boundary.min[indices],prof.boundary.max[indices])]]
+      return [[min,max] for (min,max) in zip(prof.boundary.min[indices],prof.boundary.max[indices])]
     end
   end
 end
@@ -328,7 +328,7 @@ function getMinMax(bsonFile::String, eqNumber::Int, inputArray::Vector{Int})
   profilingInfo = Array{ProfilingInfo}(dict[first(keys(dict))])
   for prof in profilingInfo
     if prof.eqInfo.id == eqNumber
-      return [[[min,max] for (min,max) in zip(prof.boundary.min[inputArray],prof.boundary.max[inputArray])]]
+      return [[min,max] for (min,max) in zip(prof.boundary.min[inputArray],prof.boundary.max[inputArray])]
     end
   end
 end
