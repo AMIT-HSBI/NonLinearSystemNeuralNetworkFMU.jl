@@ -39,8 +39,9 @@ export EqInfo
 export ProfilingInfo
 export OMOptions
 export getUsingVars
-export getIterationVariables
+export getIterationVars
 export getInnerEquations
+export getMinMax
 include("util.jl")
 include("profiling.jl")
 export profiling
