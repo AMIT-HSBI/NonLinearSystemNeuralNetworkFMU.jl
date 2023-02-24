@@ -328,7 +328,7 @@ function getMinMax(bsonFile::String, eqNumber::Int, inputArray::Vector{Int})
   profilingInfo = Array{ProfilingInfo}(dict[first(keys(dict))])
   for prof in profilingInfo
     if prof.eqInfo.id == eqNumber
-      return return [[[min,max] for (min,max) in zip(prof.boundary.min[inputArray],prof.boundary.max[inputArray])]]
+      return [[[min,max] for (min,max) in zip(prof.boundary.min[inputArray],prof.boundary.max[inputArray])]]
     end
   end
 end
