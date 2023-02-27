@@ -51,7 +51,7 @@ function runMainTest()
   end
 
   @testset "Test function getIterationVars" begin
-    iterationVars, lenIterationVars  = NonLinearSystemNeuralNetworkFMU.getIterationVariables(joinpath(workingDir, "profilingInfo.bson"), 14)
+    iterationVars, lenIterationVars  = NonLinearSystemNeuralNetworkFMU.getIterationVars(joinpath(workingDir, "profilingInfo.bson"), 14)
     @test iterationVars == ["y"]
     @test lenIterationVars == 1
   end
@@ -60,6 +60,11 @@ function runMainTest()
     innerEq, lenInnerEq  = NonLinearSystemNeuralNetworkFMU.getInnerEquations(joinpath(workingDir, "profilingInfo.bson"), 14)
     @test sort(innerEq) == [11]
     @test lenInnerEq == 1
+  end
+
+  @testset "Test function getMinMax" begin
+    minMax  = NonLinearSystemNeuralNetworkFMU.getMinMax(joinpath(workingDir, "profilingInfo.bson"), 14, ["r","s"])
+    @test sort(minMax) ==  [[0.0, 1.4087228258248679], [0.95, 3.15]]
   end
   rm(joinpath(workingDir), recursive=true, force=true)
 end
