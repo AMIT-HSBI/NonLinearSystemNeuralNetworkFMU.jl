@@ -17,33 +17,36 @@ at
 
 To (locally) reproduce this project, do the following:
 
-   1. Make sure you have local Julia package
-      [NaiveONNX](https://github.com/AnHeuermann/NaiveONNX.jl) in [../NaiveONNX.jl](../NaiveONNX.jl).
-      If not update your git submodule with
+  1. Make sure you have local Julia package
+    [NaiveONNX](https://github.com/AnHeuermann/NaiveONNX.jl) in [../NaiveONNX.jl](../NaiveONNX.jl).
+    If not update your git submodule with
 
-      ```bash
-      $ git submodule update --force --init --recursive
-      ```
+    ```bash
+    $ git submodule update --force --init --recursive
+    ```
 
-   2. Open a Julia console and do:
+  2. Open a Julia console and run:
 
-      ```julia
-      julia> using Pkg
-      julia> Pkg.add("DrWatson") # install globally, for using `quickactivate`
-      julia> Pkg.activate("examples/SimpleLoop/")
-      julia> Pkg.instantiate()
-      ```
+     ```julia
+     julia> using Pkg
+     julia> Pkg.add("DrWatson") # install globally, for using `quickactivate`
+     julia> Pkg.activate("examples/SimpleLoop/")
+     julia> Pkg.instantiate()
+     ```
 
-   3. To create plots with CairoMakie an X-server has to be available.
-       So the environmental variable `DISPLAY` has to be set.
+  3. To create plots with CairoMakie an X-server has to be available.
+     So the environmental variable `DISPLAY` has to be set.
 
-       If you are using ssh to
-       connect to a remote machine use `ssh -X user@remote.com`.
-       Check your Julia session has the variable available or set it:
-       ```julia
-      julia> ENV["DISPLAY"]
-      julia> ENV["DISPLAY"] = "localhost:10.0"
-       ```
+     If you are using ssh to
+     connect to a remote machine use `ssh -X user@remote.com`.
+     Check your Julia session has the variable available or set it:
+     ```julia
+     julia> ENV["DISPLAY"]
+     julia> ENV["DISPLAY"] = "localhost:10.0"
+     ```
+
+  4. OpenModelica: Tested omc version v1.21.0-dev-288-g01b6764df5-cmake
+     with OMSimulator version OMSimulator v2.1.1.post194-g75de4c6-linux-debug.
 
 This will install all necessary packages for you to be able to run the scripts and
 everything should work out of the box, including correctly finding local paths.
@@ -70,7 +73,7 @@ for unknown coordinates `x` and `y`.
 
 You can run
 ```julia
-include("src/runall.jl")
+include("scripts/runall.jl")
 ```
 
 to run all scripts or read along to see what the scripts are doing.

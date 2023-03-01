@@ -1,17 +1,8 @@
-# $ julia -e "include(\"ScalableTranslationStatistics.jl\"); genFMUs()"
-# $ nohup julia -e "include(\"ScalableTranslationStatistics.jl\"); genFMUs()" &
+# $ julia --threads=auto -e "include(\"ScalableTranslationStatistics.jl\")"
+# $ nohup julia --threads=auto -e "include(\"ScalableTranslationStatistics.jl\")" &
 
 using DrWatson
 @quickactivate "ScalableTranslationStatistics"
-
-#using Revise
-
-#using BSON: @save
-#using FMI
-#using FMICore
-#using CSV
-#using DataFrames
-#using BenchmarkTools
 
 include(srcdir("genSurrogates.jl"))
 
@@ -21,10 +12,11 @@ modelicaLib = joinpath(rootDir, "02_SourceModel", "02_Model", "01_AuthoringModel
 
 @assert haskey(ENV, "ORT_DIR") "Environment variable ORT_DIR not set!"
 
-sizes = [5, 10, 20, 40, 80, 160]
 
-# Test ONNX FMUs and bench times
-function runBenchmarks(sizes::Array{Int}, modelicaLib::String; N::Int=1000)
+"""
+Generate surroagate FMUs for Modelica model.
+"""
+function genAllSurrogates(sizes::Array{Int}, modelicaLib::String; N::Int=1000)
 
   @assert isfile(modelicaLib) "Couldn't find Modelica file '$(modelicaLib)'"
 
@@ -33,15 +25,13 @@ function runBenchmarks(sizes::Array{Int}, modelicaLib::String; N::Int=1000)
     modelName = "ScalableTranslationStatistics.Examples.ScaledNLEquations.NLEquations_$(size)"
 
     @info "Generating fmu and onnx.fmu"
-    local profilingInfo
-    local fmu
-    local fmu_onnx
     logFile = datadir("sims", split(modelName, ".")[end] * ".log")
+    mkpath(dirname(logFile))
     redirect_stdio(stdout=logFile, stderr=logFile) do
-      @time runScalableTranslationStatistics(modelicaLib, modelName, size=size, N=N)
+      @time genSurrogate(modelicaLib, modelName; N=N)
     end
-
   end
 end
 
-runBenchmarks(sizes, modelicaLib; N=100)
+sizes = [5, 10, 20, 40, 80]
+genAllSurrogates(sizes, modelicaLib; N=100)

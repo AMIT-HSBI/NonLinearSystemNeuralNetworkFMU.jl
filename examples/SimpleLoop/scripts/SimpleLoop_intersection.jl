@@ -49,7 +49,5 @@ anim = Plots.@animate for time in range(t_start, t_end, intervals+1)
   plotFrame(time)
 end
 
-if !isdir(dirname(plotsdir("SimpleLoop_intersection.gif")))
-  mkpath(dirname(plotsdir("SimpleLoop_intersection.gif")))
-end
+mkpath(dirname(plotsdir("SimpleLoop_intersection.gif")))
 Plots.gif(anim, plotsdir("SimpleLoop_intersection.gif"), fps = 30)

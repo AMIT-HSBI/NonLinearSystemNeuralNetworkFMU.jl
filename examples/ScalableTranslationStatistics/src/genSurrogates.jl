@@ -1,7 +1,7 @@
 using NaiveONNX
 using NonLinearSystemNeuralNetworkFMU
 
-function runScalableTranslationStatistics(lib::String, modelName::String; size::Int, N::Int=100)
+function genSurrogate(lib::String, modelName::String; N::Int=100)
   # Get lib and model
   if !isfile(lib)
     @error "Could not find Modelica library at $(lib)"
@@ -11,15 +11,6 @@ function runScalableTranslationStatistics(lib::String, modelName::String; size::
   # Generate training data
   options = OMOptions(workingDir=workdir)
   (csvFiles, fmu, profilingInfo) = main(modelName, [lib], options=options, reuseArtifacts=false, N=N)
-
-  # Save data artifacts
-  csvDir = datadir("exp_raw", split(modelName, ".")[end])
-  if !isdir(csvDir)
-    mkpath(csvDir)
-  end
-  for file in csvFiles
-    cp(file, joinpath(csvDir, basename(file)), force=true)
-  end
 
   # Train ONNX
   onnxFiles = String[]
@@ -45,7 +36,7 @@ function runScalableTranslationStatistics(lib::String, modelName::String; size::
     mkpath(fmuDir)
   end
   cp(fmu, joinpath(fmuDir, modelName*".fmu"), force=true)
-  cp(fmu_onnx, joinpath(fmuDir, modelName*".fmu"), force=true)
+  cp(fmu_onnx, joinpath(fmuDir, modelName*".onnx.fmu"), force=true)
 
   return (profilingInfo, fmu, fmu_onnx)
 end
