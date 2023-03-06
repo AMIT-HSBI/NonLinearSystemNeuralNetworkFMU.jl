@@ -221,6 +221,12 @@ end
  #   Getter and setter functions
 =#
 
+function getProfilingInfo(bsonFile::String)::Array{ProfilingInfo}
+  # load BSON file
+  dict = BSON.load(bsonFile, @__MODULE__)
+  return Array{ProfilingInfo}(dict[first(keys(dict))])
+end
+
 """
     getUsingVars(bsonFile, eqNumber)
 
@@ -231,9 +237,7 @@ end
   - array of the using variables and length of the array
 """
 function getUsingVars(bsonFile::String, eqNumber::Int)
-  # load BSON file
-  dict = BSON.load(bsonFile, @__MODULE__)
-  profilingInfo = Array{ProfilingInfo}(dict[first(keys(dict))])
+  profilingInfo = getProfilingInfo(bsonFile)
   # Find array element with eqNumber
   for prof in profilingInfo
     if prof.eqInfo.id == eqNumber
@@ -252,9 +256,7 @@ end
   - array of the iteration variables and length of the array
 """
 function getIterationVars(bsonFile::String, eqNumber::Int)
-  # load BSON file
-  dict = BSON.load(bsonFile, @__MODULE__)
-  profilingInfo = Array{ProfilingInfo}(dict[first(keys(dict))])
+  profilingInfo = getProfilingInfo(bsonFile)
   # Find array element with eqNumber
   for prof in profilingInfo
     if prof.eqInfo.id == eqNumber
@@ -273,9 +275,7 @@ end
   - array of the inner equations and length of the array
 """
 function getInnerEquations(bsonFile::String, eqNumber::Int)
-  # load BSON file
-  dict = BSON.load(bsonFile, @__MODULE__)
-  profilingInfo = Array{ProfilingInfo}(dict[first(keys(dict))])
+  profilingInfo = getProfilingInfo(bsonFile)
   # Find array element with eqNumber
   for prof in profilingInfo
     if prof.eqInfo.id == eqNumber
@@ -295,9 +295,7 @@ end
   - array of the min and max values of each input from input array
 """
 function getMinMax(bsonFile::String, eqNumber::Int, inputArray::Vector{String})
-  # load BSON file
-  dict = BSON.load(bsonFile, @__MODULE__)
-  profilingInfo = Array{ProfilingInfo}(dict[first(keys(dict))])
+  profilingInfo = getProfilingInfo(bsonFile)
   for prof in profilingInfo
     if prof.eqInfo.id == eqNumber
       # get using variables; length is not necessary
@@ -323,9 +321,7 @@ end
   - array of the min and max values of each input from input array
 """
 function getMinMax(bsonFile::String, eqNumber::Int, inputArray::Vector{Int})
-  # load BSON file
-  dict = BSON.load(bsonFile, @__MODULE__)
-  profilingInfo = Array{ProfilingInfo}(dict[first(keys(dict))])
+  profilingInfo = getProfilingInfo(bsonFile)
   for prof in profilingInfo
     if prof.eqInfo.id == eqNumber
       return [[min,max] for (min,max) in zip(prof.boundary.min[inputArray],prof.boundary.max[inputArray])]
