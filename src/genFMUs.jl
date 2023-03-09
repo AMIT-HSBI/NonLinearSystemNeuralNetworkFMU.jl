@@ -26,14 +26,32 @@ Execute system command.
 
 Add OPENMODELICAHOME to PATH for Windows to get access to Unix tools from MSYS.
 """
-function omrun(cmd::Cmd; dir=pwd()::String)
+function omrun(cmd::Cmd; dir=pwd()::String, timeout=1*60::Integer)
   if Sys.iswindows()
     path = ENV["PATH"] * ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "mingw64", "bin"))
     path *= ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "usr", "bin"))
     @debug "PATH: $(path)"
-    run(Cmd(cmd, env=("PATH" => path,"CLICOLOR"=>"0",), dir = dir))
+    timer = @task sleep(timeout)
+    p = run(Cmd(cmd, env=("PATH" => path,"CLICOLOR"=>"0",), dir = dir), wait=false)
+    Timer(timeout, interval=1) do timer
+      if process_running(p)
+        @error "Fehler!"
+        kill(p)
+        throw(InterruptException())
+      end
+    end
   else
-    run(Cmd(cmd, dir = dir))
+    p = run(Cmd(cmd, dir = dir), wait=false)
+    Timer(timeout) do timer
+      if process_running(p)
+        @error "Fehler!"
+        kill(p)
+        throw(InterruptException())
+      end
+    end
+    if process_running(p)
+      println("läuft immernoch")
+    end
   end
 end
 
