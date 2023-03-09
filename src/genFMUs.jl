@@ -20,13 +20,13 @@
 EOL = Sys.iswindows() ? "\r\n" : "\n"
 
 """
-    omrun(cmd; dir=pwd())
+    omrun(cmd; dir=pwd(), timeout=10*60)
 
 Execute system command.
 
 Add OPENMODELICAHOME to PATH for Windows to get access to Unix tools from MSYS.
 """
-function omrun(cmd::Cmd; dir=pwd()::String, timeout=1*60::Integer)
+function omrun(cmd::Cmd; dir=pwd()::String, timeout=10*60::Integer)
   if Sys.iswindows()
     path = ENV["PATH"] * ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "mingw64", "bin"))
     path *= ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "usr", "bin"))
@@ -35,22 +35,27 @@ function omrun(cmd::Cmd; dir=pwd()::String, timeout=1*60::Integer)
     p = run(Cmd(cmd, env=("PATH" => path,"CLICOLOR"=>"0",), dir = dir), wait=false)
     Timer(timeout, interval=1) do timer
       if process_running(p)
-        @error "Fehler!"
+        @error "Still running"
         kill(p)
         throw(InterruptException())
       end
     end
   else
     p = run(Cmd(cmd, dir = dir), wait=false)
-    Timer(timeout) do timer
+    timer = Timer(0; interval=1)
+    for i in 1:timeout
+      wait(timer)
       if process_running(p)
-        @error "Fehler!"
-        kill(p)
-        throw(InterruptException())
+        println("Still running: $i")
+      else
+        println("Finished")
+        close(timer)
+        break
       end
     end
     if process_running(p)
-      println("läuft immernoch")
+      @error "Still running"
+      kill(p)
     end
   end
 end
