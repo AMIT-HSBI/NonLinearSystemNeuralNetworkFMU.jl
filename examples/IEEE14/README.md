@@ -33,6 +33,7 @@ To (locally) reproduce this project, do the following:
       - pandas
       - numpy
       - tensorflow
+      - tf2onnx
 
   4. OpenModelica: Tested omc version v1.21.0-dev-288-g01b6764df5-cmake
      with OMSimulator version OMSimulator v2.1.1.post194-g75de4c6-linux-debug.

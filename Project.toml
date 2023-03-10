@@ -1,7 +1,7 @@
 name = "NonLinearSystemNeuralNetworkFMU"
 uuid = "cef0780c-fc83-4b94-9c0c-d964a51a3c65"
 authors = ["AnHeuermann <andreas.heuermann@fh-bielefeld.de>"]
-version = "0.3.0"
+version = "0.4.0"
 
 [deps]
 BSON = "fbb218c0-5317-5bc6-957e-2ee96dd4b1f0"
@@ -13,6 +13,7 @@ FMI = "14a09403-18e3-468f-ad8a-74f8dda2d9ac"
 FMICore = "8af89139-c281-408e-bce2-3005eb87462f"
 FMIImport = "9fcbc62e-52a0-44e9-a616-1359a0008194"
 Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
+InvertedIndices = "41ab1584-1d38-5bbf-9106-f11c6c58b48f"
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
 OMJulia = "0f4fe800-344e-11e9-2949-fb537ad918e1"
@@ -27,5 +28,5 @@ XMLDict = "228000da-037f-5747-90a9-8195ccbf91a5"
 [compat]
 Cbc = "1.0.3"
 DataFrames = "0.19.4, 0.20, 0.21, 0.22, 1"
-julia = ">=1.7.0"
 OMJulia = "0.2.1"
+julia = ">=1.7.0"

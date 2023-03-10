@@ -178,6 +178,7 @@ function generateTrainingData(fmuPath::String,
   for i = 1:nBatches
     tempCsvFile = joinpath(workDir, "trainingData_eq_$(eqId)_tread_$(i).csv")
     df = CSV.read(tempCsvFile, DataFrames.DataFrame; ntasks=1)
+    df[!, "Trace"] .= i
     if i==1
       CSV.write(fname, df; append=append)
     else
@@ -187,4 +188,56 @@ function generateTrainingData(fmuPath::String,
   end
 
   return fname
+end
+
+"""
+
+
+"""
+function data2proximityData(df::DataFrames.DataFrame,
+                            inputVars::Array{String},
+                            outputVars::Array{String};
+                            neighbors=1::Integer,
+                            weight=0.0::Float64)::DataFrames.DataFrame
+
+  @assert in("Trace", names(df)) "DataFrame df is missing column 'Trace'."
+  @assert weight >= 0 "weight has to be non-negative."
+  @assert neighbors >= 1 "neighbors has to be larger than 0."
+
+  nInputs = length(inputVars)
+  nOutputs = length(outputVars)
+
+  # Create new empty data frame
+  col_names = Symbol.(vcat(inputVars, outputVars.*"_old", outputVars))
+  col_types = fill(Float64, nInputs+2*nOutputs)
+  named_tuple = NamedTuple{Tuple(col_names)}(type[] for type in col_types)
+  df_proximity = DataFrames.DataFrame(named_tuple)
+
+  # Fill new data frame for each trace
+  for trace in sort(unique(df.Trace))
+    df_trace = DataFrames.select(filter(row-> row.Trace == trace, df), InvertedIndices.Not([:Trace]))
+
+    len = size(df_trace)[1]
+    for (j,row) in enumerate(eachrow(df_trace))
+      k = vcat(j-neighbors:j-1,  j+1:+j+neighbors)
+      k = filter(k_i -> k_i > 0 && k_i < len, k)
+
+      usingVars = Vector(row[1:nInputs])
+      oldIterationVars = Vector(df_trace[rand(k), nInputs+1:nInputs+nOutputs])
+      # Wiggle oldIterationVars
+      if weight > 0
+        oldIterationVars = wiggle.(oldIterationVars; weight=weight)
+      end
+      iterationVars = Vector(row[nInputs+1:nInputs+nOutputs])
+
+      new_row = vcat(usingVars, oldIterationVars, iterationVars)
+      push!(df_proximity, new_row)
+    end
+  end
+  return df_proximity
+end
+
+function wiggle(x; weight=0.1)
+  r = weight*(2*rand()-1)
+  return x + (r*x)
 end
