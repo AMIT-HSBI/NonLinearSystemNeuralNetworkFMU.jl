@@ -29,13 +29,14 @@ Catch InterruptException, kill process and rethorw InterruptException.
 Add OPENMODELICAHOME to PATH for Windows to get access to Unix tools from MSYS.
 
 # Arguments
-  - `cmd::Cmd`:            Shell command to run.
-  - `dir?pwd()::String`:   Working directory for command.
+  - `cmd::Cmd`:             Shell command to run.
+  - `dir=pwd()::String`:    Working directory for command.
+  - `logFile=devnull`:      IO stream or file to pipe stdout and stderr to.
 
 # Keywords
   - `timeout=10*60::Integer`:   Timeout in seconds. Defaults to 10 minutes.
 """
-function omrun(cmd::Cmd; dir=pwd()::String, timeout=10*60::Integer)
+function omrun(cmd::Cmd; dir=pwd()::String, logFile=devnull, timeout=10*60::Integer)
   path = ENV["PATH"]
   if Sys.iswindows()
     path *= ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "mingw64", "bin"))
@@ -43,7 +44,9 @@ function omrun(cmd::Cmd; dir=pwd()::String, timeout=10*60::Integer)
   end
   @debug "PATH: $(path)"
 
-  p = run(Cmd(cmd, env=("PATH" => path,"CLICOLOR"=>"0",), dir = dir), wait=false)
+  cmd_path = Cmd(cmd, env=("PATH" => path,"CLICOLOR"=>"0",), dir = dir)
+  plp = pipeline(cmd_path, stdout=logFile, stderr=logFile)
+  p = run(plp, wait=false)
   try
     timer = Timer(0; interval=1)
     for i in 1:timeout
@@ -63,7 +66,7 @@ function omrun(cmd::Cmd; dir=pwd()::String, timeout=10*60::Integer)
     end
   catch e
     if isa(e, InterruptException) && process_running(p)
-      @error "Killing process $(p)."
+      @error "Killing process $(cmd)."
       kill(p)
     end
     rethrow(e)
