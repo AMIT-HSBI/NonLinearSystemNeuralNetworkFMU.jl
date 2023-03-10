@@ -23,40 +23,50 @@ EOL = Sys.iswindows() ? "\r\n" : "\n"
     omrun(cmd; dir=pwd(), timeout=10*60)
 
 Execute system command.
+Kill process and throw TimeOutError when timeout is reached.
+Catch InterruptException, kill process and rethorw InterruptException.
 
 Add OPENMODELICAHOME to PATH for Windows to get access to Unix tools from MSYS.
+
+# Arguments
+  - `cmd::Cmd`:            Shell command to run.
+  - `dir?pwd()::String`:   Working directory for command.
+
+# Keywords
+  - `timeout=10*60::Integer`:   Timeout in seconds. Defaults to 10 minutes.
 """
 function omrun(cmd::Cmd; dir=pwd()::String, timeout=10*60::Integer)
+  path = ENV["PATH"]
   if Sys.iswindows()
-    path = ENV["PATH"] * ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "mingw64", "bin"))
+    path *= ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "mingw64", "bin"))
     path *= ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "usr", "bin"))
-    @debug "PATH: $(path)"
-    timer = @task sleep(timeout)
-    p = run(Cmd(cmd, env=("PATH" => path,"CLICOLOR"=>"0",), dir = dir), wait=false)
-    Timer(timeout, interval=1) do timer
-      if process_running(p)
-        @error "Still running"
-        kill(p)
-        throw(InterruptException())
-      end
-    end
-  else
-    p = run(Cmd(cmd, dir = dir), wait=false)
+  end
+  @debug "PATH: $(path)"
+
+  p = run(Cmd(cmd, env=("PATH" => path,"CLICOLOR"=>"0",), dir = dir), wait=false)
+  try
     timer = Timer(0; interval=1)
     for i in 1:timeout
       wait(timer)
       if process_running(p)
-        println("Still running: $i")
+        @debug "Command still running: $i[s]"
       else
-        println("Finished")
+        @debug "Finished command"
         close(timer)
         break
       end
     end
     if process_running(p)
-      @error "Still running"
+      @debug "Killing $(p)"
+      kill(p)
+      throw(TimeOutError(cmd))
+    end
+  catch e
+    if isa(e, InterruptException) && process_running(p)
+      @error "Killing process $(p)."
       kill(p)
     end
+    rethrow(e)
   end
 end
 
