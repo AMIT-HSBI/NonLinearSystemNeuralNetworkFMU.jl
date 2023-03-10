@@ -20,7 +20,7 @@
 EOL = Sys.iswindows() ? "\r\n" : "\n"
 
 """
-    omrun(cmd; dir=pwd(), timeout=10*60)
+    omrun(cmd; dir=pwd(), logFile=devnull, timeout=10*60)
 
 Execute system command.
 Kill process and throw TimeOutError when timeout is reached.
@@ -31,12 +31,13 @@ Add OPENMODELICAHOME to PATH for Windows to get access to Unix tools from MSYS.
 # Arguments
   - `cmd::Cmd`:             Shell command to run.
   - `dir=pwd()::String`:    Working directory for command.
-  - `logFile=devnull`:      IO stream or file to pipe stdout and stderr to.
+  - `logFile=stdout`:       IO stream or file to pipe stdout and stderr to.
+                            Will append if file already exists.
 
 # Keywords
   - `timeout=10*60::Integer`:   Timeout in seconds. Defaults to 10 minutes.
 """
-function omrun(cmd::Cmd; dir=pwd()::String, logFile=devnull, timeout=10*60::Integer)
+function omrun(cmd::Cmd; dir=pwd()::String, logFile=stdout, timeout=10*60::Integer)
   path = ENV["PATH"]
   if Sys.iswindows()
     path *= ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "mingw64", "bin"))
@@ -45,7 +46,11 @@ function omrun(cmd::Cmd; dir=pwd()::String, logFile=devnull, timeout=10*60::Inte
   @debug "PATH: $(path)"
 
   cmd_path = Cmd(cmd, env=("PATH" => path,"CLICOLOR"=>"0",), dir = dir)
-  plp = pipeline(cmd_path, stdout=logFile, stderr=logFile)
+  append = true
+  if logFile == stdout || logFile == stderr || logFile == devnull
+    append = false
+  end
+  plp = pipeline(cmd_path, stdout=logFile, stderr=logFile, append=append)
   p = run(plp, wait=false)
   try
     timer = Timer(0; interval=1)
@@ -247,6 +252,7 @@ function compileFMU(fmuRootDir::String, modelname::String, workdir::String)
 
   @debug "Compiling FMU"
   logFile = joinpath(workdir, modelname*"_compile.log")
+  rm(logfile, force=true)
   @info "Compilation log file: $(logFile)"
 
   if !haskey(ENV, "ORT_DIR")
@@ -257,20 +263,18 @@ function compileFMU(fmuRootDir::String, modelname::String, workdir::String)
   end
 
   try
-    redirect_stdio(stdout=logFile, stderr=logFile) do
-      pathToFmiHeader = abspath(joinpath(dirname(@__DIR__), "FMI-Standard-2.0.3", "headers"))
-      if Sys.iswindows()
-        omrun(`cmake -S . -B build_cmake -DFMI_INTERFACE_HEADER_FILES_DIRECTORY=$(pathToFmiHeader) -Wno-dev -G "MSYS Makefiles" -DCMAKE_COLOR_MAKEFILE=OFF`, dir = joinpath(fmuRootDir,"sources"))
-        omrun(`make install -Oline -j`, dir = joinpath(fmuRootDir, "sources", "build_cmake"))
-      else
-        omrun(`cmake -S . -B build_cmake -DFMI_INTERFACE_HEADER_FILES_DIRECTORY=$(pathToFmiHeader)`, dir = joinpath(fmuRootDir,"sources"))
-        omrun(`cmake --build build_cmake/ --target install --parallel`, dir = joinpath(fmuRootDir, "sources"))
-      end
-      rm(joinpath(fmuRootDir, "sources", "build_cmake"), force=true, recursive=true)
-      # Use create_zip instead of calling zip
-      rm(joinpath(dirname(fmuRootDir),modelname*".fmu"), force=true)
-      omrun(`zip -r ../$(modelname).fmu binaries/ resources/ sources/ modelDescription.xml`, dir = fmuRootDir)
+    pathToFmiHeader = abspath(joinpath(dirname(@__DIR__), "FMI-Standard-2.0.3", "headers"))
+    if Sys.iswindows()
+      omrun(`cmake -S . -B build_cmake -DFMI_INTERFACE_HEADER_FILES_DIRECTORY=$(pathToFmiHeader) -Wno-dev -G "MSYS Makefiles" -DCMAKE_COLOR_MAKEFILE=OFF`, dir = joinpath(fmuRootDir,"sources"), logFile=logFile)
+      omrun(`make install -Oline -j`, dir = joinpath(fmuRootDir, "sources", "build_cmake"), logFile=logFile)
+    else
+      omrun(`cmake -S . -B build_cmake -DFMI_INTERFACE_HEADER_FILES_DIRECTORY=$(pathToFmiHeader)`, dir = joinpath(fmuRootDir,"sources"), logFile=logFile)
+      omrun(`cmake --build build_cmake/ --target install --parallel`, dir = joinpath(fmuRootDir, "sources"), logFile=logFile)
     end
+    rm(joinpath(fmuRootDir, "sources", "build_cmake"), force=true, recursive=true)
+    # Use create_zip instead of calling zip
+    rm(joinpath(dirname(fmuRootDir),modelname*".fmu"), force=true)
+    omrun(`zip -r ../$(modelname).fmu binaries/ resources/ sources/ modelDescription.xml`, dir = fmuRootDir, logFile=logFile)
   catch e
     @info "Error caught, dumping log file $(logFile)"
     println(read(logFile, String))
