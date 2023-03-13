@@ -252,7 +252,7 @@ function compileFMU(fmuRootDir::String, modelname::String, workdir::String)
 
   @debug "Compiling FMU"
   logFile = joinpath(workdir, modelname*"_compile.log")
-  rm(logfile, force=true)
+  rm(logFile, force=true)
   @info "Compilation log file: $(logFile)"
 
   if !haskey(ENV, "ORT_DIR")
