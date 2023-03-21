@@ -239,13 +239,13 @@ function generateTrainingData(fmuPath::String,
   end
 
   @info "Starting data generation on $(nBatches) batches."
-  p = ProgressMeter.Progress(N_perBatch*nBatches; desc="Generating training data ...")
+  p = ProgressMeter.Progress(N*nBatches; desc="Generating training data ...")
 
   i = 0
   tmpnBatches = nBatches
   while tmpnBatches > 0
     @info "Mini-Batch $i"
-    nMiniBatch = min(tmpnBatches, 4*Threads.nthreads())
+    nMiniBatch = min(tmpnBatches, 4*Threads.nthreads())       # Make sure to not initialize too many FMUs at once
     tmpnBatches = tmpnBatches - nMiniBatch
     local fmuBatch
     Suppressor.@suppress begin
@@ -264,9 +264,6 @@ function generateTrainingData(fmuPath::String,
   mkpath(dirname(fname))
   for i = 1:nBatches
     tempCsvFile = joinpath(workDir, "trainingData_eq_$(eqId)_tread_$(i).csv")
-    if !isfile(tempCsvFile)
-      continue
-    end
     df = CSV.read(tempCsvFile, DataFrames.DataFrame; ntasks=1)
     if i==1
       CSV.write(fname, df; append=append)

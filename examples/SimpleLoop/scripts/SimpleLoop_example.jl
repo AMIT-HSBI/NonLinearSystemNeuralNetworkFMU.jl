@@ -57,10 +57,10 @@ function runExamples(N)
   fmu_interface = joinpath(workingDir, modelName*".interface.fmu")
   tempDir = joinpath(workingDir, "temp")
   fmu_onnx = buildWithOnnx(fmu_interface,
-                          modelName,
-                          profilingInfo,
-                          onnxFiles;
-                          tempDir=tempDir)
+                           modelName,
+                           profilingInfo,
+                           onnxFiles;
+                           tempDir=tempDir)
 
   cp(fmu_onnx, datadir("sims", "fmus", modelName*".onnx_N$N.fmu"), force=true)
 end
