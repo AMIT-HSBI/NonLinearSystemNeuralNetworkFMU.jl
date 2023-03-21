@@ -44,9 +44,12 @@ jobs:
           rm ${{ matrix.ort_archieve_name }}
 
       # Setup OpenModelica for OMJulia.jl
-      - uses: AnHeuermann/setup-openmodelica@v0.3
+      - uses: AnHeuermann/setup-openmodelica@v0.4
         with:
           version: 'nightly'
+          packages: |
+            'omc'
+            'omsimulator'
 
       # Build and test NonLinearSystemNeuralNetworkFMU.jl
       - uses: julia-actions/setup-julia@v1

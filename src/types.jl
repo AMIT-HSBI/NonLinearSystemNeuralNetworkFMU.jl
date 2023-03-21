@@ -17,6 +17,10 @@
 # along with NonLinearSystemNeuralNetworkFMU.jl. If not, see <http://www.gnu.org/licenses/>.
 #
 
+ #=
+ #   General types
+=#
+
 """
     EqInfo <: Any
 
@@ -107,6 +111,53 @@ function Base.show(io::IO, ::MIME"text/plain", profilingInfo::ProfilingInfo)
   Printf.@printf(io, "boundary: %s)", profilingInfo.boundary)
 end
 
+
+"""
+    OMOptions <: Any
+
+Settings for profiling and simulating with the OpenModelica Compiler (OMC).
+"""
+struct OMOptions
+  "Path to omc used for simulating the model."
+  pathToOmc::String
+  "Working directory for omc. Defaults to the current directory."
+  workingDir::String
+  """Output format for result file. Can be `"mat"` or `"csv"`."""
+  outputFormat::Union{String,Nothing}
+  "Remove everything in `workingDir` when set to `true`."
+  clean::Bool
+  "Additional comannd line options for `setCommandLineOptions`."
+  commandLineOptions::String
+
+  # Constructor
+  function OMOptions(;pathToOmc::String = "",
+                     workingDir::String = pwd(),
+                     outputFormat::Union{String,Nothing} = "csv",
+                     clean::Bool = false,
+                     commandLineOptions::String = "",
+                     disableCSE = true)
+
+    # Try to find omc executable
+    pathToOmc = getomc(pathToOmc)
+
+    # Assert output format
+    if outputFormat != "csv" && outputFormat != "mat" && outputFormat !== nothing
+      error("output format $(outputFormat) not supperted. Has to be \"csv\" or \"mat\".")
+    end
+
+    # Disable CSE variables in loops
+    if disableCSE
+      commandLineOptions *= " --preOptModules-=wrapFunctionCalls --postOptModules-=wrapFunctionCalls"
+    end
+
+    new(pathToOmc, workingDir, outputFormat, clean, commandLineOptions)
+  end
+end
+
+ #=
+ #   Error types
+=#
+
 """
 Program not found in PATH error.
 """
@@ -167,6 +218,27 @@ function Base.showerror(io::IO, e::OpenModelicaError)
 end
 
 """
+Timeout error.
+"""
+struct TimeOutError <: Exception
+  cmd::Cmd
+end
+function Base.showerror(io::IO, e::TimeOutError)
+  println(io, "Timeout reached running command")
+  println(io, e.cmd)
+end
+
+ #=
+ #   Getter and setter functions
+=#
+
+function getProfilingInfo(bsonFile::String)::Array{ProfilingInfo}
+  # load BSON file
+  dict = BSON.load(bsonFile, @__MODULE__)
+  return Array{ProfilingInfo}(dict[first(keys(dict))])
+end
+
+"""
     getUsingVars(bsonFile, eqNumber)
 
 # Arguments
@@ -176,19 +248,17 @@ end
   - array of the using variables and length of the array
 """
 function getUsingVars(bsonFile::String, eqNumber::Int)
-  # load BSON file
-  dict = BSON.load(bsonFile, @__MODULE__)
-  profilingInfo = Array{ProfilingInfo}(dict[first(keys(dict))])
-  # Find array element i with eqNumber
-  for i = 1:length(profilingInfo)
-    if profilingInfo[i].eqInfo.id == eqNumber
-      return profilingInfo[i].usingVars , length([profilingInfo[i].usingVars][i])
+  profilingInfo = getProfilingInfo(bsonFile)
+  # Find array element with eqNumber
+  for prof in profilingInfo
+    if prof.eqInfo.id == eqNumber
+      return prof.usingVars , length(prof.usingVars)
     end
   end
 end
 
 """
-    getIterationVariables(bsonFile, eqNumber)
+    getIterationVars(bsonFile, eqNumber)
 
 # Arguments
   - `bsonFile::String`:  name of the binary JSON file
@@ -196,14 +266,12 @@ end
 # Return:
   - array of the iteration variables and length of the array
 """
-function getIterationVariables(bsonFile::String, eqNumber::Int)
-  # load BSON file
-  dict = BSON.load(bsonFile, @__MODULE__)
-  profilingInfo = Array{ProfilingInfo}(dict[first(keys(dict))])
-  # Find array element i with eqNumber
-  for i = 1:length(profilingInfo)
-    if profilingInfo[i].eqInfo.id == eqNumber
-      return profilingInfo[i].iterationVariables , length([profilingInfo[i].iterationVariables][i])
+function getIterationVars(bsonFile::String, eqNumber::Int)
+  profilingInfo = getProfilingInfo(bsonFile)
+  # Find array element with eqNumber
+  for prof in profilingInfo
+    if prof.eqInfo.id == eqNumber
+      return prof.iterationVariables , length(prof.iterationVariables)
     end
   end
 end
@@ -218,13 +286,56 @@ end
   - array of the inner equations and length of the array
 """
 function getInnerEquations(bsonFile::String, eqNumber::Int)
-  # load BSON file
-  dict = BSON.load(bsonFile, @__MODULE__)
-  profilingInfo = Array{ProfilingInfo}(dict[first(keys(dict))])
-  # Find array element i with eqNumber
-  for i = 1:length(profilingInfo)
-    if profilingInfo[i].eqInfo.id == eqNumber
-      return profilingInfo[i].innerEquations , length([profilingInfo[i].innerEquations][i])
+  profilingInfo = getProfilingInfo(bsonFile)
+  # Find array element with eqNumber
+  for prof in profilingInfo
+    if prof.eqInfo.id == eqNumber
+      return prof.innerEquations, length(prof.innerEquations)
+    end
+  end
+end
+
+"""
+    getMinMax(bsonFile, eqNumber, inputArray)
+
+# Arguments
+  - `bsonFile::String`:  name of the binary JSON file
+  - `eqNumber::Int`:  number of the slowest equation
+  - `inputArray::Vector{String}`: array of input variables as String
+# Return:
+  - array of the min and max values of each input from input array
+"""
+function getMinMax(bsonFile::String, eqNumber::Int, inputArray::Vector{String})
+  profilingInfo = getProfilingInfo(bsonFile)
+  for prof in profilingInfo
+    if prof.eqInfo.id == eqNumber
+      # get using variables; length is not necessary
+      inputs = prof.usingVars
+      # compare strings of inputArray with strings of inputs
+      indices = indexin(inputs,inputArray)
+      if length(inputs) > length(inputArray)
+        deleteat!(indices, findall(x -> x === nothing,indices))
+      end
+      return [[min,max] for (min,max) in zip(prof.boundary.min[indices],prof.boundary.max[indices])]
+    end
+  end
+end
+
+"""
+    getMinMax(bsonFile, eqNumber, inputArray)
+
+# Arguments
+  - `bsonFile::String`:  name of the binary JSON file
+  - `eqNumber::Int`:  number of the slowest equation
+  - `inputArray::Vector{Int}`: array of input variables as Integers
+# Return:
+  - array of the min and max values of each input from input array
+"""
+function getMinMax(bsonFile::String, eqNumber::Int, inputArray::Vector{Int})
+  profilingInfo = getProfilingInfo(bsonFile)
+  for prof in profilingInfo
+    if prof.eqInfo.id == eqNumber
+      return [[min,max] for (min,max) in zip(prof.boundary.min[inputArray],prof.boundary.max[inputArray])]
     end
   end
 end

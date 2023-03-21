@@ -42,7 +42,7 @@ All input-output pairs are saved in `fname`.
 
 # Keywords
   - `N::Integer = 1000`:   Number of input-output pairs to generate.
-  - `delta::T = 1e-3`:     Stepsize of random walk relative to the input space size
+  - `delta::T = 1e-3`:     Stepsize of random walk relative to the input space size.
 """
 function simulateFMU(fmu,
                      fname::String,
@@ -218,7 +218,9 @@ function generateTrainingData(fmuPath::String,
   #ENV["JULIA_DEBUG"] = "FMICore"
 
   N_perBatch = Integer(ceil(N / nBatches))
-  @assert N >= nBatches "nBatches smaller than N"
+  if N < nBatches
+    nBatches = 1
+  end
 
   inputVarsCopy = copy(inputVars)
 

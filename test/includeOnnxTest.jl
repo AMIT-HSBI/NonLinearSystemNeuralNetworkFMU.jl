@@ -21,7 +21,6 @@ import CSV
 import DataFrames
 using FMI
 using NonLinearSystemNeuralNetworkFMU
-using Suppressor
 using Test
 
 function runIncludeOnnxTests()
@@ -31,6 +30,7 @@ function runIncludeOnnxTests()
     modelname = "simpleLoop"
     fmuDir = abspath(joinpath(@__DIR__, "fmus"))
     tempDir = joinpath(fmuDir, "$(modelname)_onnx")
+    rm(tempDir, force=true, recursive=true)
     interfaceFmu = joinpath(fmuDir, "$(modelname).interface.fmu")
     onnxFmu = joinpath(fmuDir, "$(modelname).onnx.fmu")
     rm(onnxFmu, force=true)
@@ -47,34 +47,39 @@ function runIncludeOnnxTests()
     @test isfile(pathToFmu)
     # Save FMU for next test
     cp(pathToFmu, onnxFmu)
-    rm(tempDir, recursive=true)
   end
 
   @testset "Simulate ONNX FMU" begin
-    workDir = joinpath(@__DIR__, "fmus")
     modelname = "simpleLoop"
-    resultFile = "model_onnx_res.csv"
-    rm(joinpath(workDir,resultFile), force=true)
+    workDir = joinpath(@__DIR__, "oms")
+    rm(workDir, force=true, recursive=true)
+    mkpath(workDir)
+
+    fmuDir = joinpath(@__DIR__, "fmus")
+    fmu = joinpath(fmuDir, "$(modelname).onnx.fmu")
+
+    resultFile = "simpleLoop_onnx_res.csv"
     logFile = joinpath(workDir, modelname*"_OMSimulator.log")
 
-    cmd = `OMSimulator --resultFile=$resultFile "$(modelname).onnx.fmu"`
-    redirect_stdio(stdout=logFile, stderr=logFile) do
-      run(Cmd(cmd, dir=workDir))
-    end
+    cmd = `OMSimulator --resultFile=$(resultFile) "$(fmu)"`
+    NonLinearSystemNeuralNetworkFMU.omrun(cmd, dir=workDir, logFile=logFile, timeout=60)
 
-    @test isfile(joinpath(workDir,resultFile))
+    @test isfile(joinpath(workDir, resultFile))
     @test read(logFile, String) == """
     info:    model doesn't contain any continuous state
-    info:    Result file: model_onnx_res.csv (bufferSize=1)
+    info:    Result file: simpleLoop_onnx_res.csv (bufferSize=1)
     """
-    rm(logFile)
+
+    @test isfile(joinpath(workDir, "$(resultFile)"))
   end
 
   @testset "Check results" begin
-    resultFile = joinpath(@__DIR__, "fmus", "model_onnx_res.csv")
+    resultFile = joinpath(@__DIR__, "oms", "simpleLoop_onnx_res.csv")
     df_res = CSV.read(resultFile, DataFrames.DataFrame; ntasks=1)
-    @test maximum(abs.(df_res.x .- df_res.x_ref)) < 1e-2
-    @test maximum(abs.(df_res.y .- df_res.y_ref)) < 1e-2
+    # LOG_RES is true, so if the result is too bad solve_nonlinear_system() is called
+    # So the results should be very good.
+    x = df_res.r .* df_res.s .- df_res.y
+    @test maximum(abs.(df_res.r .^ 2 .- (x .^ 2 .+ df_res.y .^ 2))) < 1e-6
   end
 end
 

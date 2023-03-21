@@ -23,10 +23,11 @@ import NonLinearSystemNeuralNetworkFMU
 function runProfilingTests()
   modelName = "simpleLoop"
   moFiles = [abspath(@__DIR__,"simpleLoop.mo")]
-  workingDir = abspath(@__DIR__)
+  workingDir = joinpath(abspath(@__DIR__), modelName)
+  options = NonLinearSystemNeuralNetworkFMU.OMOptions(workingDir=workingDir)
 
   @testset "Find slowes equations" begin
-    profilingInfo = NonLinearSystemNeuralNetworkFMU.profiling(modelName, moFiles; workingDir=workingDir, threshold=0, ignoreInit=false)
+    profilingInfo = NonLinearSystemNeuralNetworkFMU.profiling(modelName, moFiles; options=options, threshold=0, ignoreInit=false)
     @test length(profilingInfo) == 2
     # NLS from simulation system
     @test profilingInfo[1].eqInfo.id == 14

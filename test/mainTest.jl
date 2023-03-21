@@ -24,10 +24,11 @@ function runMainTest()
   modelName = "simpleLoop"
   moFiles = [abspath(@__DIR__,"simpleLoop.mo")]
   workingDir = joinpath(abspath(@__DIR__), modelName)
+  options = NonLinearSystemNeuralNetworkFMU.OMOptions(workingDir=workingDir)
   rm(joinpath(workingDir), recursive=true, force=true)
 
   @testset "Generate Data (main)" begin
-    (csvFiles, fmu, profilingInfo) = NonLinearSystemNeuralNetworkFMU.main(modelName, moFiles; workdir=workingDir, reuseArtifacts=false, N=10)
+    (csvFiles, fmu, profilingInfo) = NonLinearSystemNeuralNetworkFMU.main(modelName, moFiles; options=options, reuseArtifacts=false, N=10)
     @test isfile(joinpath(workingDir, "profilingInfo.bson"))
     @test isfile(joinpath(workingDir, "simpleLoop.fmu"))
     @test isfile(joinpath(workingDir, "simpleLoop.interface.fmu"))
@@ -50,7 +51,7 @@ function runMainTest()
   end
 
   @testset "Test function getIterationVars" begin
-    iterationVars, lenIterationVars  = NonLinearSystemNeuralNetworkFMU.getIterationVariables(joinpath(workingDir, "profilingInfo.bson"), 14)
+    iterationVars, lenIterationVars  = NonLinearSystemNeuralNetworkFMU.getIterationVars(joinpath(workingDir, "profilingInfo.bson"), 14)
     @test iterationVars == ["y"]
     @test lenIterationVars == 1
   end
@@ -59,6 +60,11 @@ function runMainTest()
     innerEq, lenInnerEq  = NonLinearSystemNeuralNetworkFMU.getInnerEquations(joinpath(workingDir, "profilingInfo.bson"), 14)
     @test sort(innerEq) == [11]
     @test lenInnerEq == 1
+  end
+
+  @testset "Test function getMinMax" begin
+    minMax  = NonLinearSystemNeuralNetworkFMU.getMinMax(joinpath(workingDir, "profilingInfo.bson"), 14, ["r","s"])
+    @test sort(minMax) ==  [[0.0, 1.4087228258248679], [0.95, 3.15]]
   end
   rm(joinpath(workingDir), recursive=true, force=true)
 end
