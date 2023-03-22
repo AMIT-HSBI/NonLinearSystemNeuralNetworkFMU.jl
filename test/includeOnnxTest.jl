@@ -53,9 +53,7 @@ function runIncludeOnnxTests()
     modelname = "simpleLoop"
     workDir = joinpath(@__DIR__, "oms")
     rm(workDir, force=true, recursive=true)
-    if !isdir(workDir)
-      mkdir(workDir)
-    end
+    mkpath(workDir)
 
     fmuDir = joinpath(@__DIR__, "fmus")
     fmu = joinpath(fmuDir, "$(modelname).onnx.fmu")
@@ -64,9 +62,7 @@ function runIncludeOnnxTests()
     logFile = joinpath(workDir, modelname*"_OMSimulator.log")
 
     cmd = `OMSimulator --resultFile=$(resultFile) "$(fmu)"`
-    redirect_stdio(stdout=logFile, stderr=logFile) do
-      run(Cmd(cmd, dir=workDir))
-    end
+    NonLinearSystemNeuralNetworkFMU.omrun(cmd, dir=workDir, logFile=logFile, timeout=60)
 
     @test isfile(joinpath(workDir, resultFile))
     @test read(logFile, String) == """
@@ -74,7 +70,7 @@ function runIncludeOnnxTests()
     info:    Result file: simpleLoop_onnx_res.csv (bufferSize=1)
     """
 
-    @test isfile(joinpath(workDir, "$(modelname)_eq14_residuum.csv"))
+    @test isfile(joinpath(workDir, "$(resultFile)"))
   end
 
   @testset "Check results" begin

@@ -217,6 +217,17 @@ function Base.showerror(io::IO, e::OpenModelicaError)
   end
 end
 
+"""
+Timeout error.
+"""
+struct TimeOutError <: Exception
+  cmd::Cmd
+end
+function Base.showerror(io::IO, e::TimeOutError)
+  println(io, "Timeout reached running command")
+  println(io, e.cmd)
+end
+
  #=
  #   Getter and setter functions
 =#
