@@ -49,7 +49,6 @@ function ortDataCode(equations::Array{ProfilingInfo}, modelName::String, onnxNam
     initCalls *= """
         snprintf(onnxPath, 2048, "%s/%s", data->modelData->resourcesDir, \"$(onnxName)\");
         ortData_eq_$(eq.eqInfo.id) = initOrtData(\"$(modelName)_eq$(eq.eqInfo.id)\", onnxPath, \"$modelName\", $nInputs, $nOutputs);
-        ortData_eq_$(eq.eqInfo.id)->nInputs = $nInputs;
         double min_$(eq.eqInfo.id)[$nInputs] = {$minBoundCArray};
         memcpy(ortData_eq_$(eq.eqInfo.id)->min, min_$(eq.eqInfo.id), sizeof(double)*$nInputs);
         double max_$(eq.eqInfo.id)[$nInputs] = {$(maxBoundCArray)};
