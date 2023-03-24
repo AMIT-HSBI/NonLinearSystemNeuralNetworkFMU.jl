@@ -38,14 +38,16 @@ Add OPENMODELICAHOME to PATH for Windows to get access to Unix tools from MSYS.
   - `timeout=10*60::Integer`:   Timeout in seconds. Defaults to 10 minutes.
 """
 function omrun(cmd::Cmd; dir=pwd()::String, logFile=stdout, timeout=10*60::Integer)
-  path = ENV["PATH"]
+  env = copy(ENV)
   if Sys.iswindows()
     path *= ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "mingw64", "bin"))
     path *= ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "usr", "bin"))
+    env["PATH"] = path
+    env["CLICOLOR"] = 0
   end
-  @debug "PATH: $(path)"
+  @debug "PATH: $(env["PATH"])"
 
-  cmd_path = Cmd(cmd, env=("PATH" => path,"CLICOLOR"=>"0",), dir = dir)
+  cmd_path = Cmd(cmd, env=env, dir = dir)
   append = true
   if logFile == stdout || logFile == stderr || logFile == devnull
     append = false
@@ -75,6 +77,9 @@ function omrun(cmd::Cmd; dir=pwd()::String, logFile=stdout, timeout=10*60::Integ
       kill(p)
     end
     rethrow(e)
+  end
+  if p.exitcode != 0
+    error("Process $(cmd) failed")
   end
 end
 

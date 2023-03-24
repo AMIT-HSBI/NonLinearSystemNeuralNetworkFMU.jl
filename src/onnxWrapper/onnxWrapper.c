@@ -115,6 +115,7 @@ struct OrtWrapperData* initOrtData(const char* equationName, const char* pathToO
   ortData->session = session;
 
   /* Initialize model_input and model_output */
+  ortData->nInputs = nInputs;
   ortData->model_input = calloc(nInputs, sizeof ortData->model_input[0]);
   ortData->model_output = calloc(nOutputs, sizeof ortData->model_output[0]);
 
@@ -159,9 +160,9 @@ struct OrtWrapperData* initOrtData(const char* equationName, const char* pathToO
   }
   fprintf(ortData->csvFile, "res[%li]\n", ortData->nRes-1);
 
-  /* Initialize training are boundaries */
-  ortData->min = calloc(nOutputs, sizeof ortData->min[0]);
-  ortData->max = calloc(nOutputs, sizeof ortData->max[0]);
+  /* Initialize training area boundaries */
+  ortData->min = calloc(nInputs, sizeof ortData->min[0]);
+  ortData->max = calloc(nInputs, sizeof ortData->max[0]);
 
   return ortData;
 }
