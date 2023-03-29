@@ -60,7 +60,7 @@ function NonLinearSystemNeuralNetworkFMU.plotTrainArea(vars::Array{String},
     if df_surrogate !== nothing
       idx_sur = findall(t -> tspan[1] <= t <= tspan[2], df_surrogate.time)
     end
-    if df_trainData !== nothing 
+    if df_trainData !== nothing
       if in("time", names(df_trainData))
         idx_data = findall(t -> tspan[1] <= t <= tspan[2], df_trainData.time)
       end
@@ -114,7 +114,7 @@ function NonLinearSystemNeuralNetworkFMU.plotTrainArea(vars::Array{String},
       if in("time", names(df_trainData))
         l4 = CairoMakie.scatter!(axis,
                                 df_trainData.time[idx_data], df_trainData[!, var][idx_data],
-                                color = (:tomato, 0.5))
+                                color = df_trainData[!, :loss][idx_data])
       else
         for data in df_trainData[!, var]
           l4 = CairoMakie.lines!(axis,

@@ -18,7 +18,7 @@ function trainFlux(modelName, N; nepochs=100, losstol=1e-8)
   dict = BSON.load(joinpath(workdir, "profilingInfo.bson"))
   profilingInfo = Array{ProfilingInfo}(dict[first(keys(dict))])[1:1]
 
-  # Convert data CSV to proximit data CSV
+  # Convert data CSV to proximity data CSV
   (csvFile_proximity, df_proximity) = convertProximityData(workdir, N, profilingInfo[1].eqInfo.id)
 
   # Train ONNX

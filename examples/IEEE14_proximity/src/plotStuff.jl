@@ -8,6 +8,34 @@ using DataFrames
 using Flux
 using NonLinearSystemNeuralNetworkFMU
 
+include("trainFlux.jl")
+
+"""
+Calculate loss of the surrogate on train data
+"""
+function calcLoss(modelName, N)
+  workdir = datadir("sims", "$(modelName)_$(N)")
+
+  dict = BSON.load(joinpath(workdir, "profilingInfo.bson"))
+  prof = Array{ProfilingInfo}(dict[first(keys(dict))])[1]
+
+  trainData_csv = joinpath(workdir, "data", "eq_1403.csv")
+  trainData = CSV.read(trainData_csv, DataFrame; ntasks=1)
+
+  trainLoss = DataFrames.DataFrame(loss=zeros(size(trainData, 1)))
+  model = getModel(modelName, N)
+
+  for (i, _) in enumerate(eachrow(trainData))
+    usingVars = trainData[i, prof.usingVars]
+    solution = trainData[i, prof.iterationVariables]
+    input = vcat(Array{Float32}(usingVars), Array{Float32}(solution))
+    trainLoss[i, :loss] = sqrt(sum(abs2.(model(input) .- Array{Float32}(solution))))
+  end
+
+  trainLoss_csv = joinpath(workdir, "onnx", "eq_1403_loss.csv")
+  CSV.write(trainLoss_csv, trainLoss)
+end
+
 """
 Plot trained area, a zoomed in version of trained area and the surrogate solution when integrated into the ODE.
 """
@@ -22,10 +50,13 @@ function plotStuff(modelName, N; fileType = "svg")
   ref_csv = joinpath(workdir, "temp-omsimulator", "$(modelName)_ref.csv")
   onnx_csv = joinpath(workdir, "temp-omsimulator", "$(modelName)_onnx_res.csv")
   trainData_csv = joinpath(workdir, "data", "eq_1403.csv")
+  trainLoss_csv = joinpath(workdir, "onnx", "eq_1403_loss.csv")
 
   ref_results = CSV.read(ref_csv, DataFrame; ntasks=1)
   onnx_results = CSV.read(onnx_csv, DataFrame; ntasks=1)
   trainData = CSV.read(trainData_csv, DataFrame; ntasks=1)
+  trainLoss = CSV.read(trainLoss_csv, DataFrame; ntasks=1)
+  trainData.loss = trainLoss.loss
 
   figure = plotTrainArea(prof.usingVars, ref_results; df_surrogate=onnx_results, df_trainData=trainData, title="Training Area", epsilon=0.1)
   savename = joinpath(plotdir, "trainArea.$(fileType)")
