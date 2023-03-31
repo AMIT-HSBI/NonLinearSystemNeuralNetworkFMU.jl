@@ -34,6 +34,7 @@ isdefined(Base, :get_extension) ? (using CairoMakie) : (using ..CairoMakie)
 Plot variables `vars` from reference solution `df_ref` as well as a ϵ-tube around it.
 If available plot surrogate solution as well as training data into the figure.
 Use `tspan` to specify time span to plot.
+If df_trainData has column `loss` the color of the data points will be its loss value.
 """
 function NonLinearSystemNeuralNetworkFMU.plotTrainArea(vars::Array{String},
                                                        df_ref::DataFrames.DataFrame;
@@ -41,17 +42,23 @@ function NonLinearSystemNeuralNetworkFMU.plotTrainArea(vars::Array{String},
                                                        df_trainData::Union{DataFrames.DataFrame, Nothing} = nothing,
                                                        title = "",
                                                        epsilon = 0.01,
-                                                       tspan::Union{Tuple{Real, Real}, Nothing} = nothing)
+                                                       tspan::Union{Tuple{Real, Real}, Nothing} = nothing,
+                                                       usetricontour::Bool = false)
 
-  nRows = Integer(ceil(sqrt(length(vars))))
+  nCols = Integer(ceil(sqrt(length(vars))))
+  nRows = nCols
+  while length(vars) <= (nRows-1)*nCols
+    nRows -= 1
+  end
 
   fig = Figure(fontsize = 32,
-               resolution = (nRows*800, nRows*600))
+               resolution = (nRows*800, nCols*600))
 
   Label(fig[0,:], text=title, fontsize=32, tellwidth=false, tellheight=true)
-  grid = GridLayout(nRows, nRows; parent = fig)
+  grid = GridLayout(nRows, nCols; parent = fig)
 
   # Filter data frames for tspan
+  # This has to be the worst code I have ever written!
   idx_ref = 1:length(df_ref.time)
   local idx_sur
   local idx_data
@@ -112,19 +119,43 @@ function NonLinearSystemNeuralNetworkFMU.plotTrainArea(vars::Array{String},
     # Plot training data
     if df_trainData !== nothing
       if in("time", names(df_trainData))
-        l4 = CairoMakie.scatter!(axis,
+        if in("loss", names(df_trainData))
+          if var == "time" || !usetricontour
+            CairoMakie.scatter!(axis,
                                 df_trainData.time[idx_data], df_trainData[!, var][idx_data],
                                 color = df_trainData[!, :loss][idx_data])
+          else
+            CairoMakie.tricontourf!(axis,
+                                    df_trainData.time[idx_data],
+                                    df_trainData[!, var][idx_data],
+                                    df_trainData[!, :loss][idx_data])
+          end
+        else
+          l4 = CairoMakie.scatter!(axis,
+                                   df_trainData.time[idx_data], df_trainData[!, var][idx_data],
+                                   color = (:tomato, 0.5))
+        end
       else
-        for data in df_trainData[!, var]
-          l4 = CairoMakie.lines!(axis,
-                                df_ref.time[idx_ref[1:end-1:end]], [data, data],
-                                color = (:tomato, 0.5))
+        if in("loss", names(df_trainData))
+          colorrange = (minimum(df_trainData.loss), maximum(df_trainData.loss))
+          for (i,data) in enumerate(df_trainData[!, var])
+            CairoMakie.lines!(axis,
+                              df_ref.time[idx_ref[1:end-1:end]], [data, data],
+                              color = [df_trainData.loss[i], df_trainData.loss[i]],
+                              colormap = :viridis,
+                              colorrange = colorrange)
+          end
+        else
+          for data in df_trainData[!, var]
+            l4 = CairoMakie.lines!(axis,
+                                   df_ref.time[idx_ref[1:end-1:end]], [data, data],
+                                   color = (:tomato, 0.5))
+          end
         end
       end
     end
 
-    if i%nRows == 0
+    if i%nCols == 0
       row += 1
       col = 1
     else
@@ -142,8 +173,10 @@ function NonLinearSystemNeuralNetworkFMU.plotTrainArea(vars::Array{String},
     push!(label_names, "surrogate")
   end
   if df_trainData !== nothing
-    push!(labels, l4)
-    push!(label_names, "data")
+    if !in("loss", names(df_trainData))
+      push!(labels, l4)
+      push!(label_names, "data")
+    end
   end
 
   Legend(fig[2, 1],
@@ -151,6 +184,20 @@ function NonLinearSystemNeuralNetworkFMU.plotTrainArea(vars::Array{String},
          label_names,
          orientation = :horizontal, tellwidth = false, tellheight = true)
 
+  if df_trainData !== nothing && in("loss", names(df_trainData))
+    local limits
+    if in("time", names(df_trainData))
+      limits = (minimum(df_trainData.loss[idx_data]), maximum(df_trainData.loss[idx_data]))
+    else
+      limits = (minimum(df_trainData.loss), maximum(df_trainData.loss))
+    end
+    Colorbar(fig[1, 2], limits = limits,
+             label = "data loss",
+             flipaxis = true, tellwidth = false, tellheight = false)
+    colsize!(fig.layout, 1, Aspect(1, 1.25))
+  end
+
+  resize_to_layout!(fig)
   return fig
 end
 
