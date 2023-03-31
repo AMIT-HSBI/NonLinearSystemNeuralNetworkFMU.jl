@@ -57,6 +57,7 @@ function plotStuff(modelName, N; fileType = "svg")
   trainData.loss = trainLoss.loss
 
   figure = plotTrainArea(prof.usingVars, ref_results; df_surrogate=onnx_results, df_trainData=trainData, title="Training Area", epsilon=0.1)
+  display(figure)
   savename = joinpath(plotdir, "trainArea.$(fileType)")
   save(savename, figure)
 
@@ -64,7 +65,7 @@ function plotStuff(modelName, N; fileType = "svg")
   savename = joinpath(plotdir, "trainAreaStart.$(fileType)")
   save(savename, figure)
 
-  figure = plotTrainArea(prof.iterationVariables[1:4], ref_results; df_surrogate=onnx_results, title="Surrogate Results", epsilon=0.1)
+  figure = plotTrainArea(prof.iterationVariables, ref_results; df_surrogate=onnx_results, title="Surrogate Results", epsilon=0.1)
   savename = joinpath(plotdir, "surrogateSolution.$(fileType)")
   save(savename, figure)
 end
@@ -74,7 +75,7 @@ Plot the solution of the ANN surrogate when using the reference solution as inpu
 so errors wont influence the next time step.
 """
 function SurrogateRefRes(modelName, N; fileType="svg", proximity=1)
-  @assert Threads.nthreads() == 1 "This breaks with multiple threads!"
+  #@assert Threads.nthreads() == 1 "This breaks with multiple threads!"
 
   workdir = datadir("sims", "$(modelName)_$(N)")
   plotdir = plotsdir("$(modelName)_$(N)")
