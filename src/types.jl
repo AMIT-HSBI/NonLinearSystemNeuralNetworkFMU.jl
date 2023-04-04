@@ -252,7 +252,7 @@ function getUsingVars(bsonFile::String, eqNumber::Int)
   # Find array element with eqNumber
   for prof in profilingInfo
     if prof.eqInfo.id == eqNumber
-      return prof.usingVars , length(prof.usingVars)
+      return prof.usingVars
     end
   end
 end
@@ -271,7 +271,7 @@ function getIterationVars(bsonFile::String, eqNumber::Int)
   # Find array element with eqNumber
   for prof in profilingInfo
     if prof.eqInfo.id == eqNumber
-      return prof.iterationVariables , length(prof.iterationVariables)
+      return prof.iterationVariables
     end
   end
 end
@@ -290,7 +290,7 @@ function getInnerEquations(bsonFile::String, eqNumber::Int)
   # Find array element with eqNumber
   for prof in profilingInfo
     if prof.eqInfo.id == eqNumber
-      return prof.innerEquations, length(prof.innerEquations)
+      return prof.innerEquations
     end
   end
 end
