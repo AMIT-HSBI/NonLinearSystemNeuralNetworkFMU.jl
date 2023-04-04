@@ -232,6 +232,11 @@ end
  #   Getter and setter functions
 =#
 
+"""
+    getProfilingInfo(bsonFile)
+
+Read `ProfilingInfo` array from binary JSON file.
+"""
 function getProfilingInfo(bsonFile::String)::Array{ProfilingInfo}
   # load BSON file
   dict = BSON.load(bsonFile, @__MODULE__)
@@ -245,16 +250,18 @@ end
   - `bsonFile::String`:  name of the binary JSON file
   - `eqNumber::Int`:  number of the slowest equation
 # Return:
-  - array of the using variables and length of the array
+  - Array of used variables
 """
-function getUsingVars(bsonFile::String, eqNumber::Int)
+function getUsingVars(bsonFile::String, eqNumber::Int)::Array{String}
   profilingInfo = getProfilingInfo(bsonFile)
   # Find array element with eqNumber
   for prof in profilingInfo
     if prof.eqInfo.id == eqNumber
-      return prof.usingVars , length(prof.usingVars)
+      return prof.usingVars
     end
   end
+
+  error("No usingVars array found for equation $(eqNumber)")
 end
 
 """
@@ -264,16 +271,18 @@ end
   - `bsonFile::String`:  name of the binary JSON file
   - `eqNumber::Int`:  number of the slowest equation
 # Return:
-  - array of the iteration variables and length of the array
+  - Array of iteration variables
 """
-function getIterationVars(bsonFile::String, eqNumber::Int)
+function getIterationVars(bsonFile::String, eqNumber::Int)::Array{String}
   profilingInfo = getProfilingInfo(bsonFile)
   # Find array element with eqNumber
   for prof in profilingInfo
     if prof.eqInfo.id == eqNumber
-      return prof.iterationVariables , length(prof.iterationVariables)
+      return prof.iterationVariables
     end
   end
+
+  error("No iterationVariables array found for equation $(eqNumber)")
 end
 
 """
@@ -283,16 +292,18 @@ end
   - `bsonFile::String`:  name of the binary JSON file
   - `eqNumber::Int`:  number of the slowest equation
 # Return:
-  - array of the inner equations and length of the array
+  - Array of inner equation indices
 """
-function getInnerEquations(bsonFile::String, eqNumber::Int)
+function getInnerEquations(bsonFile::String, eqNumber::Int)::Array{Int64}
   profilingInfo = getProfilingInfo(bsonFile)
   # Find array element with eqNumber
   for prof in profilingInfo
     if prof.eqInfo.id == eqNumber
-      return prof.innerEquations, length(prof.innerEquations)
+      return prof.innerEquations
     end
   end
+
+  error("No innerEquations array found for equation $(eqNumber)")
 end
 
 """
@@ -319,6 +330,8 @@ function getMinMax(bsonFile::String, eqNumber::Int, inputArray::Vector{String})
       return [[min,max] for (min,max) in zip(prof.boundary.min[indices],prof.boundary.max[indices])]
     end
   end
+
+  error("No boundary array found for equation $(eqNumber)")
 end
 
 """
@@ -338,4 +351,6 @@ function getMinMax(bsonFile::String, eqNumber::Int, inputArray::Vector{Int})
       return [[min,max] for (min,max) in zip(prof.boundary.min[inputArray],prof.boundary.max[inputArray])]
     end
   end
+
+  error("No boundary array found for equation $(eqNumber)")
 end
