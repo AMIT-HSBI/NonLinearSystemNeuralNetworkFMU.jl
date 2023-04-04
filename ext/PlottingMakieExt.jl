@@ -45,11 +45,9 @@ function NonLinearSystemNeuralNetworkFMU.plotTrainArea(vars::Array{String},
                                                        tspan::Union{Tuple{Real, Real}, Nothing} = nothing,
                                                        usetricontour::Bool = false)
 
-  nCols = Integer(ceil(sqrt(length(vars))))
-  nRows = nCols
-  while length(vars) <= (nRows-1)*nCols
-    nRows -= 1
-  end
+  aspectRatio = 1.0
+  nCols = Integer(ceil(sqrt(length(vars)*aspectRatio)))
+  nRows = Integer(ceil(length(vars)/nCols))
 
   fig = Figure(fontsize = 32,
                resolution = (nRows*800, nCols*600))
