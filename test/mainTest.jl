@@ -45,21 +45,21 @@ function runMainTest()
   end
 
   @testset "Test function getUsingVars" begin
-    usingVars, lenUsingVars  = NonLinearSystemNeuralNetworkFMU.getUsingVars(joinpath(workingDir, "profilingInfo.bson"), 14)
+    usingVars = NonLinearSystemNeuralNetworkFMU.getUsingVars(joinpath(workingDir, "profilingInfo.bson"), 14)
     @test sort(usingVars) == ["r","s"]
-    @test lenUsingVars == 2
+    @test length(usingVars) == 2
   end
 
   @testset "Test function getIterationVars" begin
-    iterationVars, lenIterationVars  = NonLinearSystemNeuralNetworkFMU.getIterationVars(joinpath(workingDir, "profilingInfo.bson"), 14)
+    iterationVars = NonLinearSystemNeuralNetworkFMU.getIterationVars(joinpath(workingDir, "profilingInfo.bson"), 14)
     @test iterationVars == ["y"]
-    @test lenIterationVars == 1
+    @test length(iterationVars) == 1
   end
 
   @testset "Test function getInnerEquations" begin
-    innerEq, lenInnerEq  = NonLinearSystemNeuralNetworkFMU.getInnerEquations(joinpath(workingDir, "profilingInfo.bson"), 14)
+    innerEq = NonLinearSystemNeuralNetworkFMU.getInnerEquations(joinpath(workingDir, "profilingInfo.bson"), 14)
     @test sort(innerEq) == [11]
-    @test lenInnerEq == 1
+    @test length(innerEq) == 1
   end
 
   @testset "Test function getMinMax" begin
