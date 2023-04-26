@@ -6,12 +6,12 @@
 // GNU version 3 is obtained from: http://www.gnu.org/copyleft/gpl.html.
 //
 
+#include "special_interface.h"
 #include "../simulation_data.h"
 #include "../simulation/solver/solver_main.h"
 #include "../<<MODELNAME>>_model.h"
 #include "fmu2_model_interface.h"
 #include "fmu_read_flags.h"
-#include "special_interface.h"
 
 fmi2Boolean isCategoryLogged(ModelInstance *comp, int categoryIndex);
 
