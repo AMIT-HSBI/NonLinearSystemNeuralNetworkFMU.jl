@@ -1,7 +1,7 @@
 name = "NonLinearSystemNeuralNetworkFMU"
 uuid = "cef0780c-fc83-4b94-9c0c-d964a51a3c65"
 authors = ["AnHeuermann <andreas.heuermann@fh-bielefeld.de>"]
-version = "0.4.0"
+version = "0.4.1"
 
 [deps]
 BSON = "fbb218c0-5317-5bc6-957e-2ee96dd4b1f0"
