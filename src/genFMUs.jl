@@ -94,9 +94,6 @@ function createSpecialInterface(modelname::String, tempDir::String, eqIndices::A
     read(file, String)
   end
 
-  # Replace placeholders
-  hFileContent = replace(hFileContent, "<<MODELNAME>>"=>modelname)
-
   # Create `special_interface.h`
   path = joinpath(tempDir,"FMU", "sources", "fmi-export", "special_interface.h")
   open(path, "w") do file
@@ -270,10 +267,10 @@ function compileFMU(fmuRootDir::String, modelname::String, workdir::String)
   try
     pathToFmiHeader = abspath(joinpath(dirname(@__DIR__), "FMI-Standard-2.0.3", "headers"))
     if Sys.iswindows()
-      omrun(`cmake -S . -B build_cmake -DFMI_INTERFACE_HEADER_FILES_DIRECTORY=$(pathToFmiHeader) -Wno-dev -G "MSYS Makefiles" -DCMAKE_COLOR_MAKEFILE=OFF`, dir = joinpath(fmuRootDir,"sources"), logFile=logFile)
+      omrun(`cmake -S . -B build_cmake -Wno-dev -G "MSYS Makefiles" -DCMAKE_COLOR_MAKEFILE=OFF`, dir = joinpath(fmuRootDir,"sources"), logFile=logFile)
       omrun(`make install -Oline -j`, dir = joinpath(fmuRootDir, "sources", "build_cmake"), logFile=logFile)
     else
-      omrun(`cmake -S . -B build_cmake -DFMI_INTERFACE_HEADER_FILES_DIRECTORY=$(pathToFmiHeader)`, dir = joinpath(fmuRootDir,"sources"), logFile=logFile)
+      omrun(`cmake -S . -B build_cmake`, dir = joinpath(fmuRootDir,"sources"), logFile=logFile)
       omrun(`cmake --build build_cmake/ --target install --parallel`, dir = joinpath(fmuRootDir, "sources"), logFile=logFile)
     end
     rm(joinpath(fmuRootDir, "sources", "build_cmake"), force=true, recursive=true)

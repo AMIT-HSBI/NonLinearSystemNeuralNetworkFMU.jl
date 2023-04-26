@@ -17,12 +17,9 @@
 // along with NonLinearSystemNeuralNetworkFMU.jl. If not, see <http://www.gnu.org/licenses/>.
 //
 
-#include "../simulation_data.h"
-#include "../simulation/solver/solver_main.h"
-#include "../<<MODELNAME>>_model.h"
-#include "fmu2_model_interface.h"
-#include "fmu_read_flags.h"
 #include "fmi2Functions.h"
+#include "fmi2FunctionTypes.h"
+#include "fmi2TypesPlatform.h"
 
 #ifdef __cplusplus
 extern "C" {
