@@ -41,8 +41,8 @@ All input-output pairs are saved in `fname`.
   - `p::ProgressMeter.Progress`:              ProgressMeter to show computation progress.
 
 # Keywords
-  - `N::Integer = 1000`:   Number of input-output pairs to generate.
-  - `delta::T = 1e-3`:     Stepsize of random walk relative to the input space size.
+  - `N::Integer = 1000`:                      Number of input-output pairs to generate.
+  - `method::Symbol = :randomWalk`:           Available methods are: `:random` and `:randomWalk`.
 """
 function simulateFMU(fmu,
                      fname::String,
@@ -54,7 +54,7 @@ function simulateFMU(fmu,
                      outputVars::Array{String},
                      p::ProgressMeter.Progress;
                      N::Integer = 1000,
-                     delta::T = 1e-3) where T <: Number
+                     method::Symbol = :randomWalk) where T <: Number
 
   nInputs = length(inputVars)
   nOutputs = length(outputVars)
@@ -94,7 +94,8 @@ function simulateFMU(fmu,
 
     # Generate first point (try a few times)
     found = false
-    for _ in 1:10
+    k = 0
+    while !found && k<10
       # Set input values with random values
       row[1:nInputs] = (inMax.-inMin).*rand(nInputs) .+ inMin
       # Set start values to 0?
@@ -109,7 +110,7 @@ function simulateFMU(fmu,
       # TODO: Suppress stream prints, but Suppressor.jl is not thread safe
       status = fmiEvaluateEq(fmu, eqId)
 
-      # Found a point: break
+      # Found a point: stop
       if status == fmi2OK
         ProgressMeter.next!(p)
         found = true
@@ -122,8 +123,8 @@ function simulateFMU(fmu,
         else
           push!(df, row)
         end
-        break
       end
+      k += 1
     end
 
     if !found
@@ -136,11 +137,14 @@ function simulateFMU(fmu,
         timeValues = sort((timeBounds[2]-timeBounds[1]).*rand(N-1) .+ timeBounds[1])
       end
       for i in 1:N-1
-        # Move input values in random direction
-        row[1:nInputs] .+= (inMax.-inMin).*(2.0 .*rand(nInputs) .- 1.0).*delta
-        # Check bounds
-        row[1:nInputs] .= max.(row[1:nInputs], inMin)
-        row[1:nInputs] .= min.(row[1:nInputs], inMax)
+        if method == :random
+          row[1:nInputs] = (inMax.-inMin).*rand(nInputs) .+ inMin
+        elseif method == :randomWalk
+          randomStep!(row[1:nInputs], inMin, inMax)
+        else
+          error("Unknown method " * String(method));
+        end
+
         # Keep start values from previous step
         #row[nInputs+1:end] .= 0.0
         FMIImport.fmi2SetReal(fmu, row_vr, row)
@@ -278,8 +282,26 @@ function generateTrainingData(fmuPath::String,
 end
 
 """
+Move point in a random direction with step size delta*(boundaryMax.-boundaryMin)
+while staying in boundary.
+"""
+function randomStep!(point::AbstractVector{T},
+                     boundaryMin::AbstractVector{T},
+                     boundaryMax::AbstractVector{T};
+                     delta::Float64 = 1e-3) where T <: Number
+  point .+= (boundaryMax.-boundaryMin).*(2.0 .*rand(length(point)) .- 1.0) .* delta
+  # Check boundaries
+  point .= max.(point, boundaryMin)
+  point .= min.(point, boundaryMax)
+end
 
 
+
+"""
+Transform data set into proximity data set.
+
+Take data point (x,y) and add y_tile to the input from a data point in close proximity.
+Save new datapoint ([x,y_tile], y).
 """
 function data2proximityData(df::DataFrames.DataFrame,
                             inputVars::Array{String},

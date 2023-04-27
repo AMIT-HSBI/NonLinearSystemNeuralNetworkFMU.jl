@@ -13,6 +13,6 @@ Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 
 [compat]
 DrWatson = "2.12.1"
-NonLinearSystemNeuralNetworkFMU = "0.4.0"
+NonLinearSystemNeuralNetworkFMU = "0.5.0"
 NaiveONNX = "0.1.1"
 julia = "1.8.1"
