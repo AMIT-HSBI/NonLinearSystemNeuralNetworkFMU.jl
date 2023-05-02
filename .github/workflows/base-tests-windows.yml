@@ -48,6 +48,9 @@ jobs:
       - uses: AnHeuermann/setup-openmodelica@v0.4
         with:
           version: 'nightly'
+      - run: |
+          which omc
+          omc --version
 
       # Build and test NonLinearSystemNeuralNetworkFMU.jl
       - uses: julia-actions/setup-julia@v1

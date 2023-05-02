@@ -5,7 +5,7 @@
 #  --build-arg USER_GID=$(id -g) \
 #  -t julia-with-omc .
 
-FROM julia
+FROM julia:1.7.3
 
 ARG USERNAME=juliauser
 ARG USER_UID=1000
