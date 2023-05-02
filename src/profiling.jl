@@ -371,8 +371,7 @@ end
   - `moFiles::Array{String}`: Path to .mo file(s).
 
 # Keywords
-  - `pathToOmc::String=""`:     Path to OpenModelica Compiler omc.
-  - `workingDir::String=pwd()`: Working directory for omc. Defaults to the current directory.
+  - `options::OMOptions`:     Options for OpenModelica compiler.
 
 # Returns
   - `min::Array{Float64}`: Minimum values for each variable listed in `vars`, minus some small epsilon.
