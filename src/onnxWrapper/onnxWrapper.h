@@ -48,7 +48,7 @@ struct OrtWrapperData {
   double* max;                        /* Maximum allowed values for model_input, size nInputs */
 };
 
-struct OrtWrapperData* initOrtData(const char* equationName, const char* pathToONNX, const char* modelName, unsigned int nInputs, unsigned int nOutputs, const char* input_name, const char* output_name);
+struct OrtWrapperData* initOrtData(const char* equationName, const char* pathToONNX, const char* modelName, unsigned int nInputs, unsigned int nOutputs);
 void deinitOrtData(struct OrtWrapperData* ortData);
 void evalModel(struct OrtWrapperData* ortData);
 

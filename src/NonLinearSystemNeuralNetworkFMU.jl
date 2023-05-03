@@ -26,6 +26,7 @@ import DocStringExtensions
 import FMI
 import FMICore
 import FMIImport
+import InvertedIndices
 import JSON
 import Libdl
 import OMJulia

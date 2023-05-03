@@ -66,6 +66,10 @@ function main(modelName::String,
   else
     @info "Profile $modelName"
     profilingInfo = profiling(modelName, moFiles; options=profOptions, threshold=0)
+    if length(profilingInfo) == 0
+      @warn "No equation slower than given threshold. Nothing to do."
+      return
+    end
 
     BSON.@save profilingInfoFile profilingInfo
     if options.clean

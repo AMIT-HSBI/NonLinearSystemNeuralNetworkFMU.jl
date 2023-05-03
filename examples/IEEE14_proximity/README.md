@@ -1,9 +1,9 @@
-# IEEE14
+# IEEE14_proximity
 
 This code base is using the [Julia Language](https://julialang.org/) and
 [DrWatson](https://juliadynamics.github.io/DrWatson.jl/stable/)
 to make a reproducible scientific project named
-> IEEE14
+> IEEE14_proximity
 
 Authors: Andreas Heuermann.
 
@@ -25,15 +25,9 @@ To (locally) reproduce this project, do the following:
      ```julia
      julia> using Pkg
      julia> Pkg.add("DrWatson") # install globally, for using `quickactivate`
-     julia> Pkg.activate("examples/IEEE14/")
+     julia> Pkg.activate("examples/IEEE14_proximity/")
      julia> Pkg.instantiate()
      ```
-
-   3. Python dependencies: You'll need Python 3 and the following packages installed:
-      - pandas
-      - numpy
-      - tensorflow
-      - tf2onnx
 
   4. OpenModelica: Tested omc version v1.21.0-dev-288-g01b6764df5-cmake
      with OMSimulator version OMSimulator v2.1.1.post194-g75de4c6-linux-debug.
@@ -50,36 +44,15 @@ which auto-activate the project and enable local path handling from DrWatson.
 
 ## Run Scripts
 
-The Modelica model Examples.IEEE14.IEEE_14_Buses from the
+The Modelica model OpenIPSL.Examples.IEEE14.IEEE from the
 [OpenIPSL](https://doc.openipsl.org/) library has one large non-linear equation system
 that is very hard to replace with a working surrogate.
 
 ### Data Generation
 
-Run script [scripts/genAllData.jl](scripts/genAllData.jl) to generate training data for
-the `IEEE_14_Buses` example.
-The default number of data points to generate is `N=1000`, but can be changed in the
-scripts.
+Run script [scripts/runAll.jl](scripts/genAllData.jl) to run the example.
+Change `N` to specify how many data points should be generated.
 
 ```julia
-julia> include("scripts/genAllData.jl")
-```
-
-The resulting training data can be found in
-[data/sims/IEEE_14_Buses_<N>/data](data/sims/IEEE_14_Buses_1000/data).
-
-### Train with Flux
-
-Run script [scripts/trainFlux.jl](scripts/trainFlux.jl]) to train an ANN with Flux.jl.
-
-```julia
-julia> include("scripts/trainFlux.jl")
-```
-### Train with Tensorflow
-
-Run script [scripts/trainTensorflow.jl](scripts/trainTensorflow.jl]) to train an ANN with
-Tensorflow by calling a Python script.
-
-```julia
-julia> include("scripts/trainTensorflow.jl")
+julia> include("scripts/runAll.jl")
 ```

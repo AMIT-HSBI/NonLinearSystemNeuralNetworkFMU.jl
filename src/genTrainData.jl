@@ -41,8 +41,8 @@ All input-output pairs are saved in `fname`.
   - `p::ProgressMeter.Progress`:              ProgressMeter to show computation progress.
 
 # Keywords
-  - `N::Integer = 1000`:   Number of input-output pairs to generate.
-  - `delta::T = 1e-3`:     Stepsize of random walk relative to the input space size.
+  - `N::Integer = 1000`:                      Number of input-output pairs to generate.
+  - `method::Symbol = :randomWalk`:           Available methods are: `:random` and `:randomWalk`.
 """
 function simulateFMU(fmu,
                      fname::String,
@@ -54,7 +54,7 @@ function simulateFMU(fmu,
                      outputVars::Array{String},
                      p::ProgressMeter.Progress;
                      N::Integer = 1000,
-                     delta::T = 1e-3) where T <: Number
+                     method::Symbol = :randomWalk) where T <: Number
 
   nInputs = length(inputVars)
   nOutputs = length(outputVars)
@@ -94,7 +94,8 @@ function simulateFMU(fmu,
 
     # Generate first point (try a few times)
     found = false
-    for _ in 1:10
+    k = 0
+    while !found && k<10
       # Set input values with random values
       row[1:nInputs] = (inMax.-inMin).*rand(nInputs) .+ inMin
       # Set start values to 0?
@@ -109,7 +110,7 @@ function simulateFMU(fmu,
       # TODO: Suppress stream prints, but Suppressor.jl is not thread safe
       status = fmiEvaluateEq(fmu, eqId)
 
-      # Found a point: break
+      # Found a point: stop
       if status == fmi2OK
         ProgressMeter.next!(p)
         found = true
@@ -122,8 +123,8 @@ function simulateFMU(fmu,
         else
           push!(df, row)
         end
-        break
       end
+      k += 1
     end
 
     if !found
@@ -136,11 +137,14 @@ function simulateFMU(fmu,
         timeValues = sort((timeBounds[2]-timeBounds[1]).*rand(N-1) .+ timeBounds[1])
       end
       for i in 1:N-1
-        # Move input values in random direction
-        row[1:nInputs] .+= (inMax.-inMin).*(2.0 .*rand(nInputs) .- 1.0).*delta
-        # Check bounds
-        row[1:nInputs] .= max.(row[1:nInputs], inMin)
-        row[1:nInputs] .= min.(row[1:nInputs], inMax)
+        if method == :random
+          row[1:nInputs] = (inMax.-inMin).*rand(nInputs) .+ inMin
+        elseif method == :randomWalk
+          randomStep!(row[1:nInputs], inMin, inMax)
+        else
+          error("Unknown method " * String(method));
+        end
+
         # Keep start values from previous step
         #row[nInputs+1:end] .= 0.0
         FMIImport.fmi2SetReal(fmu, row_vr, row)
@@ -265,6 +269,7 @@ function generateTrainingData(fmuPath::String,
   for i = 1:nBatches
     tempCsvFile = joinpath(workDir, "trainingData_eq_$(eqId)_tread_$(i).csv")
     df = CSV.read(tempCsvFile, DataFrames.DataFrame; ntasks=1)
+    df[!, "Trace"] .= i
     if i==1
       CSV.write(fname, df; append=append)
     else
@@ -274,4 +279,74 @@ function generateTrainingData(fmuPath::String,
   end
 
   return fname
+end
+
+"""
+Move point in a random direction with step size delta*(boundaryMax.-boundaryMin)
+while staying in boundary.
+"""
+function randomStep!(point::AbstractVector{T},
+                     boundaryMin::AbstractVector{T},
+                     boundaryMax::AbstractVector{T};
+                     delta::Float64 = 1e-3) where T <: Number
+  point .+= (boundaryMax.-boundaryMin).*(2.0 .*rand(length(point)) .- 1.0) .* delta
+  # Check boundaries
+  point .= max.(point, boundaryMin)
+  point .= min.(point, boundaryMax)
+end
+
+
+
+"""
+Transform data set into proximity data set.
+
+Take data point (x,y) and add y_tile to the input from a data point in close proximity.
+Save new datapoint ([x,y_tile], y).
+"""
+function data2proximityData(df::DataFrames.DataFrame,
+                            inputVars::Array{String},
+                            outputVars::Array{String};
+                            neighbors=1::Integer,
+                            weight=0.0::Float64)::DataFrames.DataFrame
+
+  @assert in("Trace", names(df)) "DataFrame df is missing column 'Trace'."
+  @assert weight >= 0 "weight has to be non-negative."
+  @assert neighbors >= 1 "neighbors has to be larger than 0."
+
+  nInputs = length(inputVars)
+  nOutputs = length(outputVars)
+
+  # Create new empty data frame
+  col_names = Symbol.(vcat(inputVars, outputVars.*"_old", outputVars))
+  col_types = fill(Float64, nInputs+2*nOutputs)
+  named_tuple = NamedTuple{Tuple(col_names)}(type[] for type in col_types)
+  df_proximity = DataFrames.DataFrame(named_tuple)
+
+  # Fill new data frame for each trace
+  for trace in sort(unique(df.Trace))
+    df_trace = DataFrames.select(filter(row-> row.Trace == trace, df), InvertedIndices.Not([:Trace]))
+
+    len = size(df_trace)[1]
+    for (j,row) in enumerate(eachrow(df_trace))
+      k = vcat(j-neighbors:j-1,  j+1:+j+neighbors)
+      k = filter(k_i -> k_i > 0 && k_i < len, k)
+
+      usingVars = Vector(row[1:nInputs])
+      oldIterationVars = Vector(df_trace[rand(k), nInputs+1:nInputs+nOutputs])
+      # Wiggle oldIterationVars
+      if weight > 0
+        oldIterationVars = wiggle.(oldIterationVars; weight=weight)
+      end
+      iterationVars = Vector(row[nInputs+1:nInputs+nOutputs])
+
+      new_row = vcat(usingVars, oldIterationVars, iterationVars)
+      push!(df_proximity, new_row)
+    end
+  end
+  return df_proximity
+end
+
+function wiggle(x; weight=0.1)
+  r = weight*(2*rand()-1)
+  return x + (r*x)
 end

@@ -41,7 +41,7 @@ function runGenDataTest()
   nLines = 0
   # Check if s,r,y solve algebraic loop
   open(fileName, "r") do f
-    @test readline(f) === "s,r,y"
+    @test readline(f) === "s,r,y,Trace"
     isequal = true
     while !eof(f) && isequal
       nLines += 1

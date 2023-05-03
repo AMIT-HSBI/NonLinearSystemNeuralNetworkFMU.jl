@@ -67,42 +67,43 @@ The package generates an FMU from a modelica file in 3 steps (+ 1 user step):
 
 ### SimpleLoop
 
-In [examples/SimpleLoop/](examples/SimpleLoop/) is a simple example
+In [examples/SimpleLoop/](examples/SimpleLoop/) and
+[examples/SimpleLoop_proximity](examples/SimpleLoop_proximity/) is a simple example
 of a non-linear system with two unknowns replaced by a ONNX surrogate. It's less
 explanatory but was used to generate plots for a presentation.
 
 All dependencies are managed by [DrWatson](https://juliadynamics.github.io/DrWatson.jl/stable/),
-checkout the [README.md](examples/SimpleLoop/README.md) for more details.
+checkout the [README.md](examples/SimpleLoop/README.md) respectively
+[README.md](examples/SimpleLoop_proximity/README.md) (with proximity) for more details.
 
 ### IEEE14
+
 There is another example with some larger algebraic systems in
-[examples/IEEE14/IEEE_14_Buses.jl](./examples/IEEE14/IEEE_14_Buses.jl) using the
+[examples/IEEE14/](./examples/IEEE14/) and
+[examples/IEEE14_proximity/](./examples/IEEE14_proximity/) using the
 [OpenIPSL](https://github.com/OpenIPSL/OpenIPSL) Modelica library.
 
-To run it first make sure you have submodule [examples/NaiveONNX.jl](./examples/NaiveONNX.jl)
-initialized and updated.
-Then build, test and develop NaiveONNX to make the it available for the example.
+All dependencies are managed by [DrWatson](https://juliadynamics.github.io/DrWatson.jl/stable/),
+checkout the [README.md](examples/IEEE14/README.md) respectively
+[README.md](examples/IEEE14_proximity/README.md) (with proximity) for more details.
 
-```julia
-cd("examples/NaiveONNX.jl")
-import Pkg; Pkg.activate("."); Pkg.build(); Pkg.test(); Pkg.activate(); Pkg.develop(path=".");
-```
+### Scalable Translation Statistics
 
-Run the example
-```julia
-include("examples/IEEE14/IEEE_14_Buses.jl")
-```
-
-You'll need some additional Julia packages: `Revise`, `BSON`, `CSV`, `DataFrames`, `FMI`.
+You'll need access to the PHyMoS GitLab / the ScalableTranslationStatistics Modelica
+library to run this example. Check
+[examples/ScalableTranslationStatistics/README.md](examples/ScalableTranslationStatistics/README.md)
+for more information.
 
 ## Debugging
 
-  - It's not possible to debug Julia when OMJulia is used, see https://github.com/OpenModelica/OMJulia.jl/issues/66.
+  - It's not possible to debug Julia when OMJulia is used, see
+    [OpenModelica/OMJulia.jl#66](https://github.com/OpenModelica/OMJulia.jl/issues/66).
   - Enable debug prints with `ENV["JULIA_DEBUG"] = "all"`.
 
 ## Documentation
 
-Currently HTML documentation is not active, but there is a [PDF](https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/blob/gh-pages/dev/NonLinearSystemNeuralNetworkFMU.jl.pdf).
+Currently HTML documentation is not active, but there is a
+[PDF](https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/blob/gh-pages/dev/NonLinearSystemNeuralNetworkFMU.jl.pdf).
 
 
 ## Known Limitations
@@ -131,7 +132,8 @@ along with NonLinearSystemNeuralNetworkFMU.jl. If not, see <http://www.gnu.org/l
 
 -------------------------------------------------------------------------------
 
-NonLinearSystemNeuralNetworkFMU.jl uses header files from the FMI standard, licensed under BSD 2-Clause (see [FMI-Standard-2.0.3/LICENSE.txt](./FMI-Standard-2.0.3/LICENSE.txt)).
+NonLinearSystemNeuralNetworkFMU.jl uses header files from the FMI standard, licensed under
+BSD 2-Clause (see [FMI-Standard-2.0.3/LICENSE.txt](./FMI-Standard-2.0.3/LICENSE.txt)).
 
 ## Acknowledgments
 

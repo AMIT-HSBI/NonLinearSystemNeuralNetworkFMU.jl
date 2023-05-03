@@ -75,11 +75,9 @@ void verify_input_output_count(const OrtApi* g_ort, OrtSession* session) {
  * @param modelName                 Name of ONNX model.
  * @param nInputs                   Number of inputs to ONNX model.
  * @param nOutputs                  Number of outputs of ONNX model.
- * @param input_name                Name of input node of ONNX model.
- * @param output_name               Name of output node of ONNX model.
  * @return struct OrtWrapperData*   Pointer to ORT wrapper data.
  */
-struct OrtWrapperData* initOrtData(const char* equationName, const char* pathToONNX, const char* modelName, unsigned int nInputs, unsigned int nOutputs, const char* input_name, const char* output_name) {
+struct OrtWrapperData* initOrtData(const char* equationName, const char* pathToONNX, const char* modelName, unsigned int nInputs, unsigned int nOutputs) {
   struct OrtWrapperData* ortData = calloc(1, sizeof (struct OrtWrapperData));
 
   /* Initialize ORT */
@@ -114,6 +112,9 @@ struct OrtWrapperData* initOrtData(const char* equationName, const char* pathToO
   ortData->session_options = session_options;
   ortData->session = session;
 
+  OrtAllocator* allocator;
+  ORT_ABORT_ON_ERROR(g_ort->GetAllocatorWithDefaultOptions(&allocator));
+
   /* Initialize model_input and model_output */
   ortData->nInputs = nInputs;
   ortData->model_input = calloc(nInputs, sizeof ortData->model_input[0]);
@@ -129,12 +130,13 @@ struct OrtWrapperData* initOrtData(const char* equationName, const char* pathToO
   const size_t input_shape_len = sizeof(input_shape) / sizeof(input_shape[0]);
   const size_t model_input_len = model_input_ele_count * sizeof(float);
   ortData->input_names = calloc(1, sizeof ortData->input_names[0]);
-  ortData->input_names[0] = strdup(input_name);
+  ORT_ABORT_ON_ERROR(g_ort->SessionGetInputName(session, 0, allocator, (char**) ortData->input_names));
+
   const int64_t output_shape[] = {1, model_output_ele_count};
   const size_t output_shape_len = sizeof(output_shape) / sizeof(output_shape[0]);
   const size_t model_output_len = model_output_ele_count * sizeof(float);
   ortData->output_names = calloc(1, sizeof ortData->output_names[0]);
-  ortData->output_names[0] = strdup(output_name);
+  ORT_ABORT_ON_ERROR(g_ort->SessionGetOutputName(session, 0, allocator, (char**) ortData->output_names));
 
   ORT_ABORT_ON_ERROR(g_ort->CreateTensorWithDataAsOrtValue(memory_info, ortData->model_input, model_input_len, input_shape,
                                                            input_shape_len, ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,

@@ -348,7 +348,7 @@ function profiling(modelName::String,
     profilingInfo[i] = ProfilingInfo(slowEq, iterationVariables, innerEquations, usingVars, MinMaxBoundaryValues{Float64}(undef, length(usingVars)))
   end
 
-  allUsedVars = unique(vcat([prof.usingVars for prof in profilingInfo]...))
+  allUsedVars = Array{String}(unique(vcat([prof.usingVars for prof in profilingInfo]...)))
   (allMin, allMax) = minMaxValuesReSim(allUsedVars, modelName, moFiles; options)
   for prof in profilingInfo
     idx = findall(elem -> elem in prof.usingVars, allUsedVars)
@@ -371,8 +371,7 @@ end
   - `moFiles::Array{String}`: Path to .mo file(s).
 
 # Keywords
-  - `pathToOmc::String=""`:     Path to OpenModelica Compiler omc.
-  - `workingDir::String=pwd()`: Working directory for omc. Defaults to the current directory.
+  - `options::OMOptions`:     Options for OpenModelica compiler.
 
 # Returns
   - `min::Array{Float64}`: Minimum values for each variable listed in `vars`, minus some small epsilon.

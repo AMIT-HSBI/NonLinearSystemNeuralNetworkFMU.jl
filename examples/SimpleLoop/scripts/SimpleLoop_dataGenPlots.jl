@@ -25,7 +25,7 @@ workingDir = datadir("sims", modelName*"_$N")
 options = NonLinearSystemNeuralNetworkFMU.OMOptions(workingDir=workingDir)
 
 # Generate data
-(csvFiles, fmu, profilingInfo) = NonLinearSystemNeuralNetworkFMU.main(modelName, moFiles; options=options, reuseArtifacts=false, N=100)
+(csvFiles, fmu, profilingInfo) = NonLinearSystemNeuralNetworkFMU.main(modelName, moFiles; options=options, reuseArtifacts=false, N=N)
 
 # Plot data and save svg
 df =  CSV.read(csvFiles[1], DataFrame; ntasks=1)

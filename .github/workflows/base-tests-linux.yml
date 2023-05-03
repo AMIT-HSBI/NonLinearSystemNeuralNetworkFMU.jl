@@ -50,6 +50,9 @@ jobs:
           packages: |
             'omc'
             'omsimulator'
+      - run: |
+          which omc
+          omc --version
 
       # Build and test NonLinearSystemNeuralNetworkFMU.jl
       - uses: julia-actions/setup-julia@v1

@@ -23,7 +23,7 @@ struct Mapping
   #type::String
 end
 
-function ortDataCode(equations::Array{ProfilingInfo}, modelName::String, onnxNames::Array{String})
+function ortDataCode(equations::Array{ProfilingInfo}, modelName::String, onnxNames::Array{String}, usePrevSol::Bool)
   resPrototypes = ""
   ortstructs = ""
   initCalls = ""
@@ -36,16 +36,22 @@ function ortDataCode(equations::Array{ProfilingInfo}, modelName::String, onnxNam
     onnxName = basename(onnxNames[i])
     nInputs = length(eq.usingVars)
     nOutputs = length(eq.iterationVariables)
+    minBoundCArray = string(eq.boundary.min)[2:end-1]
+    maxBoundCArray = string(eq.boundary.max)[2:end-1]
+    if usePrevSol
+      @info "Using previous solution"
+      nInputs += length(eq.iterationVariables)
+      minBoundCArray *= repeat(", DBL_MIN", length(eq.iterationVariables))
+      maxBoundCArray *= repeat(", DBL_MAX", length(eq.iterationVariables))
+    end
     # TODO: Get input and output names
-    input_name = "data_0"
-    output_name = "dense_2"
     ortstructs *= "struct OrtWrapperData* ortData_eq_$(eq.eqInfo.id);"
     initCalls *= """
         snprintf(onnxPath, 2048, "%s/%s", data->modelData->resourcesDir, \"$(onnxName)\");
-        ortData_eq_$(eq.eqInfo.id) = initOrtData(\"$(modelName)_eq$(eq.eqInfo.id)\", onnxPath, \"$modelName\", $nInputs, $nOutputs, \"$input_name\", \"$output_name\");
-        double min_$(eq.eqInfo.id)[$nInputs] = {$(string(eq.boundary.min)[2:end-1])};
+        ortData_eq_$(eq.eqInfo.id) = initOrtData(\"$(modelName)_eq$(eq.eqInfo.id)\", onnxPath, \"$modelName\", $nInputs, $nOutputs);
+        double min_$(eq.eqInfo.id)[$nInputs] = {$minBoundCArray};
         memcpy(ortData_eq_$(eq.eqInfo.id)->min, min_$(eq.eqInfo.id), sizeof(double)*$nInputs);
-        double max_$(eq.eqInfo.id)[$nInputs] = {$(string(eq.boundary.max)[2:end-1])};
+        double max_$(eq.eqInfo.id)[$nInputs] = {$(maxBoundCArray)};
         memcpy(ortData_eq_$(eq.eqInfo.id)->max, max_$(eq.eqInfo.id), sizeof(double)*$nInputs);
       """
     deinitCalls *= "  deinitOrtData(ortData_eq_$(eq.eqInfo.id));"
@@ -64,6 +70,7 @@ function ortDataCode(equations::Array{ProfilingInfo}, modelName::String, onnxNam
 
     int USE_JULIA = 1;
     int LOG_RES = 1;
+    int MAX_REL_ERROR = 1e-4;
 
     /* Global ORT structs */
     $(ortstructs)
@@ -108,7 +115,7 @@ function getVarCString(varName::String, variables::Dict{String, Mapping})
   return str
 end
 
-function generateNNCall(modelname::String, modelDescriptionXmlFile::String, equationToReplace::ProfilingInfo)
+function generateNNCall(modelname::String, modelDescriptionXmlFile::String, equationToReplace::ProfilingInfo, usePrevSol::Bool)
   variablesDict = getValueReferences(modelDescriptionXmlFile)
 
   inputs = equationToReplace.usingVars
@@ -120,6 +127,16 @@ function generateNNCall(modelname::String, modelDescriptionXmlFile::String, equa
     inputVarBlock *= "input[$(i-1)] = $(cVar);"
     if i < length(inputs)
       inputVarBlock *= "$EOL    "
+    end
+  end
+  if usePrevSol
+    inputVarBlock *= "$EOL    "
+    for (i,var) in enumerate(outputs)
+      cVar = getVarCString(var, variablesDict)
+      inputVarBlock *= "input[$(i-1+length(inputs))] = $(cVar);"
+      if i < length(outputs)
+        inputVarBlock *= "$EOL    "
+      end
     end
   end
 
@@ -157,7 +174,7 @@ function generateNNCall(modelname::String, modelDescriptionXmlFile::String, equa
 
         //printResiduum($(equationToReplace.eqInfo.id), data->localData[0]->timeValue, $ortData);
         double rel_error = writeResiduum(data->localData[0]->timeValue, $ortData);
-        if (rel_error > 1e-4) {
+        if (rel_error > MAX_REL_ERROR) {
           goto GOTO_NLS_SOLVER_$(equationToReplace.eqInfo.id);
         }
       } else {
@@ -175,7 +192,7 @@ end
 """
 Modify C code in fmuTmpDir/sources/modelname.c to use ONNX instead of algebraic loops.
 """
-function modifyCCode(modelName::String, fmuTmpDir::String, modelDescriptionXmlFile::String, equations::Array{ProfilingInfo}, onnxFiles::Array{String})
+function modifyCCode(modelName::String, fmuTmpDir::String, modelDescriptionXmlFile::String, equations::Array{ProfilingInfo}, onnxFiles::Array{String}, usePrevSol::Bool)
   cfile = joinpath(fmuTmpDir, "sources", "$(replace(modelName, "."=>"_")).c")
   str = open(cfile, "r") do file
     read(file, String)
@@ -185,7 +202,7 @@ function modifyCCode(modelName::String, fmuTmpDir::String, modelDescriptionXmlFi
 
   # Add init/ deinint ortData
   id1 = first(findStrWError("/* dummy VARINFO and FILEINFO */", str)) - 2
-  initCode = ortDataCode(equations, modelName, onnxFiles)
+  initCode = ortDataCode(equations, modelName, onnxFiles, usePrevSol)
   str = str[1:id1] * initCode * str[id1+1:end]
 
   id1 = last(findStrWError("$(modelNameC)_setupDataStruc(DATA *data, threadData_t *threadData)", str))
@@ -202,7 +219,7 @@ function modifyCCode(modelName::String, fmuTmpDir::String, modelDescriptionXmlFi
 
     oldpart = str[id1:id2]
     oldpart = replace(oldpart, "$EOL  "=>"$EOL    ")
-    newpart = generateNNCall(modelNameC, modelDescriptionXmlFile, equation)
+    newpart = generateNNCall(modelNameC, modelDescriptionXmlFile, equation, usePrevSol)
 
     replacement = """
     if(USE_JULIA) {
@@ -303,7 +320,7 @@ Include ONNX into FMU and recompile to generate FMU with ONNX surrogates.
 # Returns
   - Path to ONNX FMU.
 """
-function buildWithOnnx(fmu::String, modelName::String, equations::Array{ProfilingInfo}, onnxFiles::Array{String}; tempDir=modelName*"_onnx"::String)
+function buildWithOnnx(fmu::String, modelName::String, equations::Array{ProfilingInfo}, onnxFiles::Array{String}; usePrevSol=false::Bool, tempDir=modelName*"_onnx"::String)
   # Unzip FMU into tmp dir
   fmuTmpDir = abspath(joinpath(tempDir,"FMU"))
   rm(fmuTmpDir, force=true, recursive=true)
@@ -315,7 +332,7 @@ function buildWithOnnx(fmu::String, modelName::String, equations::Array{Profilin
   copyOnnxWrapperLib(fmuTmpDir)
   modifyCMakeLists(path_to_cmakelists)
   copyOnnxFiles(fmuTmpDir, onnxFiles)
-  modifyCCode(modelName, fmuTmpDir, modelDescriptionXmlFile, equations, onnxFiles)
+  modifyCCode(modelName, fmuTmpDir, modelDescriptionXmlFile, equations, onnxFiles, usePrevSol)
   compileFMU(fmuTmpDir, modelName*".onnx", tempDir)
 
   return joinpath(tempDir, "$(modelName).onnx.fmu")

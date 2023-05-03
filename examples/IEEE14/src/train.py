@@ -131,10 +131,6 @@ def test_result(trainedModelPath):
   y = y_test[1,:]
   model(x) - y
 
-
-def helloWorld():
-  print("Hello World!")
-
 if __name__ == "__main__":
   if len(sys.argv) == 6:
     eqName   = sys.argv[1]

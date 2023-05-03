@@ -1,0 +1,26 @@
+{
+  "build": {
+    "dockerfile": "Dockerfile",
+    "args": {
+      "USERNAME": "${localEnv:USER}${localEnv:USERNAME}"
+    }
+  },
+
+  // Features to add to the dev container. More info: https://containers.dev/features.
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {}
+  },
+
+  // Configure tool-specific properties.
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "AnHeuermann.metamodelica",
+        "ms-vscode.cpptools",
+        "julialang.language-julia"
+      ]
+    }
+  },
+
+  "remoteUser": "${localEnv:USER}${localEnv:USERNAME}"
+}

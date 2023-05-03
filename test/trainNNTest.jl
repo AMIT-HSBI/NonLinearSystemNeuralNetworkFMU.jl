@@ -23,6 +23,7 @@ import BSON
 import CSV
 import DataFrames
 import Flux
+import InvertedIndices
 import ONNX
 import ONNXNaiveNASflux
 import StatsBase
@@ -44,7 +45,8 @@ ONNXNaiveNASflux.refresh()
   - `shuffle::Bool=true`: Shufle training and testing from data.
 """
 function readData(filename::String, nInputs::Integer; ratio=0.8, shuffle::Bool=true)
-  m = Matrix{Float32}(CSV.read(filename, DataFrames.DataFrame; ntasks=1))
+  df = DataFrames.select(CSV.read(filename, DataFrames.DataFrame; ntasks=1), InvertedIndices.Not([:Trace]))
+  m = Matrix{Float32}(df)
   n = length(m[:,1])
   num_train = Integer(round(n*ratio))
   if shuffle
