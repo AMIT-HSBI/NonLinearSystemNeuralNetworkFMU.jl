@@ -51,6 +51,7 @@ fmi2Status myfmi2evaluateEq(fmi2Component c, const size_t eqNumber)
 
   useStream[LOG_NLS] = 0 /* false */;
   useStream[LOG_NLS_V] = 0 /* false */;
+  useStream[LOG_ASSERT] = 0 /* false */;
   FILTERED_LOG(comp, fmi2OK, LOG_FMI2_CALL, "myfmi2evaluateEq: Evaluating equation %u", eqNumber)
 
   setThreadData(comp);

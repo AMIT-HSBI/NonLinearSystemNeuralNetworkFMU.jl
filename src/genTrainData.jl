@@ -21,8 +21,8 @@ include("fmiExtensions.jl")
 
 
 """
-    simulateFMU(fmu, fname, eqId, timeBounds, inputVars, inMin, inMax, outputVars, p;
-                N = 1000, delta = 1e-3) where T <: Number
+    generateDataBatch(fmu, fname, eqId, timeBounds, inputVars, inMin, inMax, outputVars, p;
+                      n, options) where T <: Number
 
 Generate data points for given equation of FMU.
 
@@ -41,25 +41,27 @@ All input-output pairs are saved in `fname`.
   - `p::ProgressMeter.Progress`:              ProgressMeter to show computation progress.
 
 # Keywords
-  - `N::Integer = 1000`:                      Number of input-output pairs to generate.
-  - `method::Symbol = :randomWalk`:           Available methods are: `:random` and `:randomWalk`.
+  - `samples::Integer`:                       Number of input-output pairs to generate.
+  - `options::DataGenOptions:                 Data generation settings.
 """
-function simulateFMU(fmu,
-                     fname::String,
-                     eqId::Int64,
-                     timeBounds::Union{Tuple{T,T}, Nothing},
-                     inputVars::Array{String},
-                     inMin::AbstractVector{T},
-                     inMax::AbstractVector{T},
-                     outputVars::Array{String},
-                     p::ProgressMeter.Progress;
-                     N::Integer = 1000,
-                     method::Symbol = :randomWalk) where T <: Number
+function generateDataBatch(fmu,
+                           fname::String,
+                           eqId::Int64,
+                           timeBounds::Union{Tuple{T,T}, Nothing},
+                           inputVars::Array{String},
+                           inMin::AbstractVector{T},
+                           inMax::AbstractVector{T},
+                           outputVars::Array{String},
+                           p::ProgressMeter.Progress;
+                           samples::Integer,
+                           options::DataGenOptions) where T <: Number
 
   nInputs = length(inputVars)
   nOutputs = length(outputVars)
   nVars = nInputs+nOutputs
   useTime = timeBounds !== nothing
+
+  samplesGenerated = 0
 
   @assert length(inMin) == length(inMax) == nInputs "Length of min, max and inputVars doesn't match"
 
@@ -94,8 +96,8 @@ function simulateFMU(fmu,
 
     # Generate first point (try a few times)
     found = false
-    k = 0
-    while !found && k<10
+    nFailures = 0
+    while !found && nFailures<10
       # Set input values with random values
       row[1:nInputs] = (inMax.-inMin).*rand(nInputs) .+ inMin
       # Set start values to 0?
@@ -114,6 +116,7 @@ function simulateFMU(fmu,
       if status == fmi2OK
         ProgressMeter.next!(p)
         found = true
+        samplesGenerated += 1
         # Get output values
         row[nInputs+1:end] .= FMIImport.fmi2GetReal(fmu, row_vr[nInputs+1:end])
 
@@ -124,7 +127,7 @@ function simulateFMU(fmu,
           push!(df, row)
         end
       end
-      k += 1
+      nFailures += 1
     end
 
     if !found
@@ -136,17 +139,16 @@ function simulateFMU(fmu,
         # TODO time always increases, is this necessary
         timeValues = sort((timeBounds[2]-timeBounds[1]).*rand(N-1) .+ timeBounds[1])
       end
-      for i in 1:N-1
-        if method == :random
+      nFailures = 0
+      while samplesGenerated < samples && nFailures < 10
+        if typeof(options.method) === RandomMethod
           row[1:nInputs] = (inMax.-inMin).*rand(nInputs) .+ inMin
-        elseif method == :randomWalk
-          randomStep!(view(row,1:nInputs), inMin, inMax)
+        elseif typeof(options.method) == RandomWalkMethod
+          randomStep!(view(row,1:nInputs), inMin, inMax, delta=options.method.delta)
         else
-          error("Unknown method " * String(method));
+          error("Unknown method '$(typeof(options.method))'");
         end
 
-        # Keep start values from previous step
-        #row[nInputs+1:end] .= 0.0
         FMIImport.fmi2SetReal(fmu, row_vr, row)
         if useTime
           FMIImport.fmi2SetTime(fmu, timeValues[i])
@@ -156,25 +158,33 @@ function simulateFMU(fmu,
         # TODO: Supress stream prints, but Suppressor.jl is not thread safe
         status = fmiEvaluateEq(fmu, eqId)
         if status != fmi2OK
-          @warn "No solution found"
+          # Reset start value of iteration
+          row[nInputs+1:end] .= 0.0
+          nFailures += 1
           continue
+        else
+          nFailures = 0
         end
         ProgressMeter.next!(p)
         # Get output values
         row[nInputs+1:end] .= FMIImport.fmi2GetReal(fmu, row_vr[nInputs+1:end])
 
         # Update data frame
+        samplesGenerated += 1
         if useTime
           push!(df, vcat([timeValues[i]], row))
         else
           push!(df, row)
         end
       end
+
+      if nFailures >= 10
+        @warn "No solution found"
+      end
     end
   catch err
-    rethrow(err)
-  finally
     FMI.fmiUnload(fmu)
+    rethrow(err)
   end
 
   mkpath(dirname(fname))
@@ -184,12 +194,12 @@ end
 
 """
     generateTrainingData(fmuPath, workDir, fname, eqId, inputVars, min, max, outputVars;
-                         N=1000, nBatches=1, append=false)
+                         options=DataGenOptions())
 
 Generate training data for given equation of FMU.
 
 Generate random inputs between `min` and `max`, evalaute equation and compute output.
-All input-output pairs are saved in `fname`.
+All input-output pairs are saved in CSV file `fname`.
 
 # Arguments
   - `fmuPath::String`:                Path to FMU.
@@ -202,9 +212,7 @@ All input-output pairs are saved in `fname`.
   - `outputVars::Array{String}`:      Array with names of output variables.
 
 # Keywords
-  - `N::Integer = 1000`:      Number of input-output pairs to generate.
-  - `nBatches::Integer = 1`:  Number of batches to separate `N` into to generate data in parallel.
-  - `append::Bool=false`:     Append to existing CSV file `fname` if true.
+  - `options::DataGenOptions`:        Settings for data generation.
 
 See also [`generateFMU`](@ref).
 """
@@ -216,19 +224,10 @@ function generateTrainingData(fmuPath::String,
                               minBound::AbstractVector{T},
                               maxBound::AbstractVector{T},
                               outputVars::Array{String};
-                              N::Integer = 1000,
-                              nBatches::Integer = 1,
-                              append::Bool=false) where T <: Number
-  #ENV["JULIA_DEBUG"] = "FMICore"
-
-  N_perBatch = Integer(ceil(N / nBatches))
-  if N < nBatches
-    nBatches = 1
-  end
-
-  inputVarsCopy = copy(inputVars)
+                              options=DataGenOptions() ::DataGenOptions) where T <: Number
 
   # Handle time input variable
+  inputVarsCopy = copy(inputVars)
   usesTime = false
   timeBounds = nothing
   loc = findall(elem->elem=="time", inputVars)
@@ -242,40 +241,39 @@ function generateTrainingData(fmuPath::String,
     deleteat!(maxBound, loc)
   end
 
-  @info "Starting data generation on $(nBatches) batches."
-  p = ProgressMeter.Progress(N*nBatches; desc="Generating training data ...")
+  # generate data batch wise
+  @info "Starting data generation on $(options.nBatches) batches."
+  progressMeter = ProgressMeter.Progress(options.n; desc="Generating training data ...")
+  # Each thread get's own FMU
+  nPerBatch = Integer(ceil(options.n / options.nBatches))
 
-  i = 0
-  tmpnBatches = nBatches
-  while tmpnBatches > 0
-    @info "Mini-Batch $i"
-    nMiniBatch = min(tmpnBatches, 4*Threads.nthreads())       # Make sure to not initialize too many FMUs at once
-    tmpnBatches = tmpnBatches - nMiniBatch
-    local fmuBatch
-    Suppressor.@suppress begin
-      fmuBatch = [(j, FMI.fmiLoad(fmuPath)) for j in 1:nMiniBatch]
+  Threads.@threads for i in 1:options.nBatches
+    fmu = FMI.fmiLoad(fmuPath)
+    tempCsvFile = joinpath(workDir, "trainingData_eq_$(eqId)_batch_$(i).csv")
+    samples = nPerBatch
+    if i == options.nBatches
+      samples = options.n - nPerBatch*(options.nBatches-1)
     end
-    Threads.@threads for (j, fmu) in fmuBatch
-      idx = i + j
-      tempCsvFile = joinpath(workDir, "trainingData_eq_$(eqId)_tread_$(idx).csv")
-      simulateFMU(fmu, tempCsvFile, eqId, timeBounds, inputVarsCopy, minBound, maxBound, outputVars, p; N=N_perBatch)
-    end
-    i += nMiniBatch
+    generateDataBatch(fmu, tempCsvFile, eqId, timeBounds, inputVarsCopy, minBound, maxBound, outputVars, progressMeter; samples, options=options)
+    FMI.fmiUnload(fmu)
   end
-  ProgressMeter.finish!(p)
 
-  # Combine CSV files
+  ProgressMeter.finish!(progressMeter)
+
+  # Combine CSV files from all braches
   mkpath(dirname(fname))
-  for i = 1:nBatches
-    tempCsvFile = joinpath(workDir, "trainingData_eq_$(eqId)_tread_$(i).csv")
+  for i = 1:options.nBatches
+    tempCsvFile = joinpath(workDir, "trainingData_eq_$(eqId)_batch_$(i).csv")
     df = CSV.read(tempCsvFile, DataFrames.DataFrame; ntasks=1)
     df[!, "Trace"] .= i
     if i==1
-      CSV.write(fname, df; append=append)
+      CSV.write(fname, df; append=options.append)
     else
       CSV.write(fname, df; append=true)
     end
-    rm(tempCsvFile);
+    if options.clean
+      rm(tempCsvFile)
+    end
   end
 
   return fname

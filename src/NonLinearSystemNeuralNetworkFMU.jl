@@ -44,6 +44,9 @@ include("types.jl")
 export EqInfo
 export ProfilingInfo
 export OMOptions
+export DataGenOptions
+export RandomMethod
+export RandomWalkMethod
 export getUsingVars
 export getIterationVars
 export getInnerEquations
