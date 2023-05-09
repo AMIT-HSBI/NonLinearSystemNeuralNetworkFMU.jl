@@ -10,7 +10,7 @@ function genSurrogate(lib::String, modelName::String; N::Int=100)
 
   # Generate training data
   options = OMOptions(workingDir=workdir)
-  (csvFiles, fmu, profilingInfo) = main(modelName, [lib], options=options, reuseArtifacts=false, N=N)
+  (csvFiles, fmu, profilingInfo) = main(modelName, [lib], options=options, reuseArtifacts=false, N=N, nBatches=500)
 
   # Train ONNX
   onnxFiles = String[]

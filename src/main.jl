@@ -48,7 +48,8 @@ function main(modelName::String,
               moFiles::Array{String};
               options::OMOptions = OMOptions(workingDir=joinpath(pwd(), modelName)),
               reuseArtifacts::Bool = false,
-              N=1000::Integer)
+              N=1000::Integer,
+              nBatches = 2*Threads.nthreads())
 
   mkpath(options.workingDir)
 
@@ -128,7 +129,6 @@ function main(modelName::String,
     maxBoundary = prof.boundary.max
 
     fileName = abspath(joinpath(options.workingDir, "data", "eq_$(prof.eqInfo.id).csv"))
-    nBatches = 2*Threads.nthreads()
     csvFile = generateTrainingData(fmu_interface, tempDir, fileName, eqIndex, inputVars, minBoundary, maxBoundary, outputVars; N = N, nBatches=nBatches)
     push!(csvFiles, csvFile)
   end

@@ -34,4 +34,4 @@ function genAllSurrogates(sizes::Array{Int}, modelicaLib::String; N::Int=1000)
 end
 
 sizes = [5, 10, 20, 40, 80]
-genAllSurrogates(sizes, modelicaLib; N=100)
+genAllSurrogates(sizes, modelicaLib; N=1000)

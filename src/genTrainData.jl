@@ -140,7 +140,7 @@ function simulateFMU(fmu,
         if method == :random
           row[1:nInputs] = (inMax.-inMin).*rand(nInputs) .+ inMin
         elseif method == :randomWalk
-          randomStep!(row[1:nInputs], inMin, inMax)
+          randomStep!(view(row,1:nInputs), inMin, inMax)
         else
           error("Unknown method " * String(method));
         end
@@ -288,14 +288,12 @@ while staying in boundary.
 function randomStep!(point::AbstractVector{T},
                      boundaryMin::AbstractVector{T},
                      boundaryMax::AbstractVector{T};
-                     delta::Float64 = 1e-3) where T <: Number
+                     delta::Float64 = 1e-3) where T <: AbstractFloat
   point .+= (boundaryMax.-boundaryMin).*(2.0 .*rand(length(point)) .- 1.0) .* delta
   # Check boundaries
   point .= max.(point, boundaryMin)
   point .= min.(point, boundaryMax)
 end
-
-
 
 """
 Transform data set into proximity data set.
