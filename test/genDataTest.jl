@@ -18,7 +18,7 @@
 #
 
 using Test
-import NonLinearSystemNeuralNetworkFMU
+using NonLinearSystemNeuralNetworkFMU
 
 function runGenDataTest()
   pathToFMU = abspath(joinpath(@__DIR__, "fmus", "simpleLoop.interface.fmu"))
@@ -29,13 +29,12 @@ function runGenDataTest()
   min = [0.8, 0.95]
   max = [1.5, 2.05]
   fileName = joinpath(workDir, "simpleLoop_eq14.csv")
-  N = 2000
+  options = DataGenOptions(RandomMethod(), 1984, 2, 1, false, true)
 
-  NonLinearSystemNeuralNetworkFMU.generateTrainingData(pathToFMU, workDir, fileName,
-                                                       eqIndex, inputVars,
-                                                       min, max, outputVars;
-                                                       N = N,
-                                                       nBatches = 2)
+  generateTrainingData(pathToFMU, workDir, fileName,
+                       eqIndex, inputVars,
+                       min, max, outputVars;
+                       options = options)
 
   @test isfile(fileName)
   nLines = 0
@@ -49,11 +48,13 @@ function runGenDataTest()
       s,r,y = parse.(Float64,split(line,","))
       x = r*s -y
       isequal = r^2 ≈ x^2 + y^2
+      if !isequal
+        @info "$r^2 ≈ $x^2 + $y^2: $isequal"
+      end
     end
     @test isequal
   end
-  # At least 80% successfull data generation
-  @test nLines >= N*0.8 && nLines <= N
+  @test nLines == 1984
 end
 
 runGenDataTest()

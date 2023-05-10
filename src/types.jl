@@ -154,6 +154,42 @@ struct OMOptions
   end
 end
 
+abstract type DataGenerationMethod end
+
+struct RandomMethod <: DataGenerationMethod
+end
+
+struct RandomWalkMethod <: DataGenerationMethod
+  "Step size of random walk."
+  delta::Float64
+  RandomWalkMethod(delta=1e-3) = delta <= 0 ? error("Non-positive step size") : new(delta)
+end
+
+struct DataGenOptions
+  "Method to generate data points."
+  method::DataGenerationMethod
+  "Number of data points to generate."
+  n::Integer
+  "Number of batches to divide N into."
+  nBatches::Integer
+  "Number of threads to use in parallel"
+  nThreads::Integer
+  "Append to already existing data"
+  append::Bool
+  "Clean up temp CSV files"
+  clean::Bool
+
+  # Constructor
+  function DataGenOptions(method=RandomWalkMethod(1e-3)::DataGenerationMethod,
+                          n=1000::Integer,
+                          nBatches=1::Integer,
+                          nThreads=Threads.nthreads()::Integer,
+                          append=false::Bool,
+                          clean=true::Bool)
+    new(method, n, nBatches, nThreads, append, clean)
+  end
+end
+
  #=
  #   Error types
 =#
