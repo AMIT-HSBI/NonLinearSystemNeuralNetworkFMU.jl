@@ -32,7 +32,7 @@ generation for all non-linear equation systems of `modelName`.
   - `moFiles::Array{String}`: Path to .mo file(s).
 
 # Keywords
-  - `options::OMOptions`:       Settings for OpenModelcia compiler.
+  - `omOptions::OMOptions`:       Settings for OpenModelcia compiler.
   - `reuseArtifacts=false`:     Use artifacts to skip already performed steps if true.
   - `N=1000::Integer`:          Number of data points fto genreate or each non-linear equation system.
 
@@ -46,20 +46,20 @@ See also [`profiling`](@ref), [`minMaxValuesReSim`](@ref), [`generateFMU`](@ref)
 """
 function main(modelName::String,
               moFiles::Array{String};
-              options::OMOptions = OMOptions(workingDir=joinpath(pwd(), modelName)),
+              omOptions::OMOptions = OMOptions(workingDir=joinpath(pwd(), modelName)),
               reuseArtifacts::Bool = false,
               N=1000::Integer,
               nBatches = 2*Threads.nthreads())
 
-  mkpath(options.workingDir)
+  mkpath(omOptions.workingDir)
 
   # Profiling and min-max values
-  profilingInfoFile = joinpath(options.workingDir, "profilingInfo.bson")
-  profOptions = OMOptions(pathToOmc = options.pathToOmc,
-                          workingDir = joinpath(options.workingDir, "temp-profiling"),
+  profilingInfoFile = joinpath(omOptions.workingDir, "profilingInfo.bson")
+  profOptions = OMOptions(pathToOmc = omOptions.pathToOmc,
+                          workingDir = joinpath(omOptions.workingDir, "temp-profiling"),
                           outputFormat = "csv",
-                          clean = options.clean,
-                          commandLineOptions = options.commandLineOptions)
+                          clean = omOptions.clean,
+                          commandLineOptions = omOptions.commandLineOptions)
   local profilingInfo
   if(reuseArtifacts && isfile(profilingInfoFile))
     @info "Reusing $profilingInfoFile"
@@ -73,18 +73,18 @@ function main(modelName::String,
     end
 
     BSON.@save profilingInfoFile profilingInfo
-    if options.clean
+    if omOptions.clean
       rm(profOptions.workingDir, force=true, recursive=true)
     end
   end
 
   # FMU
-  genFmuOptions = OMOptions(pathToOmc = options.pathToOmc,
-                            workingDir = joinpath(options.workingDir, "temp-fmu"),
+  genFmuOptions = OMOptions(pathToOmc = omOptions.pathToOmc,
+                            workingDir = joinpath(omOptions.workingDir, "temp-fmu"),
                             outputFormat = nothing,
-                            clean = options.clean,
-                            commandLineOptions = options.commandLineOptions)
-  fmuFile = joinpath(options.workingDir, modelName*".fmu")
+                            clean = omOptions.clean,
+                            commandLineOptions = omOptions.commandLineOptions)
+  fmuFile = joinpath(omOptions.workingDir, modelName*".fmu")
   local fmu
   if(reuseArtifacts && isfile(fmuFile))
     @info "Reusing $fmuFile"
@@ -92,16 +92,16 @@ function main(modelName::String,
   else
     @info "Generate default FMU"
     fmu = generateFMU(modelName, moFiles, options=genFmuOptions)
-    mv(fmu, joinpath(options.workingDir, basename(fmu)), force=true)
-    fmu = joinpath(options.workingDir, basename(fmu))
-    if options.clean
+    mv(fmu, joinpath(omOptions.workingDir, basename(fmu)), force=true)
+    fmu = joinpath(omOptions.workingDir, basename(fmu))
+    if omOptions.clean
       rm(genFmuOptions.workingDir, force=true, recursive=true)
     end
   end
 
   # Extended FMU
-  tempDir = joinpath(options.workingDir, "temp-extendfmu")
-  fmuFile = joinpath(options.workingDir, modelName*".interface.fmu")
+  tempDir = joinpath(omOptions.workingDir, "temp-extendfmu")
+  fmuFile = joinpath(omOptions.workingDir, modelName*".interface.fmu")
   local fmu
   if(reuseArtifacts && isfile(fmuFile))
     @info "Reusing $fmuFile"
@@ -110,16 +110,17 @@ function main(modelName::String,
     @info "Generate extended FMU"
     allEqs = [prof.eqInfo.id for prof in profilingInfo]
     fmu_interface = addEqInterface2FMU(modelName, fmu, allEqs, workingDir=tempDir)
-    mv(fmu_interface, joinpath(options.workingDir, basename(fmu_interface)), force=true)
-    fmu_interface = joinpath(options.workingDir, basename(fmu_interface))
-    if options.clean
+    mv(fmu_interface, joinpath(omOptions.workingDir, basename(fmu_interface)), force=true)
+    fmu_interface = joinpath(omOptions.workingDir, basename(fmu_interface))
+    if omOptions.clean
       rm(tempDir, force=true, recursive=true)
     end
   end
 
   # Data
   @info "Generate training data"
-  tempDir = joinpath(options.workingDir, "temp-data")
+  tempDir = joinpath(omOptions.workingDir, "temp-data")
+  dataGenOptions = DataGenOptions(RandomMethod(), N, nBatches, Threads.nthreads(), false, true)
   csvFiles = String[]
   for prof in profilingInfo
     eqIndex = prof.eqInfo.id
@@ -128,11 +129,11 @@ function main(modelName::String,
     minBoundary = prof.boundary.min
     maxBoundary = prof.boundary.max
 
-    fileName = abspath(joinpath(options.workingDir, "data", "eq_$(prof.eqInfo.id).csv"))
-    csvFile = generateTrainingData(fmu_interface, tempDir, fileName, eqIndex, inputVars, minBoundary, maxBoundary, outputVars; N = N, nBatches=nBatches)
+    fileName = abspath(joinpath(omOptions.workingDir, "data", "eq_$(prof.eqInfo.id).csv"))
+    csvFile = generateTrainingData(fmu_interface, tempDir, fileName, eqIndex, inputVars, minBoundary, maxBoundary, outputVars; options = dataGenOptions)
     push!(csvFiles, csvFile)
   end
-  if options.clean
+  if omOptions.clean
     rm(tempDir, force=true, recursive=true)
   end
 
