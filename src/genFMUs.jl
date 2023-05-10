@@ -124,6 +124,16 @@ function createSpecialInterface(modelname::String, tempDir::String, eqIndices::A
       """
   end
   cFileContent = replace(cFileContent, "<<EQUATION_CASES>>"=>equationCases)
+  residualCases = ""
+  for eqIndex in eqIndices
+    residualCases = residualCases *
+      """
+        case $(eqIndex):
+          residualFunc$(eqIndex)(&resUserData, x, res, &iflag);
+          break;
+      """
+  end
+  cFileContent = replace(cFileContent, "<<RESIDUAL_CASES>>"=>residualCases)
 
   # Create `special_interface.c`
   path = joinpath(tempDir,"FMU", "sources", "fmi-export", "special_interface.c")
