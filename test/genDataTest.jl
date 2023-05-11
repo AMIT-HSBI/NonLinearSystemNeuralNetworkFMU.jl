@@ -29,7 +29,7 @@ function runGenDataTest()
   min = [0.8, 0.95]
   max = [1.5, 2.05]
   fileName = joinpath(workDir, "simpleLoop_eq14.csv")
-  options = DataGenOptions(RandomMethod(), 1984, 2, 1, false, true)
+  options = DataGenOptions(method=RandomMethod(), n=1984, nBatches=2, nThreads=1, clean=true)
 
   generateTrainingData(pathToFMU, workDir, fileName,
                        eqIndex, inputVars,

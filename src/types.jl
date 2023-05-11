@@ -162,9 +162,14 @@ end
 struct RandomWalkMethod <: DataGenerationMethod
   "Step size of random walk."
   delta::Float64
-  RandomWalkMethod(delta=1e-3) = delta <= 0 ? error("Non-positive step size") : new(delta)
+  RandomWalkMethod(;delta=1e-3) = delta <= 0 ? error("Non-positive step size") : new(delta)
 end
 
+"""
+  DataGenOptions <: Any
+
+Settings for data generation.
+"""
 struct DataGenOptions
   "Method to generate data points."
   method::DataGenerationMethod
@@ -180,12 +185,15 @@ struct DataGenOptions
   clean::Bool
 
   # Constructor
-  function DataGenOptions(method=RandomWalkMethod(1e-3)::DataGenerationMethod,
+  function DataGenOptions(;method=RandomWalkMethod(delta=1e-3)::DataGenerationMethod,
                           n=1000::Integer,
                           nBatches=1::Integer,
                           nThreads=Threads.nthreads()::Integer,
                           append=false::Bool,
                           clean=true::Bool)
+    if nThreads > Threads.nthreads()
+      error("nThreas=$(nThreads) too large. Only $(Threads.nthreads()) threads available.")
+    end
     new(method, n, nBatches, nThreads, append, clean)
   end
 end

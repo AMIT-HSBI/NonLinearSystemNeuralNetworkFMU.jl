@@ -120,8 +120,7 @@ function generateDataBatch(fmu,
         # Get output values
         row[nInputs+1:end] .= FMIImport.fmi2GetReal(fmu, row_vr[nInputs+1:end])
 
-        status, res = fmiEvaluateRes(fmu, eqId, row[nInputs+1:end])
-        @info "res $res"
+        #status, res = fmiEvaluateRes(fmu, eqId, row[nInputs+1:end])
 
         # Update data frame
         if useTime
@@ -227,7 +226,7 @@ function generateTrainingData(fmuPath::String,
                               minBound::AbstractVector{T},
                               maxBound::AbstractVector{T},
                               outputVars::Array{String};
-                              options=DataGenOptions() ::DataGenOptions) where T <: Number
+                              options=DataGenOptions()::DataGenOptions) where T <: Number
 
   # Handle time input variable
   inputVarsCopy = copy(inputVars)
@@ -244,23 +243,30 @@ function generateTrainingData(fmuPath::String,
     deleteat!(maxBound, loc)
   end
 
-  # generate data batch wise
-  @info "Starting data generation on $(options.nBatches) batches."
+  # Generate data batch wise
+  @info "Starting data generation on $(options.nBatches) batches with $(options.nThreads) threads."
   progressMeter = ProgressMeter.Progress(options.n; desc="Generating training data ...")
-  # Each thread get's own FMU
   nPerBatch = Integer(ceil(options.n / options.nBatches))
+  batchesDone = 0
+  while batchesDone < options.nBatches
+    parallelBatches = min(options.nThreads, options.nBatches-batchesDone)
+    # A FMU that is instantiate once can't be reused by another (or the same) thread.
+    fmuArray = [FMI.fmiLoad(fmuPath) for _ in 1:parallelBatches]
 
-  Threads.@threads for i in 1:options.nBatches
-    fmu = FMI.fmiLoad(fmuPath)
-    tempCsvFile = joinpath(workDir, "trainingData_eq_$(eqId)_batch_$(i).csv")
-    samples = nPerBatch
-    if i == options.nBatches
-      samples = options.n - nPerBatch*(options.nBatches-1)
+    Threads.@threads for i in 1:parallelBatches  # enumerate not thread safe
+      fmu = fmuArray[i]
+      @debug "Thread $(Threads.threadid()) running FMU $i"
+      tempCsvFile = joinpath(workDir, "trainingData_eq_$(eqId)_batch_$(batchesDone+i).csv")
+      samples = nPerBatch
+      if i == parallelBatches
+        samples = options.n - nPerBatch*(options.nBatches-1)
+      end
+      generateDataBatch(fmu, tempCsvFile, eqId, timeBounds, inputVarsCopy, minBound, maxBound, outputVars, progressMeter; samples, options=options)
     end
-    generateDataBatch(fmu, tempCsvFile, eqId, timeBounds, inputVarsCopy, minBound, maxBound, outputVars, progressMeter; samples, options=options)
-    FMI.fmiUnload(fmu)
-  end
 
+    FMI.fmiUnload.(fmuArray)
+    batchesDone += parallelBatches
+  end
   ProgressMeter.finish!(progressMeter)
 
   # Combine CSV files from all braches
