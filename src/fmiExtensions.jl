@@ -26,7 +26,7 @@ fmi2Fatal = Cuint(4)
 fmi2Pending = Cuint(5)
 
 """
-fmiEvaluateEq(fmu, eqNumber)
+    fmiEvaluateEq(fmu, eqNumber)
 
 Call equation function
 fmi2Status myfmi2evaluateEq(fmi2Component c, const size_t eqNumber)
@@ -57,4 +57,42 @@ function fmiEvaluateEq(comp::FMICore.FMU2Component, eq::Integer)::fmi2Status
                  comp.compAddr, eqCtype)
 
   return status
+end
+
+"""
+    fmiEvaluateRes(fmu, eqNumber, x)
+
+Call residual function
+`fmi2Status myfmi2evaluateRes(fmi2Component c, const size_t eqNumber, double* x, double* res)`
+for given equation number.
+
+# Arguments
+  - `fmu::FMICore.FMU2`: FMU object containing C void pointer to FMU component.
+  - `eqNumber::Int`: Equation index specifying equation to evaluate.
+  - `x::Array{Float64}` Values of iteration variables at which to evaluate the residuals.
+
+# Returns
+  - Status of Libdl.ccall for `:myfmi2evaluateEq`.
+  - Array of residual values.
+"""
+function fmiEvaluateRes(fmu::FMIImport.FMU2, eqNumber::Integer, x::Array{Float64})::Tuple{fmi2Status, Array{Float64}}
+  return fmiEvaluateRes(fmu.components[1], eqNumber, x)
+end
+
+function fmiEvaluateRes(comp::FMICore.FMU2Component, eq::Integer, x::Array{Float64})::Tuple{fmi2Status, Array{Float64}}
+
+  @assert eq>=0 "Residual index has to be non-negative!"
+
+  fmiEvaluateRes = Libdl.dlsym(comp.fmu.libHandle, :myfmi2evaluateRes)
+
+  res = Array{Float64}(undef, length(x))
+
+  eqCtype = Csize_t(eq)
+
+  status = ccall(fmiEvaluateRes,
+                 Cuint,
+                 (Ptr{Nothing}, Csize_t, Ptr{Cdouble}, Ptr{Cdouble}),
+                 comp.compAddr, eqCtype, x, res)
+
+  return status, res
 end

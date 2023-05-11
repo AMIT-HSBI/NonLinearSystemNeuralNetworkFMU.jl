@@ -120,6 +120,9 @@ function generateDataBatch(fmu,
         # Get output values
         row[nInputs+1:end] .= FMIImport.fmi2GetReal(fmu, row_vr[nInputs+1:end])
 
+        status, res = fmiEvaluateRes(fmu, eqId, row[nInputs+1:end])
+        @info "res $res"
+
         # Update data frame
         if useTime
           push!(df, vcat([timeBounds[1]], row))

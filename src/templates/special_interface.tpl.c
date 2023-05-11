@@ -79,3 +79,47 @@ fmi2Status myfmi2evaluateEq(fmi2Component c, const size_t eqNumber)
 
   return fmi2OK;
 }
+
+fmi2Status myfmi2evaluateRes(fmi2Component c, const size_t eqNumber, double* x, double* res)
+{
+  ModelInstance *comp = (ModelInstance *)c;
+  DATA* data = comp->fmuData;
+  threadData_t *threadData = comp->threadData;
+  int success = 0;
+  int iflag = 0;
+
+  RESIDUAL_USERDATA resUserData = {
+    .data       = data,
+    .threadData = threadData,
+    .solverData = NULL
+  };
+
+  useStream[LOG_NLS] = 0 /* false */;
+  useStream[LOG_NLS_V] = 0 /* false */;
+  useStream[LOG_ASSERT] = 0 /* false */;
+  FILTERED_LOG(comp, fmi2OK, LOG_FMI2_CALL, "myfmi2evaluateRes: Evaluating residual %u", eqNumber)
+
+  setThreadData(comp);
+  /* try */
+  MMC_TRY_INTERNAL(simulationJumpBuffer)
+
+  switch (eqNumber)
+  {
+<<RESIDUAL_CASES>>
+  default:
+    return fmi2Error;
+  }
+
+  success=1;
+
+  /* catch */
+  MMC_CATCH_INTERNAL(simulationJumpBuffer)
+  resetThreadData(comp);
+
+  if(!success) {
+    FILTERED_LOG(comp, fmi2Error, LOG_FMI2_CALL, "myfmi2evaluateRes: Caught an error.")
+    return fmi2Error;
+  }
+
+  return fmi2OK;
+}
