@@ -26,7 +26,7 @@ fmi2Fatal = Cuint(4)
 fmi2Pending = Cuint(5)
 
 """
-fmiEvaluateEq(fmu, eqNumber)
+    fmiEvaluateEq(fmu, eqNumber)
 
 Call equation function
 fmi2Status myfmi2evaluateEq(fmi2Component c, const size_t eqNumber)
@@ -60,10 +60,10 @@ function fmiEvaluateEq(comp::FMICore.FMU2Component, eq::Integer)::fmi2Status
 end
 
 """
-fmiEvaluateRes(fmu, eqNumber, x)
+    fmiEvaluateRes(fmu, eqNumber, x)
 
 Call residual function
-fmi2Status myfmi2evaluateRes(fmi2Component c, const size_t eqNumber, double* x, double* res)
+`fmi2Status myfmi2evaluateRes(fmi2Component c, const size_t eqNumber, double* x, double* res)`
 for given equation number.
 
 # Arguments
