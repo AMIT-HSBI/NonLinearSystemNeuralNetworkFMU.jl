@@ -18,7 +18,7 @@
 #
 
 """
-    main(modelName, moFiles;  options=OMOptions(workingDir=joinpath(pwd(), modelName)), reuseArtifacts=false, N=1000)
+    main(modelName, moFiles; options=OMOptions(workingDir=joinpath(pwd(), modelName)), dataGenOptions=DataGenOptions(method = RandomMethod(), n=1000, nBatches=Threads.nthreads()), reuseArtifacts=false)
 
 Main routine to generate training data from Modelica file(s).
 Generate BSON artifacts and FMUs for each step. Artifacts can be re-used when restarting
@@ -32,9 +32,9 @@ generation for all non-linear equation systems of `modelName`.
   - `moFiles::Array{String}`: Path to .mo file(s).
 
 # Keywords
-  - `omOptions::OMOptions`:       Settings for OpenModelcia compiler.
-  - `reuseArtifacts=false`:     Use artifacts to skip already performed steps if true.
-  - `N=1000::Integer`:          Number of data points fto genreate or each non-linear equation system.
+  - `omOptions::OMOptions`:           Settings for OpenModelcia compiler.
+  - `dataGenOptions::DataGenOptions`  Settings for data generation.
+  - `reuseArtifacts=false`:           Use artifacts to skip already performed steps if true.
 
 # Returns
   - `csvFiles::Array{String}`:              Array of generate CSV files with training data.
@@ -47,9 +47,8 @@ See also [`profiling`](@ref), [`minMaxValuesReSim`](@ref), [`generateFMU`](@ref)
 function main(modelName::String,
               moFiles::Array{String};
               omOptions::OMOptions = OMOptions(workingDir=joinpath(pwd(), modelName)),
-              reuseArtifacts::Bool = false,
-              N=1000::Integer,
-              nBatches = 2*Threads.nthreads())
+              dataGenOptions::DataGenOptions = DataGenOptions(method=RandomMethod(), n=1000, nBatches=Threads.nthreads()),
+              reuseArtifacts::Bool = false)
 
   mkpath(omOptions.workingDir)
 
@@ -120,7 +119,6 @@ function main(modelName::String,
   # Data
   @info "Generate training data"
   tempDir = joinpath(omOptions.workingDir, "temp-data")
-  dataGenOptions = DataGenOptions(RandomMethod(), N, nBatches, Threads.nthreads(), false, true)
   csvFiles = String[]
   for prof in profilingInfo
     eqIndex = prof.eqInfo.id
