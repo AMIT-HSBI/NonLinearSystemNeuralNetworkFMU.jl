@@ -8,6 +8,7 @@ on:
 
 env:
   BUILD_TYPE: RelWithDebInfo
+  JULIA_DEBUG: NonLinearSystemNeuralNetworkFMU
 
 jobs:
   test:
