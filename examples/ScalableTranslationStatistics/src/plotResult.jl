@@ -73,3 +73,46 @@ function plotResult(defaultResult, onnxResult, outputVars::Array{String}; tspan:
   Legend(grid_right[1,1], ax_bottom)
   return fig
 end
+
+function plotTrainDataHistogram(vars::Array{String}, df_trainData::DataFrames.DataFrame; title = "")
+  aspectRatio = 1.0
+  nCols = Integer(ceil(sqrt(length(vars)*aspectRatio)))
+  nRows = Integer(ceil(length(vars)/nCols))
+
+  fig = Figure(fontsize = 32,
+               resolution = (nRows*800, nCols*600))
+
+  Label(fig[0,:], text=title, fontsize=32, tellwidth=false, tellheight=true)
+  grid = GridLayout(nRows, nCols; parent = fig)
+
+  row = 1
+  col = 1
+  for (i,var) in enumerate(vars)
+    axis = Axis(grid[row, col],
+                xlabel = join(split(var, ".")[2:end], '.'),
+                ylabel = "# samples")
+
+    CairoMakie.hist!(axis,
+                     df_trainData[!, var],
+                     bins = 15,
+                     normalization = :none)
+
+    if i%nCols == 0
+      row += 1
+      col = 1
+    else
+      col += 1
+    end
+  end
+
+  for row in 1:nRows
+    idx = (row-1)*nCols + 2
+    for i in 1:nCols-1
+      linkyaxes!(fig.content[idx], fig.content[idx+i])
+      hideydecorations!(fig.content[idx+i], grid = false)
+    end
+  end
+  fig[1,1] = grid
+
+  return fig
+end

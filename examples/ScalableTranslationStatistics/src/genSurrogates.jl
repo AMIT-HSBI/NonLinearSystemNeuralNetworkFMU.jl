@@ -9,8 +9,11 @@ function genSurrogate(lib::String, modelName::String; N::Int=100)
   workdir = datadir("sims", split(modelName, ".")[end])
 
   # Generate training data
-  options = OMOptions(workingDir=workdir)
-  (csvFiles, fmu, profilingInfo) = main(modelName, [lib], options=options, reuseArtifacts=false, N=N, nBatches=10)
+  omOptions = OMOptions(workingDir=workdir)
+  dataGenOptions = DataGenOptions(method=RandomWalkMethod(delta=0.01),
+                                  n = 1000,
+                                  nBatches = 100)
+  (csvFiles, fmu, profilingInfo) = main(modelName, [lib], omOptions=omOptions, dataGenOptions=dataGenOptions, reuseArtifacts=false)
 
   # Train ONNX
   onnxFiles = String[]
