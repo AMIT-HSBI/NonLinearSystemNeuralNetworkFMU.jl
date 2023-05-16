@@ -4,24 +4,23 @@
 using DrWatson
 @quickactivate "ScalableTranslationStatistics"
 
-#sizes = [5, 10, 20, 40, 80]
-sizes = [5, 10, 20,40]
+sizes = [5, 10, 20, 40, 80]
 
 begin
-  #include("genAllSurrogates.jl")
-  #genAllSurrogates(sizes, modelicaLib; N=1000)
+  include("genAllSurrogates.jl")
+  genAllSurrogates(sizes, modelicaLib; N=1000)
 end
 
 begin
-  #include("simulateSurrogates.jl")
-  #simulateAllSurrogates(sizes)
+  include("simulateSurrogates.jl")
+  simulateAllSurrogates(sizes)
 end
 
 # Generate plots
 begin
-  #include("genAllPlots.jl")
-  #plotAllResults(sizes)
+  include("genAllPlots.jl")
+  plotAllResults(sizes)
   include("plotTrainData.jl")
   plotAllTrainingData(sizes)
-  simulationTimes(sizes; printAbsTime=true)
+  simulationTimes(sizes; printAbsTime=false, plotTimeLabels=true, filename = plotsdir("ScalableTranslationStatistics.simTimeOverview.pdf"), title="")
 end
