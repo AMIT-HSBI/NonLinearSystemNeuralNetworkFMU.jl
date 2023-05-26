@@ -4,23 +4,27 @@
 using DrWatson
 @quickactivate "ScalableTranslationStatistics"
 
-sizes = [5, 10, 20, 40, 80]
+sizes = [5]
 
-begin
-  include("genAllSurrogates.jl")
-  genAllSurrogates(sizes, modelicaLib; N=1000)
-end
+#begin
+#  include("genAllSurrogates.jl")
+#  #ENV["JULIA_DEBUG"] = NonLinearSystemNeuralNetworkFMU
+#  genAllSurrogates(sizes, modelicaLib; n=1000, genData=false)
+#end
 
-begin
-  include("simulateSurrogates.jl")
-  simulateAllSurrogates(sizes)
-end
+#begins
+#  include("simulateSurrogates.jl")
+#  simulateAllSurrogates(sizes)
+#end
 
 # Generate plots
-begin
-  include("genAllPlots.jl")
-  plotAllResults(sizes)
-  include("plotTrainData.jl")
-  plotAllTrainingData(sizes)
-  simulationTimes(sizes; printAbsTime=false, plotTimeLabels=true, filename = plotsdir("ScalableTranslationStatistics.simTimeOverview.pdf"), title="")
-end
+#sizes = [5, 10, 20, 40]
+#begin
+#  include("genAllPlots.jl")
+#  include("plotTrainData.jl")
+#  plotAllResults(sizes)
+#  plotAllTrainingData(sizes)
+#  simulationTimes(sizes; printAbsTime=false, plotTimeLabels=true, filename = plotsdir("ScalableTranslationStatistics.simTimeOverview.pdf"), title="")
+#  plotTrainingProgress(sizes, format="pdf")
+#  plotTrainingProgress(sizes, format="svg")
+#end

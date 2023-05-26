@@ -6,6 +6,7 @@ using ColorSchemes
 using NonLinearSystemNeuralNetworkFMU
 using CSV
 using DataFrames
+using BenchmarkTools
 
 # Uncomment to change to Times New Roman like font
 #update_theme!(fonts = (; regular = "Nimbus Roman No9 L", bold = "Nimbus Roman No9 L"))
@@ -14,8 +15,7 @@ include(srcdir("plotResult.jl"))
 
 function plotAllTrainingData(sizes)
   for size in sizes
-    modelName = "ScalableTranslationStatistics.Examples.ScaledNLEquations.NLEquations_$(size)"
-    shortName = split(modelName, ".")[end]
+    (shortName, modelName) = getNames(size)
 
     profilingInfos = NonLinearSystemNeuralNetworkFMU.getProfilingInfo(datadir("sims", shortName, "profilingInfo.bson"))
 
@@ -46,8 +46,8 @@ function simulationTimes(sizes;
                          plotTimeLabels=true,
                          filename = plotsdir("simTimeOverview.pdf"),
                          title = "Simulation time of Examples.ScaledNLEquations.NLEquations_N")
-  modelName = "ScalableTranslationStatistics.Examples.ScaledNLEquations.NLEquations_$(sizes[01])"
-  shortName = split(modelName, ".")[end]
+
+  (shortName, modelName) = getNames(sizes[1])
   profilingInfos_01 = NonLinearSystemNeuralNetworkFMU.getProfilingInfo(datadir("sims", shortName, "profilingInfo.bson"))
 
   numEqs = length(profilingInfos_01)+1
@@ -62,8 +62,7 @@ function simulationTimes(sizes;
   end
 
   for (i,size) in enumerate(sizes)
-    modelName = "ScalableTranslationStatistics.Examples.ScaledNLEquations.NLEquations_$(size)"
-    shortName = split(modelName, ".")[end]
+    (shortName, modelName) = getNames(size)
     profilingInfos = NonLinearSystemNeuralNetworkFMU.getProfilingInfo(datadir("sims", shortName, "profilingInfo.bson"))
 
     fraction_total = 0
@@ -146,4 +145,28 @@ function simulationTimes(sizes;
   save(filename, fig)
 
   return filename
+end
+
+function plotTrainingProgress(sizes; format="svg")
+  for s in sizes
+    (shortName, modelName) = getNames(s)
+    lossFileDir = datadir("sims", shortName, "onnx")
+    profilingInfos = NonLinearSystemNeuralNetworkFMU.getProfilingInfo(datadir("sims", shortName, "profilingInfo.bson"))
+    for prof in profilingInfos[1:1]
+      lossFile = joinpath(lossFileDir, "eq_$(prof.eqInfo.id)_loss.csv")
+      fig = plotLoss(lossFile)
+
+      filename = plotsdir(modelName, "$(shortName)_trainLoss_eq_$(prof.eqInfo.id).$(format)")
+      save(filename, fig)
+    end
+  end
+end
+
+function plotSurrogateSpeedup(sizes)
+  for size in sizes
+    size = 5
+    (shortName, modelName) = getNames(size)
+    benchmarkFile = datadir("sims", shortName, "benchmark.bson")
+    @load benchmarkFile bench
+  end
 end

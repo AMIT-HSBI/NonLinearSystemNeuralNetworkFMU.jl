@@ -2,7 +2,7 @@
 
 julia_version = "1.9.0"
 manifest_format = "2.0"
-project_hash = "1d5b64a1ce57aa81b5234458a0e5bfd5469752c1"
+project_hash = "244892e5dfe8aff42a25a779363075b5c981479a"
 
 [[deps.ANSIColoredPrinters]]
 git-tree-sha1 = "574baf8110975760d391c710b6341da1afa48d8c"
@@ -1638,7 +1638,7 @@ version = "2.0.10"
 deps = ["BSON", "CSV", "CUDA", "Cbc", "DataFrames", "Flux", "InvertedIndices", "ONNX", "ONNXNaiveNASflux", "Plots", "Revise", "StatsBase"]
 path = "../NaiveONNX.jl"
 uuid = "135c1d4d-7f3e-476b-9774-5f1a5fa3495d"
-version = "0.1.2"
+version = "0.2.0"
 
 [[deps.NameResolution]]
 deps = ["PrettyPrint"]

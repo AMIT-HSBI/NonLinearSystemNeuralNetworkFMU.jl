@@ -116,3 +116,38 @@ function plotTrainDataHistogram(vars::Array{String}, df_trainData::DataFrames.Da
 
   return fig
 end
+
+function plotLoss(lossFile)
+  df = CSV.read(lossFile, DataFrames.DataFrame; ntasks=1)
+
+  fig = Figure(fontsize = 42)
+  axis = Axis(fig[1, 1],
+              xlabel = "Epochs",
+              yscale = Makie.log10,
+              ylabel = "Loss",
+              yminorticksvisible = true, yminorgridvisible = true,
+              yminorticks = IntervalsBetween(10))
+
+  lines!(axis,
+         df.epoch,
+         df.lossTrain,
+         linewidth = 3,
+         label = "training")
+
+  lines!(axis,
+         df.epoch,
+         df.lossTest,
+         linewidth = 3,
+         label = "test")
+
+  axislegend(axis, position = :rt, margin = (20, 20, 20, 20))
+  colsize!(fig.layout, 1, Aspect(1, 3.0))
+  resize_to_layout!(fig)
+  return fig
+end
+
+function getNames(size)
+  modelName = "ScalableTranslationStatistics.Examples.ScaledNLEquations.NLEquations_$(size)"
+  shortName = split(modelName, ".")[end]
+  return (shortName, modelName)
+end

@@ -101,7 +101,6 @@ function main(modelName::String,
   # Extended FMU
   tempDir = joinpath(omOptions.workingDir, "temp-extendfmu")
   fmuFile = joinpath(omOptions.workingDir, modelName*".interface.fmu")
-  local fmu
   if(reuseArtifacts && isfile(fmuFile))
     @info "Reusing $fmuFile"
     fmu_interface = fmuFile

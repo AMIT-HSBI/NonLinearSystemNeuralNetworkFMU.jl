@@ -57,7 +57,8 @@ message(STATUS "Using ORT_LIBR: ${ORT_LIB}")
 
 add_library(onnxWrapper SHARED
             errorControl.c
-            onnxWrapper.c)
+            onnxWrapper.c
+            measureTimes.c)
 
 target_include_directories(onnxWrapper PUBLIC ${ORT_INCLUDE})
 target_link_libraries(onnxWrapper PRIVATE ${ORT_LIB})

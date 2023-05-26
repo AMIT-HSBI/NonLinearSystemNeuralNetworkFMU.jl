@@ -16,12 +16,12 @@ function simulateAllSurrogates(sizes)
     pathToFMU = datadir("sims", shortName, "fmus", modelName*".onnx.fmu")
     resultFile = datadir("exp_raw", shortName, shortName * "_res.onnx.csv")
     logFile = joinpath(workdir, "OMSimulator_calls.onnx.log")
-    bench = simulateFMU_OMSimulator(pathToFMU, resultFile; workdir=workdir, logFile=logFile, samples=1)
+    bench = simulateFMU_OMSimulator(pathToFMU, "$(shortName)_onnx", resultFile; workdir=workdir, logFile=logFile, samples=1)
     @save benchmarkFile bench
 
     pathToFMU = datadir("sims", shortName, "fmus", modelName*".fmu")
     resultFile = datadir("exp_raw", shortName, shortName * "_res.csv")
     logFile = joinpath(workdir, "OMSimulator_calls.log")
-    simulateFMU_OMSimulator(pathToFMU, resultFile; workdir=workdir, logFile=logFile, samples=1)
+    simulateFMU_OMSimulator(pathToFMU, "$(shortName)_ref", resultFile; workdir=workdir, logFile=logFile, samples=1)
   end
 end

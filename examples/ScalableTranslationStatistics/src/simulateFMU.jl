@@ -35,16 +35,62 @@ end
 """
 Benchmark simulation of FMU with OMSimulator
 """
-function simulateFMU_OMSimulator(pathToFMU::String, resultFile::String; workdir::String, logFile::String, samples=1)
+function simulateFMU_OMSimulator(pathToFMU::String, modelName::String, resultFile::String; workdir::String, logFile::String, samples=1)
   @info "Simulating FMU $pathToFMU with OMSimulator"
 
   local bench
   mkpath(dirname(logFile))
   mkpath(dirname(resultFile))
   mkpath(dirname(workdir))
-  cmd = `OMSimulator --resultFile=$resultFile --stopTime=10 "$(pathToFMU)"`
-  redirect_stdio(stdout=logFile, stderr=logFile) do
-    bench = @benchmark run(Cmd($cmd, dir=$workdir)) samples=samples seconds=60*10 evals=1   # Use $() to interpolate external variables
+
+  script = generateLuaScriptOMS(pathToFMU, modelName; stepSize=1e-3, workdir=workdir, resultFile=resultFile, stopTime=10)
+  cmd = `OMSimulator --deleteTempFiles=true --stripRoot=true "$(script)"`
+  try
+    redirect_stdio(stdout=logFile, stderr=logFile) do
+     bench = @benchmark run(Cmd($cmd, dir=$workdir)) samples=samples seconds=60*10 evals=1   # Use $() to interpolate external variables
+   end
+  catch e
+    @error "Printing log file: $logFile"
+    @error read(logFile, String)
+    rethrow(e)
   end
+  display(bench)
   return bench
+end
+
+function generateLuaScriptOMS(pathToFMU::String,
+                              modelName::String;
+                              stepSize::Float64,
+                              workdir::String,
+                              resultFile::String,
+                              stopTime=1::Float64)
+
+  luaFile = joinpath(workdir, "$(modelName).lua")
+  content = """
+    oms_setTempDirectory("$(workdir)")
+    oms_newModel("model")
+    oms_addSystem("model.root", oms_system_sc)
+
+    -- instantiate FMUs
+    oms_addSubModel("model.root.$(modelName)", "$(pathToFMU)")
+
+    -- simulation settings
+    oms_setSolver("model", oms_solver_sc_explicit_euler)
+    oms_setResultFile("model", "$(resultFile)")
+    oms_setStopTime("model", $(stopTime))
+    oms_setFixedStepSize("model.root", $(stepSize))
+
+    oms_instantiate("model")
+
+    oms_initialize("model")
+    oms_simulate("model")
+    oms_terminate("model")
+    oms_delete("model")
+    """
+
+    open(luaFile, "w") do file
+      write(file, content)
+    end
+
+    return luaFile
 end
