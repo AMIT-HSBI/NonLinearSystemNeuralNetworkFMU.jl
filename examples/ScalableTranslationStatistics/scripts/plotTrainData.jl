@@ -13,7 +13,7 @@ using BenchmarkTools
 
 include(srcdir("plotResult.jl"))
 
-function plotAllTrainingData(sizes)
+function plotAllTrainingData(sizes; filetype="pdf")
   for size in sizes
     (shortName, modelName) = getNames(size)
 
@@ -33,11 +33,13 @@ function plotAllTrainingData(sizes)
     #df_surr = CSV.read(resultCsvFile, DataFrames.DataFrame; ntasks=1)
 
     fig = plotTrainArea(prof.iterationVariables, df_ref, df_trainData = df_data)
-    mkpath(dirname(plotsdir(modelName, "$(shortName)_trainData.svg")))
-    save(plotsdir(modelName, "$(shortName)_trainData.svg"), fig)
+    file = plotsdir(shortName, "$(shortName)_trainData.$(filetype)")
+    mkpath(dirname(file))
+    save(file, fig)
 
     fig = plotTrainDataHistogram(prof.usingVars, df_data, title = "Training Data Distribution - Equation $(prof.eqInfo.id)")
-    save(plotsdir(modelName, "$(shortName)_trainData_hist.svg"), fig)
+    file = plotsdir(shortName, "$(shortName)_trainData_hist.$(filetype)")
+    save(file, fig)
   end
 end
 
@@ -147,7 +149,7 @@ function simulationTimes(sizes;
   return filename
 end
 
-function plotTrainingProgress(sizes; format="svg")
+function plotTrainingProgress(sizes; filetype="svg")
   for s in sizes
     (shortName, modelName) = getNames(s)
     lossFileDir = datadir("sims", shortName, "onnx")
@@ -156,7 +158,7 @@ function plotTrainingProgress(sizes; format="svg")
       lossFile = joinpath(lossFileDir, "eq_$(prof.eqInfo.id)_loss.csv")
       fig = plotLoss(lossFile)
 
-      filename = plotsdir(modelName, "$(shortName)_trainLoss_eq_$(prof.eqInfo.id).$(format)")
+      filename = plotsdir(shortName, "$(shortName)_trainLoss_eq_$(prof.eqInfo.id).$(filetype)")
       save(filename, fig)
     end
   end

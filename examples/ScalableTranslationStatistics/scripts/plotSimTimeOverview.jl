@@ -6,12 +6,8 @@ using DataFrames
 using CairoMakie
 using ColorSchemes
 
-sizes = [5,10,20,40]
-
-csvFile = "$(@__DIR__)/../simTimes.csv"
-
 function plotSimTimes(sizes, csvFile; filetype="svg")
-  df = CSV.read(csvFile, DataFrame; ntasks=1)
+  df = CSV.read(csvFile, DataFrames.DataFrame; ntasks=1)
 
   fig = Figure()
   ax = Axis(fig[1,1],
@@ -51,5 +47,3 @@ function plotSimTimes(sizes, csvFile; filetype="svg")
   save(savename, fig)
   return fig
 end
-
-plotSimTimes(sizes, csvFile; filetype="svg")

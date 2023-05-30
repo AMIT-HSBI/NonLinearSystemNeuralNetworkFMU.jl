@@ -119,7 +119,7 @@ double writeResiduum(double time, struct OrtWrapperData* ortData) {
   double res_norm = norm(ortData->res, ortData->nRes);
   double norm_x = norm(ortData->x, ortData->nRes);
   double rel_error = 0;
-  if(norm_x != 0) {
+  if(norm_x > 1e-6) {
     rel_error = res_norm / norm_x;
   } else {
     rel_error = res_norm;

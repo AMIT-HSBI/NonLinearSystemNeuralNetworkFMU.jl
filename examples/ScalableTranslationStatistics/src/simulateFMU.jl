@@ -35,7 +35,7 @@ end
 """
 Benchmark simulation of FMU with OMSimulator
 """
-function simulateFMU_OMSimulator(pathToFMU::String, modelName::String, resultFile::String; workdir::String, logFile::String, samples=1)
+function simulateFMU_OMSimulator(luaFile::String, pathToFMU::String, modelName::AbstractString, resultFile::String; workdir::String, logFile::String, samples=1)
   @info "Simulating FMU $pathToFMU with OMSimulator"
 
   local bench
@@ -43,7 +43,7 @@ function simulateFMU_OMSimulator(pathToFMU::String, modelName::String, resultFil
   mkpath(dirname(resultFile))
   mkpath(dirname(workdir))
 
-  script = generateLuaScriptOMS(pathToFMU, modelName; stepSize=1e-3, workdir=workdir, resultFile=resultFile, stopTime=10)
+  script = generateLuaScriptOMS(luaFile, pathToFMU, modelName; stepSize=1e-3, workdir=workdir, resultFile=resultFile, stopTime=10)
   cmd = `OMSimulator --deleteTempFiles=true --stripRoot=true "$(script)"`
   try
     redirect_stdio(stdout=logFile, stderr=logFile) do
@@ -58,14 +58,14 @@ function simulateFMU_OMSimulator(pathToFMU::String, modelName::String, resultFil
   return bench
 end
 
-function generateLuaScriptOMS(pathToFMU::String,
-                              modelName::String;
+function generateLuaScriptOMS(luaFile::String,
+                              pathToFMU::String,
+                              modelName::AbstractString;
                               stepSize::Float64,
                               workdir::String,
                               resultFile::String,
                               stopTime=1::Float64)
 
-  luaFile = joinpath(workdir, "$(modelName).lua")
   content = """
     oms_setTempDirectory("$(workdir)")
     oms_newModel("model")
