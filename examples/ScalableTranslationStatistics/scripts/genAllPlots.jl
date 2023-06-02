@@ -38,11 +38,13 @@ function plotItterationVariables(sizes; filetype="pdf")
       residualResults = datadir("sims", shortName, "temp-OMSimulator", "$(modelName)_eq$(prof.eqInfo.id)_residuum.csv")
 
       @info "Plotting itteration variables for eq $(prof.eqInfo.id)"
-      fig = plotResult(refResult, surrogateResult, outputVars, "Iteration"; tspan=(0.0, 10.0), residualResults=residualResults, fullNames=true, eqId=prof.eqInfo.id)
+      fig1, fig2 = plotResult(refResult, surrogateResult, outputVars, "Iteration"; tspan=(0.0, 10.0), residualResults=residualResults, fullNames=true, eqId=prof.eqInfo.id)
 
-      fileName = plotsdir(shortName, "loop_$(prof.eqInfo.id)_results.$(filetype)")
+      fileName = plotsdir(shortName, "loop_$(prof.eqInfo.id)_results_a.$(filetype)")
       mkpath(dirname(fileName))
-      save(fileName, fig)
+      save(fileName,fig1)
+      fileName = plotsdir(shortName, "loop_$(prof.eqInfo.id)_results_b.$(filetype)")
+      save(fileName,fig2)
     end
   end
 end

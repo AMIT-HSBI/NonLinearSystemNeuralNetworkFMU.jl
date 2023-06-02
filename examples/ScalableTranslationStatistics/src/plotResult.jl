@@ -60,68 +60,44 @@ function plotResult(referenceResult::String,
     return errorFunctions[i](t)
   end
 
-
   colors = distinguishable_colors(length(outputVars)+1, [RGB(1,1,1), RGB(0,0,0)], dropseed=true)
 
-  fig = Figure(fontsize = 18,
-               resolution = (800, 1000))
-  grid_simResults = fig[1, 1:2] = GridLayout()
-  grid_simError = fig[2, 1:2] = GridLayout()
-  grid_legend = fig[3, 1:2] = GridLayout()
-  local grid_residual
-  if residualResults !== nothing
-    grid_residual = fig[4, 1:2] = GridLayout()
-  end
+  fig1 = Figure(fontsize = 18,
+                resolution = (800, 800))
+  grid_simResults = fig1[1, 1:2] = GridLayout()
+  grid_simError = fig1[2, 1:2] = GridLayout()
+  grid_legend = fig1[3, 1:2] = GridLayout()
+
   ax_simResults = Axis(grid_simResults[1,1],
-                       title = "(a) $varName variables",
+                       title = "$varName variables",
                        xlabel = "time [s]",
                        xticks = 0:1:10,
-                       xminorticks = IntervalsBetween(10),
+                       xminorticks = IntervalsBetween(2),
                        xminorticksvisible = true,
                        xminorgridvisible = true,
                        ylabel = "Relative position [m]",
-                       yminorticksvisible = true)
+                       yminorticksvisible = true,
+                       height = 300)
   ax_simError = Axis(grid_simError[1,1],
-                     title = "(b) Difference surrogate and reference",
+                     title = "Difference surrogate and reference",
                      xlabel = "time [s]",
                      xticks = 0:1:10,
-                     xminorticks = IntervalsBetween(10),
+                     xminorticks = IntervalsBetween(2),
                      xminorticksvisible = true,
                      xminorgridvisible = true,
-                     yminorticksvisible = true)
+                     yminorticksvisible = true,
+                     height = 300)
 
-  local ax_residual
-  if residualResults !== nothing
-    ax_residual = Axis(grid_residual[1,1],
-                       title = "(c) Residual",
-                       xlabel = "time [s]",
-                       xticks = 0:1:10,
-                       xminorticks = IntervalsBetween(10),
-                       xminorticksvisible = true,
-                       xminorgridvisible = true,
-                       yminorticksvisible = true)
-  end
   for (i, var) in enumerate(outputVars)
     lines!(ax_simResults, df_ref.time, df_ref[!,Symbol(var)], color=colors[i])
     lines!(ax_simResults, df_onnx.time, df_onnx[!,Symbol(var)], color=colors[i], linestyle=:dash)
     # Error plots
     if fullNames
-      #label = var
       label = join(split(var, ".")[2:end], ".")
     else
       label = last(split(var, "."))
     end
     lines!(ax_simError, df_ref.time, relativeError.(df_ref.time, i), label=label, color=colors[i])
-  end
-
-  # Residuum
-  if residualResults !== nothing
-    for (i, _) in enumerate(outputVars)
-      lines!(ax_residual, df_res.time, df_res[!,Symbol("res[$(i-1)]")], color=colors[i], label=L"$f_{res_%$(i)}$")
-    end
-    #lines!(ax_residual, df_res.time, df_res[!,:rel_error], color=colors[length(outputVars)+1], label=L"\tau_{rel}(f_{res})")
-    lines!(ax_residual, df_res.time, df_res[!,:res_norm], color=colors[length(outputVars)+1], label=L"||f_{res}||_2")
-    lines!(ax_residual, df_res.time[[1,length(df_res.time)]], [1.0, 1.0] , color=:grey, linestyle=:dash)
   end
 
   # Legend
@@ -131,14 +107,49 @@ function plotResult(referenceResult::String,
              [elem_1, elem_2],
              ["reference", "surrogate"],
              position = :lt)
-  if residualResults !== nothing
-    axislegend(ax_residual, orientation = :horizontal, position = :lt)
+  
+  orientation = :horizontal
+  if length(join(outputVars)) > 100
+    orientation = :vertical
   end
   Legend(grid_legend[1,1], ax_simError,
          tellwidth=false, tellheight=true,
-         orientation = :horizontal)
-  resize_to_layout!(fig)
-  return fig
+         orientation = orientation)
+  resize_to_layout!(fig1)
+
+  # Optional residual plot
+  local fig2
+  if residualResults !== nothing
+    fig2 = Figure(fontsize = 18,
+                  resolution = (800, 400))
+    grid_residual = fig2[1, 1:2] = GridLayout()
+
+    ax_residual = Axis(grid_residual[1,1],
+                       title = "Residual",
+                       xlabel = "time [s]",
+                       xticks = 0:1:10,
+                       xminorticks = IntervalsBetween(10),
+                       xminorticksvisible = true,
+                       xminorgridvisible = true,
+                       yminorticksvisible = true,
+                       height = 300)
+
+    for (i, _) in enumerate(outputVars)
+      lines!(ax_residual, df_res.time, df_res[!,Symbol("res[$(i-1)]")], color=colors[i], label=L"$f_{res_%$(i)}$")
+    end
+    #lines!(ax_residual, df_res.time, df_res[!,:rel_error], color=colors[length(outputVars)+1], label=L"\tau_{rel}(f_{res})")
+    lines!(ax_residual, df_res.time, df_res[!,:res_norm], color=colors[length(outputVars)+1], label=L"||f_{res}||_2")
+    lines!(ax_residual, df_res.time[[1,length(df_res.time)]], [1.0, 1.0] , color=:grey, linestyle=:dash)
+
+    axislegend(ax_residual, orientation = :horizontal, position = :lt)
+    resize_to_layout!(fig2)
+  end
+
+  if residualResults !== nothing
+    return fig1, fig2
+  else
+    return fig1
+  end
 end
 
 function plotTrainDataHistogram(vars::Array{String}, df_trainData::DataFrames.DataFrame; title = "")
