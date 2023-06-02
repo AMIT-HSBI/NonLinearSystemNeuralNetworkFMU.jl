@@ -2,7 +2,7 @@
 
 julia_version = "1.8.1"
 manifest_format = "2.0"
-project_hash = "45b25682bdd237104641b36a68a28d1c49e2efc6"
+project_hash = "6b4c5da0565a62bf89d402cbae41b095676ed7cc"
 
 [[deps.ANSIColoredPrinters]]
 git-tree-sha1 = "574baf8110975760d391c710b6341da1afa48d8c"
@@ -646,9 +646,9 @@ version = "0.1.13"
 
 [[deps.FMIImport]]
 deps = ["ChainRulesCore", "Downloads", "EzXML", "FMICore", "ForwardDiffChainRules", "Libdl", "SciMLSensitivity", "ZipFile"]
-git-tree-sha1 = "c11da046bace8b54e0aa3c7b780df398e3527dea"
+git-tree-sha1 = "c1ee2cf9de8ba4289decbbab3d82a375732a3630"
 uuid = "9fcbc62e-52a0-44e9-a616-1359a0008194"
-version = "0.15.3"
+version = "0.15.4"
 
 [[deps.FastBroadcast]]
 deps = ["ArrayInterface", "LinearAlgebra", "Polyester", "Static", "StaticArrayInterface", "StrideArraysCore"]
@@ -1495,10 +1495,10 @@ uuid = "bd45eb3e-47ce-54bd-9eaf-e86c5f900853"
 version = "2.0.9"
 
 [[deps.NaiveONNX]]
-deps = ["BSON", "CSV", "CUDA", "Cbc", "DataFrames", "Flux", "ONNX", "ONNXNaiveNASflux", "Plots", "Revise", "StatsBase"]
+deps = ["BSON", "CSV", "CUDA", "Cbc", "DataFrames", "Flux", "InvertedIndices", "ONNX", "ONNXNaiveNASflux", "Plots", "Revise", "StatsBase"]
 path = "../NaiveONNX.jl"
 uuid = "135c1d4d-7f3e-476b-9774-5f1a5fa3495d"
-version = "0.1.1"
+version = "0.2.0"
 
 [[deps.NameResolution]]
 deps = ["PrettyPrint"]
@@ -1546,10 +1546,10 @@ uuid = "d0dd6a25-fac6-55c0-abf7-829e0c774d20"
 version = "0.2.0"
 
 [[deps.ONNXNaiveNASflux]]
-deps = ["Flux", "JuMP", "NaiveNASflux", "NaiveNASlib", "Pkg", "ProtoBuf", "Setfield", "Statistics"]
-git-tree-sha1 = "12f159c12822ed9390d2337fc1a97e86bf6f423e"
+deps = ["ChainRulesCore", "Flux", "JuMP", "NaiveNASflux", "NaiveNASlib", "Pkg", "ProtoBuf", "Setfield", "Statistics"]
+git-tree-sha1 = "7c598098af3ed4fc7cda15461fb60afc86abee84"
 uuid = "2e935253-ba83-4645-9154-13ffeb13a688"
-version = "0.2.6"
+version = "0.2.7"
 
 [[deps.ObjectFile]]
 deps = ["Reexport", "StructIO"]

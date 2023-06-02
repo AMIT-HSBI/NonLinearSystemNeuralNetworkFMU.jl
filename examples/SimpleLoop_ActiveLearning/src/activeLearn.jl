@@ -1,24 +1,67 @@
 using NonLinearSystemNeuralNetworkFMU
 using NaiveONNX
 using BSON
+using DataFrames
 using Flux
+import CSV
+import FMI
+import FMICore
+import FMIImport
+import InvertedIndices
+import ONNXNaiveNASflux
+
+include("/mnt/home/ph/ws/NonLinearSystemNeuralNetworkFMU.jl/src/fmiExtensions.jl")
 
 # TODO hier muss noch richtig viel gemacht werden
 # 1. der grundalgorithmus zum AL, also [samples erzeugen <-> netz trainieren]
 # 2. die optimierungsalgorithmen (falls mehrere) z.B. bee-algo
 
-function activeLearn(
+abstract type OptMethod end
+
+struct BeesOptMethod <: OptMethod
+  "Step size of random walk."
+  delta::Float64
+  "Number of bees following best bees"
+  nBest::Integer
+  BeesOptMethod(; delta=1e-3) = new(delta)
+end
+
+struct ActiveLearnOptions
+  "Method to generate data points"
+  optmethod::OptMethod
+  "Number of points to generate"
+  samples::Integer
+  "Number of active learning iterations"
+  steps::Integer
+  "Append to already existing data"
+  append::Bool
+  "Clean up temp CSV files"
+  clean::Bool
+
+  # Constructor
+  function ActiveLearnOptions(; optmethod=BeesOptMethod(delta=1e-3)::OptMethod,
+    samples=1000::Integer,
+    steps=10::Integer,
+    append=false::Bool,
+    clean=true::Bool)
+    new(optmethod, samples, steps, append, clean)
+  end
+end
+
+
+function activeLearnWrapper(
   fmuPath::String,
+  initialData::String,
+  model,
+  onnxFile::String,
   csvFile::String,
   eqId::Int64,
   inputVars::Array{String},
-  minBound::AbstractVector{T},
-  maxBound::AbstractVector{T},
+  minBound::Array{Float64},
+  maxBound::Array{Float64},
   outputVars::Array{String};
-  options=DataGenOptions()::DataGenOptions
-# TODO options for ALtrain (contains `samples`, `bee-algo?` ... what else?)
-
-) where {T<:Number}
+  options=ActiveLearnOptions()::ActiveLearnOptions
+)
 
   # Handle time input variable
   inputVarsCopy = copy(inputVars)
@@ -36,23 +79,25 @@ function activeLearn(
   end
 
   fmu = FMI.fmiLoad(fmuPath)
-  generateDataBatch(fmu, csvFile, eqId, timeBounds, inputVarsCopy, minBound, maxBound, outputVars; options=options)
+  activeLearn(fmu, initialData, model, onnxFile, csvFile, eqId, timeBounds, inputVarsCopy, minBound, maxBound, outputVars; options=options)
   FMI.fmiUnload(fmu)
 end
 
 
-
-
-
-function generateDataBatch(fmu,
+function activeLearn(
+  fmu,
+  initialData::String,
+  model,
+  onnxFile::String,
   csvFile::String,
   eqId::Int64,
-  timeBounds::Union{Tuple{T,T},Nothing},
+  timeBounds::Union{Tuple{Number,Number},Nothing},
   inputVars::Array{String},
-  inMin::AbstractVector{T},
-  inMax::AbstractVector{T},
+  inMin::Array{Float64},
+  inMax::Array{Float64},
   outputVars::Array{String};
-  options::DataGenOptions) where {T<:Number}
+  options::ActiveLearnOptions
+)
 
   nInputs = length(inputVars)
   nOutputs = length(outputVars)
@@ -62,19 +107,6 @@ function generateDataBatch(fmu,
   samplesGenerated = 0
 
   @assert length(inMin) == length(inMax) == nInputs "Length of min, max and inputVars doesn't match"
-
-  # Create empty data frame
-  local col_names
-  local col_types
-  if useTime
-    col_names = Symbol.(vcat("time", inputVars, outputVars))
-    col_types = fill(Float64, nVars + 1)
-  else
-    col_names = Symbol.(vcat(inputVars, outputVars))
-    col_types = fill(Float64, nVars)
-  end
-  named_tuple = NamedTuple{Tuple(col_names)}(type[] for type in col_types)
-  df = DataFrames.DataFrame(named_tuple)
 
   try
     # Load FMU and initialize
@@ -88,29 +120,39 @@ function generateDataBatch(fmu,
     FMI.fmiEnterInitializationMode(fmu)
     FMI.fmiExitInitializationMode(fmu)
 
-    # Generate training data
+    # Get initial training data
+    df = DataFrames.select(CSV.read(initialData, DataFrames.DataFrame; ntasks=1), vcat(inputVars, outputVars))
+    @info "\n$(names(df))\n$(vcat(inputVars,outputVars))"
+    data = prepareData(df, inputVars, outputVars)
+
+    # Initial training run
+    model, df_loss = trainSurrogate!(model, data.train, data.test)
+
     row = Array{Float64}(undef, nVars)
     row_vr = FMI.fmiStringToValueReference(fmu.modelDescription, vcat(inputVars, outputVars))
 
-    # Generate first point (try a few times)
-    found = false
-    nFailures = 0
-    while !found && nFailures < 10
+    for step in 1:options.steps
+      @info "Step $(step):"
+
       # Set input values with random values
       row[1:nInputs] = (inMax .- inMin) .* rand(nInputs) .+ inMin
-      # Set start values to 0?
-      # TODO start values from Modelica attributes?
-      row[nInputs+1:end] .= 0.0
+      # Set Output values with surrogate
+      row[nInputs+1:end] .= model(row[1:nInputs])
 
-      status, row = generateDataPoint(fmu, eqId, nInputs, row_vr, row, if useTime
-        timeBounds[1]
+      status, res = fmiEvaluateRes(fmu, eqId, row[nInputs+1:end])
+      @info "res $res"
+
+      if useTime
+        status, row = generateDataPoint(fmu, eqId, nInputs, row_vr, row, timeBounds[1])
       else
-        nothing
-      end)
+        status, row = generateDataPoint(fmu, eqId, nInputs, row_vr, row, nothing)
+      end
+
+      model, df_loss = trainSurrogate!(model, data.train, data.test)
+      #@info "$df_loss"
 
       # Found a point: stop
       if status == fmi2OK
-        ProgressMeter.next!(p)
         found = true
         samplesGenerated += 1
 
@@ -125,81 +167,38 @@ function generateDataBatch(fmu,
       end
     end
 
-    if !found
-      @warn "No initial solution found"
-    end
+    # save model and data
+    mkpath(dirname(onnxFile))
+    BSON.@save onnxFile * ".bson" model
+    ONNXNaiveNASflux.save(onnxFile, model, (nInputs, 1))
+
+    mkpath(dirname(csvFile))
+    CSV.write(csvFile, df)
+
   catch err
     FMI.fmiUnload(fmu)
     rethrow(err)
   end
-
-  mkpath(dirname(csvFile))
-  CSV.write(csvFile, df)
 end
 
 
-function trainONNX(csvFile::String,
-  onnxModel::String,
-  inputNames::Array{String},
-  outputNames::Array{String};
-  model,
-  losstol::Real=1e-6,
-  nepochs=10)
-
-  data = readData(csvFile, inputNames, outputNames)
-  nInputs = length(inputNames)
-  nOutputs = length(outputNames)
-
-  model = trainSurrogate!(model, data.train; losstol=losstol, nepochs=nepochs, useGPU=true)
-
-  mkpath(dirname(onnxModel))
-  BSON.@save onnxModel * ".bson" model
-  ONNXNaiveNASflux.save(onnxModel, model, (nInputs, 1))
-
-  return model
-end
-
 """
-Train Flux model with active learning
-
-y = model(x)
-
-generate at most `N` data samples
+Evaluate equation `eqId` with `row` as inputs + start values
 """
-function trainFlux(modelName, N; nepochs=100, losstol=1e-8)
-  workdir = datadir("sims", "$(modelName)_$(N)")
-  dict = BSON.load(joinpath(workdir, "profilingInfo.bson"))
-  profilingInfo = Array{ProfilingInfo}(dict[first(keys(dict))])[1:1]
-
-  # Train ONNX
-  onnxFiles = String[]
-  nInputs = length(profilingInfo[1].usingVars) + length(profilingInfo[1].iterationVariables)
-  nOutputs = length(profilingInfo[1].iterationVariables)
-  for (i, prof) in enumerate(profilingInfo)
-    model = Flux.Chain(Flux.Dense(nInputs, nInputs * 20, Flux.σ),
-      Flux.Dense(nInputs * 20, nOutputs * 10, tanh),
-      Flux.Dense(nOutputs * 10, nOutputs * 10, tanh),
-      Flux.Dense(nOutputs * 10, nOutputs)
-    )
-    onnxModel = abspath(joinpath(workdir, "onnx", "eq_$(prof.eqInfo.id).onnx"))
-    push!(onnxFiles, onnxModel)
-
-    @showtime trainONNX(csvFile_proximity, onnxModel,
-      names(df_proximity)[1:nInputs],
-      names(df_proximity)[nInputs+1:nInputs+nOutputs];
-      nepochs=nepochs,
-      losstol=losstol,
-      model=model)
+function generateDataPoint(fmu, eqId, nInputs, row_vr, row, time)
+  # Set input values and start values for output
+  FMIImport.fmi2SetReal(fmu, row_vr, row)
+  if time !== nothing
+    FMIImport.fmi2SetTime(fmu, time)
   end
 
-  # Include ONNX into FMU
-  fmu_interface = joinpath(workdir, modelName * ".interface.fmu")
-  tempDir = joinpath(workdir, "temp")
-  fmu_onnx = buildWithOnnx(fmu_interface,
-    modelName,
-    profilingInfo,
-    onnxFiles;
-    tempDir=workdir,
-    usePrevSol=true)
-  rm(tempDir, force=true, recursive=true)
+  # Evaluate equation
+  # TODO: Supress stream prints, but Suppressor.jl is not thread safe
+  status = fmiEvaluateEq(fmu, eqId)
+  if status == fmi2OK
+    # Get output values
+    row[nInputs+1:end] .= FMIImport.fmi2GetReal(fmu, row_vr[nInputs+1:end])
+  end
+
+  return status, row
 end

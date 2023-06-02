@@ -60,9 +60,10 @@ function main(modelName::String,
                           clean = omOptions.clean,
                           commandLineOptions = omOptions.commandLineOptions)
   local profilingInfo
-  if(reuseArtifacts && isfile(profilingInfoFile))
+  if reuseArtifacts && isfile(profilingInfoFile)
     @info "Reusing $profilingInfoFile"
     BSON.@load profilingInfoFile profilingInfo
+    profilingInfo = convert(Array{ProfilingInfo}, profilingInfo)
   else
     @info "Profile $modelName"
     profilingInfo = profiling(modelName, moFiles; options=profOptions, threshold=0)
@@ -85,7 +86,7 @@ function main(modelName::String,
                             commandLineOptions = omOptions.commandLineOptions)
   fmuFile = joinpath(omOptions.workingDir, modelName*".fmu")
   local fmu
-  if(reuseArtifacts && isfile(fmuFile))
+  if reuseArtifacts && isfile(fmuFile)
     @info "Reusing $fmuFile"
     fmu = fmuFile
   else
@@ -101,7 +102,8 @@ function main(modelName::String,
   # Extended FMU
   tempDir = joinpath(omOptions.workingDir, "temp-extendfmu")
   fmuFile = joinpath(omOptions.workingDir, modelName*".interface.fmu")
-  if(reuseArtifacts && isfile(fmuFile))
+
+  if reuseArtifacts && isfile(fmuFile)
     @info "Reusing $fmuFile"
     fmu_interface = fmuFile
   else
@@ -127,7 +129,13 @@ function main(modelName::String,
     maxBoundary = prof.boundary.max
 
     fileName = abspath(joinpath(omOptions.workingDir, "data", "eq_$(prof.eqInfo.id).csv"))
-    csvFile = generateTrainingData(fmu_interface, tempDir, fileName, eqIndex, inputVars, minBoundary, maxBoundary, outputVars; options = dataGenOptions)
+    local csvFile
+    if reuseArtifacts && isfile(fileName)
+      @info "Reusing $fileName"
+      csvFile = fileName
+    else
+      csvFile = generateTrainingData(fmu_interface, tempDir, fileName, eqIndex, inputVars, minBoundary, maxBoundary, outputVars; options = dataGenOptions)
+    end
     push!(csvFiles, csvFile)
   end
   if omOptions.clean

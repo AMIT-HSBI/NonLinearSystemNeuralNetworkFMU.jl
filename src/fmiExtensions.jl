@@ -17,6 +17,11 @@
 # along with NonLinearSystemNeuralNetworkFMU.jl. If not, see <http://www.gnu.org/licenses/>.
 #
 
+
+import FMICore
+import FMIImport
+import Libdl
+
 fmi2Status = UInt32
 fmi2OK = Cuint(0)
 fmi2Warning = Cuint(1)
