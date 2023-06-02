@@ -191,7 +191,9 @@ struct DataGenOptions
                           nThreads=Threads.nthreads()::Integer,
                           append=false::Bool,
                           clean=true::Bool)
-    if nThreads > Threads.nthreads()
+    if nThreads <= 0
+      error("nThreas=$(nThreads) too low. Use at least one thread.")
+    elseif nThreads > Threads.nthreads()
       error("nThreas=$(nThreads) too large. Only $(Threads.nthreads()) threads available.")
     end
     new(method, n, nBatches, nThreads, append, clean)

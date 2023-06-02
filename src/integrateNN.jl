@@ -48,11 +48,13 @@ function ortDataCode(equations::Array{ProfilingInfo}, modelName::String, onnxNam
     ortstructs *= "struct OrtWrapperData* ortData_eq_$(eq.eqInfo.id);"
     initCalls *= """
         snprintf(onnxPath, 2048, "%s/%s", data->modelData->resourcesDir, \"$(onnxName)\");
-        ortData_eq_$(eq.eqInfo.id) = initOrtData(\"$(modelName)_eq$(eq.eqInfo.id)\", onnxPath, \"$modelName\", $nInputs, $nOutputs);
-        double min_$(eq.eqInfo.id)[$nInputs] = {$minBoundCArray};
-        memcpy(ortData_eq_$(eq.eqInfo.id)->min, min_$(eq.eqInfo.id), sizeof(double)*$nInputs);
-        double max_$(eq.eqInfo.id)[$nInputs] = {$(maxBoundCArray)};
-        memcpy(ortData_eq_$(eq.eqInfo.id)->max, max_$(eq.eqInfo.id), sizeof(double)*$nInputs);
+        ortData_eq_$(eq.eqInfo.id) = initOrtData(\"$(modelName)_eq$(eq.eqInfo.id)\", onnxPath, \"$modelName\", $nInputs, $nOutputs, LOG_RES, ORT_NTHREADS);
+        if (LOG_RES) {
+          double min_$(eq.eqInfo.id)[$nInputs] = {$minBoundCArray};
+          memcpy(ortData_eq_$(eq.eqInfo.id)->min, min_$(eq.eqInfo.id), sizeof(double)*$nInputs);
+          double max_$(eq.eqInfo.id)[$nInputs] = {$(maxBoundCArray)};
+          memcpy(ortData_eq_$(eq.eqInfo.id)->max, max_$(eq.eqInfo.id), sizeof(double)*$nInputs);
+        }
       """
     deinitCalls *= "  deinitOrtData(ortData_eq_$(eq.eqInfo.id));"
     if i < nEq
@@ -66,14 +68,30 @@ function ortDataCode(equations::Array{ProfilingInfo}, modelName::String, onnxNam
 
   code = """
     #include "onnxWrapper/onnxWrapper.h"
+    #include "onnxWrapper/measureTimes.h"
     $(resPrototypes)
 
     int USE_JULIA = 1;
     int LOG_RES = 1;
-    int MAX_REL_ERROR = 1e-4;
+    int MEASURE_TIMES = 1;
+    double MAX_REL_ERROR = 1e-4;
+    int ORT_NTHREADS = 0;
 
     /* Global ORT structs */
     $(ortstructs)
+
+    /* Global timers */
+    struct timer t_global;
+    double elapsedTimes_global[$(nEq+1)];
+    int ncalls_global[$(nEq+1)] = {0};
+
+    void dumpMeasuredTimes() {
+      if (MEASURE_TIMES) {
+        for(int i=0; i<$(nEq+1); i++) {
+          printf("elapsedTimes_global[%i]: %f, ncalls_global[%i]: %i, mean: %f\\n", i, elapsedTimes_global[i], i, ncalls_global[i], elapsedTimes_global[i]/ncalls_global[i]);
+        }
+      }
+    }
 
     /* Init function */
     void initGlobalOrtData(DATA* data) {
@@ -83,6 +101,9 @@ function ortDataCode(equations::Array{ProfilingInfo}, modelName::String, onnxNam
 
     /* Deinit function */
     void deinitGlobalOrtData() {
+      if (!USE_JULIA) {
+        return;
+      }
     $(deinitCalls)
     }
     """
@@ -208,10 +229,20 @@ function modifyCCode(modelName::String, fmuTmpDir::String, modelDescriptionXmlFi
   id1 = last(findStrWError("$(modelNameC)_setupDataStruc(DATA *data, threadData_t *threadData)", str))
   id1 = last(findStrWError("data->modelData->nExtObjs", str, id1))
   id1 = last(findStrWError(";$EOL", str, id1))
-  str = str[1:id1] * "$EOL  initGlobalOrtData(data);$EOL" * str[id1+1:end]
+  str = str[1:id1] * 
+        """
+
+          if (USE_JULIA){
+            tic(&t_global);
+            initGlobalOrtData(data);
+            elapsedTimes_global[0] += toc(&t_global);
+            ncalls_global[0]++;
+          }
+        """ *
+        str[id1+1:end]
 
   # Replace nls-call in equation
-  for equation in equations
+  for (i,equation) in enumerate(equations)
     eqInfo = equation.eqInfo
     id1 = last(findStrWError("$(modelNameC)_eqFunction_$(eqInfo.id)(DATA *data, threadData_t *threadData)", str))
     id1 = first(findStrWError("/* get old value */", str, id1)) - 1
@@ -222,17 +253,49 @@ function modifyCCode(modelName::String, fmuTmpDir::String, modelDescriptionXmlFi
     newpart = generateNNCall(modelNameC, modelDescriptionXmlFile, equation, usePrevSol)
 
     replacement = """
-    if(USE_JULIA) {
+    if (MEASURE_TIMES) {
+        tic(&t_global);
+      }
+      if(USE_JULIA) {
     $newpart
       } else {
         GOTO_NLS_SOLVER_$(eqInfo.id):
         $oldpart
+      }
+      if (MEASURE_TIMES) {
+        elapsedTimes_global[$i] += toc(&t_global);
+        ncalls_global[$i]++;
       }
     """
     str = str[1:id1] * replacement * str[id2:end]
   end
 
   write(cfile, str)
+
+  # Add deinitGlobalOrtData and time measurements
+  cfile_fmu2_modelinterface = joinpath(fmuTmpDir, "sources", "fmi-export", "fmu2_model_interface.c.inc")
+  str = open(cfile_fmu2_modelinterface, "r") do file
+    read(file, String)
+  end
+
+  # Replace in function fmi2FreeInstance
+  id1 = first(findStrWError("freeNonlinearSystems", str))
+  newCall = """
+              deinitGlobalOrtData();
+              dumpMeasuredTimes();
+            """
+  str = str[1:id1-1] * newCall * str[id1:end]
+
+  # Replace in function fmi2Reset
+  id1 = last(findStrWError("freeNonlinearSystems", str))
+  id1 = first(findStrWError("freeNonlinearSystems", str, id1))
+  newCall = """
+                deinitGlobalOrtData();
+                dumpMeasuredTimes();
+            """
+  str = str[1:id1-1] * newCall * str[id1:end]
+
+  write(cfile_fmu2_modelinterface, str)
 end
 
 function modifyCMakeLists(path_to_cmakelists::String)
@@ -284,6 +347,8 @@ function copyOnnxWrapperLib(fmuRootDir::String)
   files = [
     joinpath(@__DIR__, "onnxWrapper", "errorControl.h"),
     joinpath(@__DIR__, "onnxWrapper", "errorControl.c"),
+    joinpath(@__DIR__, "onnxWrapper", "measureTimes.h"),
+    joinpath(@__DIR__, "onnxWrapper", "measureTimes.c"),
     joinpath(@__DIR__, "onnxWrapper", "onnxWrapper.h"),
     joinpath(@__DIR__, "onnxWrapper", "onnxWrapper.c"),
     joinpath(@__DIR__, "onnxWrapper", "CMakeLists.txt"),
