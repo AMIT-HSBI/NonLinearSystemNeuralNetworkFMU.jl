@@ -5,7 +5,7 @@ using NonLinearSystemNeuralNetworkFMU
 
 include(srcdir("plotResult.jl"))
 
-function plotAllResults(sizes; filetype="pdf")
+function plotAllResults(sizes; filetype="pdf", plotAbsErr::Bool=true)
   for size in sizes
     modelName = "ScalableTranslationStatistics.Examples.ScaledNLEquations.NLEquations_$(size)"
     shortName = split(modelName, ".")[end]
@@ -15,7 +15,7 @@ function plotAllResults(sizes; filetype="pdf")
     surrogateResult = datadir("exp_raw", shortName, shortName * "_res.onnx.csv")
 
     @info "Plotting results for size $size"
-    fig = plotResult(refResult, surrogateResult, outputVars; tspan=(0.0, 10.0))
+    fig = plotResult(refResult, surrogateResult, outputVars[1:3], "Output"; plotAbsErr=plotAbsErr, tspan=(0.0, 10.0))
 
     fileName = plotsdir(shortName, "$(shortName)_results.$(filetype)")
     mkpath(dirname(fileName))
@@ -38,7 +38,7 @@ function plotItterationVariables(sizes; filetype="pdf")
       residualResults = datadir("sims", shortName, "temp-OMSimulator", "$(modelName)_eq$(prof.eqInfo.id)_residuum.csv")
 
       @info "Plotting itteration variables for eq $(prof.eqInfo.id)"
-      fig = plotResult(refResult, surrogateResult, outputVars; tspan=(0.0, 10.0), residualResults=residualResults, fullNames=true, eqId=prof.eqInfo.id)
+      fig = plotResult(refResult, surrogateResult, outputVars, "Iteration"; tspan=(0.0, 10.0), residualResults=residualResults, fullNames=true, eqId=prof.eqInfo.id)
 
       fileName = plotsdir(shortName, "loop_$(prof.eqInfo.id)_results.$(filetype)")
       mkpath(dirname(fileName))

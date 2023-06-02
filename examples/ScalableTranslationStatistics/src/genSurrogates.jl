@@ -2,6 +2,8 @@ using NaiveONNX
 using NonLinearSystemNeuralNetworkFMU
 using Flux
 
+include(srcdir("util.jl"))
+
 function genSurrogate(lib::String, modelName::String; n::Int=1000, genData::Bool=true)
   # Get lib and model
   if !isfile(lib)
@@ -59,4 +61,29 @@ function genSurrogate(lib::String, modelName::String; n::Int=1000, genData::Bool
   cp(fmu_onnx, joinpath(fmuDir, modelName*".onnx.fmu"), force=true)
 
   return (profilingInfo, fmu, fmu_onnx)
+end
+
+function logProfilingInfo(sizes, logFile)
+  file = open(logFile, "w")
+  for size in sizes
+    (shortName, modelName) = getNames(size)
+    write(file, "$(modelName)\n")
+    profilingInfo = getProfilingInfo(datadir("sims", shortName, "profilingInfo.bson"))
+
+    for prof in profilingInfo
+      write(file, dumpLoopInfo(prof, indentation=1))
+    end
+  end
+  close(file)
+end
+
+function dumpLoopInfo(profilingInfo::ProfilingInfo; indentation=0)
+  indent = repeat('\t', indentation)
+  """
+  $(indent)Equation $(profilingInfo.eqInfo.id)
+  $(indent)\tNumber of iteration variables: $(length(profilingInfo.iterationVariables))
+  $(indent)\tNumber of inner variables: $(length(profilingInfo.innerEquations))
+  $(indent)\tNumber of used variables: $(length(profilingInfo.usingVars))
+  $(indent)\tTotal evaluation time: $(profilingInfo.eqInfo.time) [s]
+  """
 end

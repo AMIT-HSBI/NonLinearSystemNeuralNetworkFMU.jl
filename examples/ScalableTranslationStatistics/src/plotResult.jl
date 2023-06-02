@@ -5,6 +5,7 @@ using CSV
 using DataFrames
 using Interpolations
 
+include(srcdir("util.jl"))
 
 # Plot FMU simulations
 """
@@ -15,10 +16,12 @@ Optional argument tspan to only plot values inside interval.
 """
 function plotResult(referenceResult::String,
                     onnxResult::String,
-                    outputVars::Array{String};
+                    outputVars::Array{String},
+                    varName::String;
                     residualResults::Union{String, Nothing}=nothing,
                     tspan::Union{Nothing, Tuple{Number,Number}}=nothing,
                     fullNames::Bool=false,
+                    plotAbsErr::Bool=true,
                     eqId::Union{Nothing,Integer}=nothing)
 
   df_ref = CSV.read(referenceResult, DataFrames.DataFrame; ntasks=1)
@@ -64,15 +67,13 @@ function plotResult(referenceResult::String,
                resolution = (800, 1000))
   grid_simResults = fig[1, 1:2] = GridLayout()
   grid_simError = fig[2, 1:2] = GridLayout()
-  local grid_legend
-  if fullNames
-    grid_legend = fig[3, 1:2] = GridLayout()
-  else
-    grid_legend = fig[1:2, 3] = GridLayout()
+  grid_legend = fig[3, 1:2] = GridLayout()
+  local grid_residual
+  if residualResults !== nothing
+    grid_residual = fig[4, 1:2] = GridLayout()
   end
-  grid_residual = fig[4, 1:2] = GridLayout()
   ax_simResults = Axis(grid_simResults[1,1],
-                       title = "(a) Itteration variables",
+                       title = "(a) $varName variables",
                        xlabel = "time [s]",
                        xticks = 0:1:10,
                        xminorticks = IntervalsBetween(10),
@@ -88,7 +89,7 @@ function plotResult(referenceResult::String,
                      xminorticksvisible = true,
                      xminorgridvisible = true,
                      yminorticksvisible = true)
-  
+
   local ax_residual
   if residualResults !== nothing
     ax_residual = Axis(grid_residual[1,1],
@@ -130,8 +131,12 @@ function plotResult(referenceResult::String,
              [elem_1, elem_2],
              ["reference", "surrogate"],
              position = :lt)
-  axislegend(ax_residual, orientation = :horizontal, position = :lt)
-  Legend(grid_legend[1,1], ax_simError)
+  if residualResults !== nothing
+    axislegend(ax_residual, orientation = :horizontal, position = :lt)
+  end
+  Legend(grid_legend[1,1], ax_simError,
+         tellwidth=false, tellheight=true,
+         orientation = :horizontal)
   resize_to_layout!(fig)
   return fig
 end
@@ -206,10 +211,4 @@ function plotLoss(lossFile)
   colsize!(fig.layout, 1, Aspect(1, 3.0))
   resize_to_layout!(fig)
   return fig
-end
-
-function getNames(size)
-  modelName = "ScalableTranslationStatistics.Examples.ScaledNLEquations.NLEquations_$(size)"
-  shortName = split(modelName, ".")[end]
-  return (shortName, modelName)
 end

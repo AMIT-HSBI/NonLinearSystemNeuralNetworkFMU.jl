@@ -10,6 +10,8 @@ begin
   include("genAllSurrogates.jl")
   #ENV["JULIA_DEBUG"] = NonLinearSystemNeuralNetworkFMU
   genAllSurrogates(sizes, modelicaLib; n=5000, genData=false)
+  logFile = plotsdir("LoopInfo.log")
+  logProfilingInfo(sizes, logFile)
 end
 
 begin
@@ -18,17 +20,17 @@ begin
 end
 
 # Generate plots
-#sizes = [5,10,20,40]
+sizes = [5,10,20,40]
 begin
   include("genAllPlots.jl")
   include("plotTrainData.jl")
-  plotAllResults(sizes) # TODO: Fix me!
-  plotItterationVariables(sizes, filetype="pdf")
-  plotAllTrainingData(sizes, filetype="pdf")
-  simulationTimes(sizes; printAbsTime=false, plotTimeLabels=true, filename = plotsdir("ScalableTranslationStatistics.simTimeOverview.pdf"), title="")
-  plotTrainingProgress(sizes, filetype="pdf")
-  include("plotSimTimeOverview.jl")
+  plotAllResults(sizes, plotAbsErr=false, filetype="png")
+  plotItterationVariables(sizes, filetype="png")
+  plotAllTrainingData(sizes, filetype="png")
+  simulationTimes(sizes; printAbsTime=false, plotTimeLabels=true, filetype="png", title="")
+  plotTrainingProgress(sizes, filetype="png")
   csvFile = "$(@__DIR__)/../simTimes.csv"
-  #plotSimTimes(sizes, csvFile; filetype="pdf")
+  include("plotSimTimeOverview.jl")
+  plotSimTimes(sizes, csvFile; filetype="png")
 end
 

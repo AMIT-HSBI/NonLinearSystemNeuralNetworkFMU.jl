@@ -46,9 +46,10 @@ end
 function simulationTimes(sizes;
                          printAbsTime = true,
                          plotTimeLabels=true,
-                         filename = plotsdir("simTimeOverview.pdf"),
+                         filetype = "png",
                          title = "Simulation time of Examples.ScaledNLEquations.NLEquations_N")
-
+  
+  filename = plotsdir("simTimeOverview.$(filetype)")
   (shortName, modelName) = getNames(sizes[1])
   profilingInfos_01 = NonLinearSystemNeuralNetworkFMU.getProfilingInfo(datadir("sims", shortName, "profilingInfo.bson"))
 
@@ -164,7 +165,10 @@ function plotTrainingProgress(sizes; filetype="svg")
   end
 end
 
-function plotSurrogateSpeedup(sizes)
+function plotSurrogateSpeedup(simTimeCsvFile, sizes)
+  df = CSV.read(csvFile, DataFrames.DataFrame; ntasks=1)
+
+  
   for size in sizes
     size = 5
     (shortName, modelName) = getNames(size)
