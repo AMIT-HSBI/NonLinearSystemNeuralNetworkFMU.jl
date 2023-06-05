@@ -68,13 +68,14 @@ function ortDataCode(equations::Array{ProfilingInfo}, modelName::String, onnxNam
 
   code = """
     #include "onnxWrapper/onnxWrapper.h"
+    #include "fmi-export/special_interface.h"
     #include "onnxWrapper/measureTimes.h"
     $(resPrototypes)
 
     int USE_JULIA = 1;
-    int LOG_RES = 0;  // 1;
+    int LOG_RES = 1;
     int MEASURE_TIMES = 1;
-    double MAX_REL_ERROR = DBL_MAX; //1e-4;
+    double MAX_REL_ERROR = 1e-4;
     int ORT_NTHREADS = 0;
 
     /* Global ORT structs */
@@ -136,7 +137,7 @@ function getVarCString(varName::String, variables::Dict{String, Mapping})
   return str
 end
 
-function generateNNCall(modelname::String, modelDescriptionXmlFile::String, equationToReplace::ProfilingInfo, usePrevSol::Bool)
+function generateNNCall(modelname::String, modelDescriptionXmlFile::String, equationToReplace::ProfilingInfo, sysNumber::Int64, usePrevSol::Bool)
   variablesDict = getValueReferences(modelDescriptionXmlFile)
 
   inputs = equationToReplace.usingVars
@@ -191,11 +192,14 @@ function generateNNCall(modelname::String, modelDescriptionXmlFile::String, equa
       if(LOG_RES) {
         /* Evaluate residuals */
         RESIDUAL_USERDATA userData = {data, threadData, NULL};
-        evalResiduum(residualFunc$(equationToReplace.eqInfo.id), (void*) &userData, $ortData);
+        evalResidual(residualFunc$(equationToReplace.eqInfo.id), (void*) &userData, $ortData);
+
+        /* Residual scaling vector */
+        double* jac = getJac(data, $(sysNumber));
+        int isRegular = scaleResidual(jac, $(ortData)->res, $(ortData)->nRes);
 
         //printResiduum($(equationToReplace.eqInfo.id), data->localData[0]->timeValue, $ortData);
-        double rel_error = writeResiduum(data->localData[0]->timeValue, $ortData);
-        if (rel_error > MAX_REL_ERROR) {
+        if (!isRegular || residualNorm(data->localData[0]->timeValue, $ortData) > MAX_REL_ERROR) {
           goto GOTO_NLS_SOLVER_$(equationToReplace.eqInfo.id);
         }
       } else {
@@ -231,7 +235,6 @@ function modifyCCode(modelName::String, fmuTmpDir::String, modelDescriptionXmlFi
   id1 = last(findStrWError(";$EOL", str, id1))
   str = str[1:id1] * 
         """
-        
           if (USE_JULIA){
             tic(&t_global);
             initGlobalOrtData(data);
@@ -248,9 +251,13 @@ function modifyCCode(modelName::String, fmuTmpDir::String, modelDescriptionXmlFi
     id1 = first(findStrWError("/* get old value */", str, id1)) - 1
     id2 = first(findStrWError("  TRACE_POP", str, id1)) -1
 
+    id3 = last(findStrWError("retValue = solve_nonlinear_system(data, threadData, ", str, id1)) + 1
+    id4 = first(findStrWError(");", str, id3)) -1
+    sysnumber = parse(Int64, str[id3:id4])
+
     oldpart = str[id1:id2]
     oldpart = replace(oldpart, "$EOL  "=>"$EOL    ")
-    newpart = generateNNCall(modelNameC, modelDescriptionXmlFile, equation, usePrevSol)
+    newpart = generateNNCall(modelNameC, modelDescriptionXmlFile, equation, sysnumber, usePrevSol)
 
     replacement = """
     if (MEASURE_TIMES) {

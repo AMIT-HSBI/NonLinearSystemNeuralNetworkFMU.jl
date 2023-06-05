@@ -42,7 +42,7 @@ rm("tempDir", recursive=true, force=true) #hide
 Next we need to add non-standard C function
 
 ```C
-fmi2Status myfmi2evaluateEq(fmi2Component c, const size_t eqNumber)
+fmi2Status myfmi2EvaluateEq(fmi2Component c, const size_t eqNumber)
 ```
 
 that will call `<modelname>_eqFunction_<eqIndex>(DATA* data, threadData_t *threadData)`

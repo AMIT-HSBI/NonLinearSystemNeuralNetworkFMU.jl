@@ -29,7 +29,7 @@ fmi2Pending = Cuint(5)
     fmiEvaluateEq(fmu, eqNumber)
 
 Call equation function
-fmi2Status myfmi2evaluateEq(fmi2Component c, const size_t eqNumber)
+fmi2Status myfmi2EvaluateEq(fmi2Component c, const size_t eqNumber)
 for given equation number.
 
 # Arguments
@@ -37,7 +37,7 @@ for given equation number.
   - `eqNumber::Int`: Equation index specifying equation to evaluate.
 
 # Returns
-  - Returns status of Libdl.ccall for `:myfmi2evaluateEq`.
+  - Returns status of Libdl.ccall for `:myfmi2EvaluateEq`.
 """
 function fmiEvaluateEq(fmu::FMIImport.FMU2, eqNumber::Integer)::fmi2Status
   return fmiEvaluateEq(fmu.components[1], eqNumber)
@@ -47,7 +47,7 @@ function fmiEvaluateEq(comp::FMICore.FMU2Component, eq::Integer)::fmi2Status
 
   @assert eq>=0 "Equation index has to be non-negative!"
 
-  fmiEvaluateEq = Libdl.dlsym(comp.fmu.libHandle, :myfmi2evaluateEq)
+  fmiEvaluateEq = Libdl.dlsym(comp.fmu.libHandle, :myfmi2EvaluateEq)
 
   eqCtype = Csize_t(eq)
 
@@ -63,7 +63,7 @@ end
     fmiEvaluateRes(fmu, eqNumber, x)
 
 Call residual function
-`fmi2Status myfmi2evaluateRes(fmi2Component c, const size_t eqNumber, double* x, double* res)`
+`fmi2Status myfmi2EvaluateRes(fmi2Component c, const size_t eqNumber, double* x, double* res)`
 for given equation number.
 
 # Arguments
@@ -72,7 +72,7 @@ for given equation number.
   - `x::Array{Float64}` Values of iteration variables at which to evaluate the residuals.
 
 # Returns
-  - Status of Libdl.ccall for `:myfmi2evaluateEq`.
+  - Status of Libdl.ccall for `:myfmi2EvaluateEq`.
   - Array of residual values.
 """
 function fmiEvaluateRes(fmu::FMIImport.FMU2, eqNumber::Integer, x::Array{Float64})::Tuple{fmi2Status, Array{Float64}}
@@ -83,7 +83,7 @@ function fmiEvaluateRes(comp::FMICore.FMU2Component, eq::Integer, x::Array{Float
 
   @assert eq>=0 "Residual index has to be non-negative!"
 
-  fmiEvaluateRes = Libdl.dlsym(comp.fmu.libHandle, :myfmi2evaluateRes)
+  fmiEvaluateRes = Libdl.dlsym(comp.fmu.libHandle, :myfmi2EvaluateRes)
 
   res = Array{Float64}(undef, length(x))
 

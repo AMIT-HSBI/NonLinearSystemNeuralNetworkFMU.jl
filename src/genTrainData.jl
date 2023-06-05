@@ -104,25 +104,13 @@ function generateDataBatch(fmu,
       row[1:nInputs] = (inMax.-inMin).*rand(nInputs) .+ inMin
       # Set start values to 0?
       # TODO start values from Modelica attributes?
-      row[nInputs+1:end] .= 0.0
-      FMIImport.fmi2SetReal(fmu, row_vr, row)
-      if useTime
-        FMIImport.fmi2SetTime(fmu, timeBounds[1])
-      end
-
-      # Evaluate equation
-      # TODO: Suppress stream prints, but Suppressor.jl is not thread safe
-      status = fmiEvaluateEq(fmu, eqId)
+      status, row = generateDataPoint(fmu, eqId, nInputs, row_vr, row, if useTime timeBounds[1] else nothing end)
 
       # Found a point: stop
       if status == fmi2OK
         ProgressMeter.next!(p)
         found = true
         samplesGenerated += 1
-        # Get output values
-        row[nInputs+1:end] .= FMIImport.fmi2GetReal(fmu, row_vr[nInputs+1:end])
-
-        #status, res = fmiEvaluateRes(fmu, eqId, row[nInputs+1:end])
 
         # Update data frame
         if useTime
@@ -130,8 +118,9 @@ function generateDataBatch(fmu,
         else
           push!(df, row)
         end
+      else
+        nFailures += 1
       end
-      nFailures += 1
     end
 
     @debug "Initial solution found for eq $eqId for $fname"
@@ -154,32 +143,24 @@ function generateDataBatch(fmu,
           error("Unknown method '$(typeof(options.method))'");
         end
 
-        FMIImport.fmi2SetReal(fmu, row_vr, row)
-        if useTime
-          FMIImport.fmi2SetTime(fmu, timeValues[i])
-        end
+        status, row = generateDataPoint(fmu, eqId, nInputs, row_vr, row, if useTime timeValues[i] else nothing end)
 
-        # Evaluate equation
-        # TODO: Supress stream prints, but Suppressor.jl is not thread safe
-        status = fmiEvaluateEq(fmu, eqId)
-        if status != fmi2OK
+        if status == fmi2OK
+          ProgressMeter.next!(p)
+          nFailures = 0
+          samplesGenerated += 1
+
+          # Update data frame
+          if useTime
+            push!(df, vcat([timeValues[i]], row))
+          else
+            push!(df, row)
+          end
+        else
           # Reset start value of iteration
           row[nInputs+1:end] .= 0.0
           nFailures += 1
           continue
-        else
-          nFailures = 0
-        end
-        ProgressMeter.next!(p)
-        # Get output values
-        row[nInputs+1:end] .= FMIImport.fmi2GetReal(fmu, row_vr[nInputs+1:end])
-
-        # Update data frame
-        samplesGenerated += 1
-        if useTime
-          push!(df, vcat([timeValues[i]], row))
-        else
-          push!(df, row)
         end
       end
 
@@ -297,6 +278,27 @@ function generateTrainingData(fmuPath::String,
   end
 
   return fname
+end
+
+"""
+Evaluate equation `eqId` with `row` as inputs + start values
+"""
+function generateDataPoint(fmu, eqId, nInputs, row_vr, row, time)
+  # Set input values and start values for output
+  FMIImport.fmi2SetReal(fmu, row_vr, row)
+  if time !== nothing
+    FMIImport.fmi2SetTime(fmu, time)
+  end
+
+  # Evaluate equation
+  # TODO: Supress stream prints, but Suppressor.jl is not thread safe
+  status = fmiEvaluateEq(fmu, eqId)
+  if status == fmi2OK
+    # Get output values
+    row[nInputs+1:end] .= FMIImport.fmi2GetReal(fmu, row_vr[nInputs+1:end])
+  end
+
+  return status, row
 end
 
 """
