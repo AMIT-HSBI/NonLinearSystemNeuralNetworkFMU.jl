@@ -65,12 +65,13 @@ function runIncludeOnnxTests()
     NonLinearSystemNeuralNetworkFMU.omrun(cmd, dir=workDir, logFile=logFile, timeout=60)
 
     @test isfile(joinpath(workDir, resultFile))
-    @test read(logFile, String) == """
+    @test startswith(read(logFile, String), """
     info:    model doesn't contain any continuous state
     info:    Result file: simpleLoop_onnx_res.csv (bufferSize=1)
-    """
+    elapsedTimes_global[0]:""")
 
     @test isfile(joinpath(workDir, "$(resultFile)"))
+    @test isfile(joinpath(workDir, "simpleLoop_eq14_residuum.csv"))
   end
 
   @testset "Check results" begin

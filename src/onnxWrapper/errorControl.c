@@ -101,6 +101,7 @@ void printResiduum(unsigned int id, double time, struct OrtWrapperData* ortData)
  * Checks if vector x was in bounds of min and max and saves boolean value to CSV file.
  * Computes euclidean norm of residuum and relative error of residuum and saves those to
  * CSV file as well.
+ * Returns -1 if CSV file is not available.
  *
  * @param time      Simulation time.
  * @param ortData   Pointer to ortData with residuum.
@@ -108,12 +109,17 @@ void printResiduum(unsigned int id, double time, struct OrtWrapperData* ortData)
  */
 double writeResiduum(double time, struct OrtWrapperData* ortData) {
 
+  if(ortData->csvFile == NULL) {
+    printf("writeResiduum: Warning, no csvFile available.");
+    return -1;
+  }
+
   int inBounds = isInBounds(ortData->model_input, ortData->min, ortData->max, ortData->nInputs);
 
   double res_norm = norm(ortData->res, ortData->nRes);
   double norm_x = norm(ortData->x, ortData->nRes);
   double rel_error = 0;
-  if(norm_x != 0) {
+  if(norm_x > 1e-6) {
     rel_error = res_norm / norm_x;
   } else {
     rel_error = res_norm;

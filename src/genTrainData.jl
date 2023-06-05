@@ -80,6 +80,7 @@ function generateDataBatch(fmu,
 
   try
     # Load FMU and initialize
+    @debug "Instantiate fmu for eq $eqId for $fname"
     FMI.fmiInstantiate!(fmu; loggingOn = false, externalCallbacks=false)
 
     if useTime
@@ -97,13 +98,12 @@ function generateDataBatch(fmu,
     # Generate first point (try a few times)
     found = false
     nFailures = 0
+    @debug "Starting data generation for eq $eqId for $fname"
     while !found && nFailures<10
       # Set input values with random values
       row[1:nInputs] = (inMax.-inMin).*rand(nInputs) .+ inMin
       # Set start values to 0?
       # TODO start values from Modelica attributes?
-      row[nInputs+1:end] .= 0.0
-
       status, row = generateDataPoint(fmu, eqId, nInputs, row_vr, row, if useTime timeBounds[1] else nothing end)
 
       # Found a point: stop
@@ -123,17 +123,16 @@ function generateDataBatch(fmu,
       end
     end
 
+    @debug "Initial solution found for eq $eqId for $fname"
     if !found
       @warn "No initial solution found"
     else
+      # Generate remaining points by doing a random walk
       timeValues = nothing
       if useTime
         # TODO time always increases, is this necessary
         timeValues = sort((timeBounds[2]-timeBounds[1]).*rand(N-1) .+ timeBounds[1])
       end
-
-      # Generate remaining points
-      # give up after too many consecutive fails
       nFailures = 0
       while samplesGenerated < samples && nFailures < 10
         if typeof(options.method) === RandomMethod
@@ -166,15 +165,17 @@ function generateDataBatch(fmu,
       end
 
       if nFailures >= 10
-        @warn "No solution found after $samplesGenerated samples"
+        @warn "No solution found"
       end
     end
   catch err
+    @error "Catched error, unloading FMU"
     FMI.fmiUnload(fmu)
     rethrow(err)
   end
 
   mkpath(dirname(fname))
+  @debug "Writing batch CSV file $fname for $eqId"
   CSV.write(fname, df)
 end
 
@@ -229,12 +230,16 @@ function generateTrainingData(fmuPath::String,
   end
 
   # Generate data batch wise
-  @info "Starting data generation on $(options.nBatches) batches with $(options.nThreads) threads."
+  @info "Starting data generation for eq $(eqId) on $(options.nBatches) batches with $(options.nThreads) threads."
   progressMeter = ProgressMeter.Progress(options.n; desc="Generating training data ...")
   nPerBatch = Integer(ceil(options.n / options.nBatches))
   batchesDone = 0
   while batchesDone < options.nBatches
     parallelBatches = min(options.nThreads, options.nBatches-batchesDone)
+    if parallelBatches <= 0
+      error("Can't do 0 batches!")
+    end
+    @debug "Running $parallelBatches batches"
     # A FMU that is instantiate once can't be reused by another (or the same) thread.
     fmuArray = [FMI.fmiLoad(fmuPath) for _ in 1:parallelBatches]
 
@@ -249,12 +254,14 @@ function generateTrainingData(fmuPath::String,
       generateDataBatch(fmu, tempCsvFile, eqId, timeBounds, inputVarsCopy, minBound, maxBound, outputVars, progressMeter; samples, options=options)
     end
 
+    @debug "Unloading FMU"
     FMI.fmiUnload.(fmuArray)
     batchesDone += parallelBatches
   end
   ProgressMeter.finish!(progressMeter)
 
   # Combine CSV files from all braches
+  @info "Writing CSV file"
   mkpath(dirname(fname))
   for i = 1:options.nBatches
     tempCsvFile = joinpath(workDir, "trainingData_eq_$(eqId)_batch_$(i).csv")
