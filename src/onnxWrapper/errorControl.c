@@ -34,7 +34,7 @@ void float2DoubleArray(const float* floatArray, double* doubleArray, const size_
  * @param userData  User data provided by caller.
  * @param ortData   Pointer to ORT data.
  */
-void evalResiduum(resFunction f, void* userData, struct OrtWrapperData* ortData) {
+void evalResidual(resFunction f, void* userData, struct OrtWrapperData* ortData) {
   const int iflag = 0; /* unused by resFunc */
   float2DoubleArray(ortData->model_output, ortData->x, ortData->nRes);
   f(userData, ortData->x, ortData->res, &iflag);
@@ -96,7 +96,7 @@ void printResiduum(unsigned int id, double time, struct OrtWrapperData* ortData)
 }
 
 /**
- * @brief Save residuum values to CSV file.
+ * @brief Compute scaled residual norm and save to CSV file.
  *
  * Checks if vector x was in bounds of min and max and saves boolean value to CSV file.
  * Computes euclidean norm of residuum and relative error of residuum and saves those to
@@ -107,7 +107,7 @@ void printResiduum(unsigned int id, double time, struct OrtWrapperData* ortData)
  * @param ortData   Pointer to ortData with residuum.
  * @return          Return relative error rel_error.
  */
-double writeResiduum(double time, struct OrtWrapperData* ortData) {
+double residualNorm(double time, struct OrtWrapperData* ortData) {
 
   if(ortData->csvFile == NULL) {
     printf("writeResiduum: Warning, no csvFile available.");
@@ -116,25 +116,17 @@ double writeResiduum(double time, struct OrtWrapperData* ortData) {
 
   int inBounds = isInBounds(ortData->model_input, ortData->min, ortData->max, ortData->nInputs);
 
-  double res_norm = norm(ortData->res, ortData->nRes);
-  double norm_x = norm(ortData->x, ortData->nRes);
-  double rel_error = 0;
-  if(norm_x > 1e-6) {
-    rel_error = res_norm / norm_x;
-  } else {
-    rel_error = res_norm;
-  }
+  double scaled_res_norm = norm(ortData->res, ortData->nRes);
 
   fprintf(ortData->csvFile, "%f,", time);
   fprintf(ortData->csvFile, "%i,", inBounds);
-  fprintf(ortData->csvFile, "%f,", rel_error);
-  fprintf(ortData->csvFile, "%f,", res_norm);
+  fprintf(ortData->csvFile, "%f,", scaled_res_norm);
   for(int i = 0; i < ortData->nRes-1; i++) {
     fprintf(ortData->csvFile, "%e,", ortData->res[i]);
   }
   fprintf(ortData->csvFile, "%e\n", ortData->res[ortData->nRes-1]);
 
-  return rel_error;
+  return scaled_res_norm;
 }
 
 /**

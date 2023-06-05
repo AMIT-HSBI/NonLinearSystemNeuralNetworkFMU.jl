@@ -20,12 +20,16 @@
 #include "fmi2Functions.h"
 #include "fmi2FunctionTypes.h"
 #include "fmi2TypesPlatform.h"
+#include "../simulation_data.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-FMI2_Export fmi2Status myfmi2evaluateEq(fmi2Component c, const size_t eqNumber);
+FMI2_Export fmi2Status myfmi2EvaluateEq(fmi2Component c, const size_t eqNumber);
+fmi2Status myfmi2EvaluateRes(fmi2Component c, const size_t eqNumber, double* x, double* res);
+double* getJac(DATA* data, const size_t sysNumber);
+int scaleResidual(double* jac, double* res, size_t n);
 
 #ifdef __cplusplus
 }  /* end of extern "C" { */
