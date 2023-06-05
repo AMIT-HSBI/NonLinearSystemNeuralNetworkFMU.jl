@@ -59,25 +59,6 @@ double norm(double* vec, size_t length) {
 }
 
 /**
- * @brief Infinity vector norm.
- *
- *  max(|x_1|, ..., |x_n|)
- *
- * @param vec       Vector to compute norm for.
- * @param length    Length of vector vec.
- * @return double   Infinity norm of vector vec.
- */
-double infinityNorm(double* vec, size_t length) {
-  double norm;
-  norm = fabs(vec[0]);
-  for(size_t i=1; i<length; i++) {
-    norm = fmax(fabs(vec[i]), norm);
-  }
-
-  return norm;
-}
-
-/**
  * @brief Return 1 if vector x is inside bounds of min and max.
  *
  * @param x       Vector x.
