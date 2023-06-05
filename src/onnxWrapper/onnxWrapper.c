@@ -75,9 +75,11 @@ void verify_input_output_count(const OrtApi* g_ort, OrtSession* session) {
  * @param modelName                 Name of ONNX model.
  * @param nInputs                   Number of inputs to ONNX model.
  * @param nOutputs                  Number of outputs of ONNX model.
+ * @param logResiduum               Initialize CSV file for residuum errors.
+ * @param numThreads                Number of threads for parallel node execution. Use 0 for default number of threads.
  * @return struct OrtWrapperData*   Pointer to ORT wrapper data.
  */
-struct OrtWrapperData* initOrtData(const char* equationName, const char* pathToONNX, const char* modelName, unsigned int nInputs, unsigned int nOutputs) {
+struct OrtWrapperData* initOrtData(const char* equationName, const char* pathToONNX, const char* modelName, unsigned int nInputs, unsigned int nOutputs, int logResiduum, int numThreads) {
   struct OrtWrapperData* ortData = calloc(1, sizeof (struct OrtWrapperData));
 
   /* Initialize ORT */
@@ -146,24 +148,34 @@ struct OrtWrapperData* initOrtData(const char* equationName, const char* pathToO
                                                            output_shape_len, ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,
                                                            &ortData->output_tensor));
 
-  /* Initialize residuum arrays */
-  ortData->nRes = (size_t) nOutputs;
-  ortData->x = calloc(ortData->nRes, sizeof ortData->x[0]);
-  ortData->res = calloc(ortData->nRes, sizeof ortData->res[0]);
-  char csvFilePath[2048];
-  snprintf(csvFilePath, 2048, "%s_residuum.csv", equationName);
-  ortData->csvFile = fopen(csvFilePath, "w");
-  fprintf(ortData->csvFile, "time,");
-  fprintf(ortData->csvFile, "inBounds,");
-  fprintf(ortData->csvFile, "scaled_res_norm,");
-  for(int i=0; i<ortData->nRes-1; i++) {
-    fprintf(ortData->csvFile, "res[%i],", i);
-  }
-  fprintf(ortData->csvFile, "res[%li]\n", ortData->nRes-1);
+  if (logResiduum) {
+    /* Initialize residuum arrays */
+    ortData->nRes = (size_t) nOutputs;
+    ortData->x = calloc(ortData->nRes, sizeof ortData->x[0]);
+    ortData->res = calloc(ortData->nRes, sizeof ortData->res[0]);
+    char csvFilePath[2048];
+    snprintf(csvFilePath, 2048, "%s_residuum.csv", equationName);
+    ortData->csvFile = fopen(csvFilePath, "w");
+    fprintf(ortData->csvFile, "time,");
+    fprintf(ortData->csvFile, "inBounds,");
+    fprintf(ortData->csvFile, "scaled_res_norm,");
+    for(int i=0; i<ortData->nRes-1; i++) {
+      fprintf(ortData->csvFile, "res[%i],", i);
+    }
+    fprintf(ortData->csvFile, "res[%li]\n", ortData->nRes-1);
 
-  /* Initialize training area boundaries */
-  ortData->min = calloc(nInputs, sizeof ortData->min[0]);
-  ortData->max = calloc(nInputs, sizeof ortData->max[0]);
+    /* Initialize training area boundaries */
+    ortData->min = calloc(nInputs, sizeof ortData->min[0]);
+    ortData->max = calloc(nInputs, sizeof ortData->max[0]);
+  } else {
+    ortData->nRes = 0;
+    ortData->x = NULL;
+    ortData->res = NULL;
+    ortData->csvFile = NULL;
+
+    ortData->min = NULL;
+    ortData->max = NULL;
+  }
 
   return ortData;
 }
@@ -194,7 +206,9 @@ void deinitOrtData(struct OrtWrapperData* ortData) {
   /* Free residuum data */
   free(ortData->x);
   free(ortData->res);
-  fclose(ortData->csvFile);
+  if (ortData->csvFile != NULL) {
+    fclose(ortData->csvFile);
+  }
 
   /* Free training are boundaries */
   free(ortData->min);
