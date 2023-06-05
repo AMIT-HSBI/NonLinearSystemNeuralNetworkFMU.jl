@@ -155,8 +155,8 @@ struct OrtWrapperData* initOrtData(const char* equationName, const char* pathToO
   ortData->csvFile = fopen(csvFilePath, "w");
   fprintf(ortData->csvFile, "time,");
   fprintf(ortData->csvFile, "inBounds,");
-  fprintf(ortData->csvFile, "rel_error,");
-  fprintf(ortData->csvFile, "res_norm,");
+  fprintf(ortData->csvFile, "scaled_res_norm,");
+  // TODO: Log scaled residual vector (norm)
   for(int i=0; i<ortData->nRes-1; i++) {
     fprintf(ortData->csvFile, "res[%i],", i);
   }

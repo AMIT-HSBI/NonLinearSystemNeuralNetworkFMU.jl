@@ -7,9 +7,12 @@
 //
 
 #include "special_interface.h"
-#include "../simulation_data.h"
 #include "../simulation/solver/solver_main.h"
+#include "../simulation/solver/nonlinearSolverHybrd.h"
+#include "../simulation/solver/nonlinearSolverHomotopy.h"
+#include "../util/simulation_options.h"
 #include "../<<MODELNAME>>_model.h"
+#include "../<<MODELNAME>>_12jac.h"
 #include "fmu2_model_interface.h"
 #include "fmu_read_flags.h"
 
@@ -42,7 +45,16 @@ static inline void setThreadData(ModelInstance* comp)
 /* Forwarded equations */
 <<FORWARD_EQUATION_BLOCK>>
 
-fmi2Status myfmi2evaluateEq(fmi2Component c, const size_t eqNumber)
+/**
+ * @brief Evaluate equation.
+ *
+ * Result variables of equation have to be retrieved with fmi2GetXXX functions.
+ *
+ * @param c             Pointer to FMU component.
+ * @param eqNumber      Equation to evaluate.
+ * @return fmi2Status   Return fmi2OK on success, fmi2Error otherwise.
+ */
+fmi2Status myfmi2EvaluateEq(fmi2Component c, const size_t eqNumber)
 {
   ModelInstance *comp = (ModelInstance *)c;
   DATA* data = comp->fmuData;
@@ -52,7 +64,7 @@ fmi2Status myfmi2evaluateEq(fmi2Component c, const size_t eqNumber)
   useStream[LOG_NLS] = 0 /* false */;
   useStream[LOG_NLS_V] = 0 /* false */;
   useStream[LOG_ASSERT] = 0 /* false */;
-  FILTERED_LOG(comp, fmi2OK, LOG_FMI2_CALL, "myfmi2evaluateEq: Evaluating equation %u", eqNumber)
+  FILTERED_LOG(comp, fmi2OK, LOG_FMI2_CALL, "myfmi2EvaluateEq: Evaluating equation %u", eqNumber)
 
   setThreadData(comp);
   /* try */
@@ -73,14 +85,25 @@ fmi2Status myfmi2evaluateEq(fmi2Component c, const size_t eqNumber)
   resetThreadData(comp);
 
   if(!success) {
-    FILTERED_LOG(comp, fmi2Error, LOG_FMI2_CALL, "myfmi2evaluateEq: Caught an error.")
+    FILTERED_LOG(comp, fmi2Error, LOG_FMI2_CALL, "myfmi2EvaluateEq: Caught an error.")
     return fmi2Error;
   }
 
   return fmi2OK;
 }
 
-fmi2Status myfmi2evaluateRes(fmi2Component c, const size_t eqNumber, double* x, double* res)
+/**
+ * @brief Evaluate residual equation.
+ *
+ * f(x) = res
+ *
+ * @param c             Pointer to FMU component.
+ * @param eqNumber      Residual equation to evaluate.
+ * @param x             X vector.
+ * @param res           Residual vector on return.
+ * @return fmi2Status   Return fmi2OK on success, fmi2Error otherwise.
+ */
+fmi2Status myfmi2EvaluateRes(fmi2Component c, const size_t eqNumber, double* x, double* res)
 {
   ModelInstance *comp = (ModelInstance *)c;
   DATA* data = comp->fmuData;
@@ -97,7 +120,7 @@ fmi2Status myfmi2evaluateRes(fmi2Component c, const size_t eqNumber, double* x, 
   useStream[LOG_NLS] = 0 /* false */;
   useStream[LOG_NLS_V] = 0 /* false */;
   useStream[LOG_ASSERT] = 0 /* false */;
-  FILTERED_LOG(comp, fmi2OK, LOG_FMI2_CALL, "myfmi2evaluateRes: Evaluating residual %u", eqNumber)
+  FILTERED_LOG(comp, fmi2OK, LOG_FMI2_CALL, "myfmi2EvaluateRes: Evaluating residual %u", eqNumber)
 
   setThreadData(comp);
   /* try */
@@ -117,9 +140,66 @@ fmi2Status myfmi2evaluateRes(fmi2Component c, const size_t eqNumber, double* x, 
   resetThreadData(comp);
 
   if(!success) {
-    FILTERED_LOG(comp, fmi2Error, LOG_FMI2_CALL, "myfmi2evaluateRes: Caught an error.")
+    FILTERED_LOG(comp, fmi2Error, LOG_FMI2_CALL, "myfmi2EvaluateRes: Caught an error.")
     return fmi2Error;
   }
 
   return fmi2OK;
+}
+
+/**
+ * @brief Get Jacobian of non-linear equation system.
+ *
+ * @param c             Pointer to FMU component.
+ * @param sysNumber     Number of non-linear system.
+ * @return jac          Return pointer to Jacobian matrix in row-major-format or NULL in error case.
+ */
+double* getJac(DATA* data, const size_t sysNumber) {
+  double* jac;
+  NONLINEAR_SYSTEM_DATA* nlsSystem = &(data->simulationInfo->nonlinearSystemData[sysNumber]);
+
+  switch (nlsSystem->nlsMethod)
+  {
+  //case NLS_HYBRID:
+  //  DATA_HYBRD* solverData = (DATA_HYBRD*) nlsSystem->solverData;
+  //  jac = solverData->fjac;
+  //  break;
+  //case NLS_NEWTON:
+  //  DATA_NEWTON* solverData = (DATA_NEWTON*) nlsSystem->solverData;
+  //  jac = solverData->fjac;
+  //  break;
+  case NLS_HOMOTOPY:
+    return getHomotopyJacobian(nlsSystem);
+  default:
+    printf("Unknown NLS method  %d in myfmi2GetJac\n", (int)nlsSystem->nlsMethod);
+    return NULL;
+  }
+}
+
+/**
+ * @brief Scale residual vector.
+ *
+ * @param jac             Pointer to n times n Jacobian in row-major format.
+ * @param res             Pointer to residual vector to scale.
+ * @param n               Size of jacobian and residual vector.
+ * @return isRegular      Return 1 (true) if matrix is regular and 0 (false) if it's singular.
+ */
+int scaleResidual(double* jac, double* res, size_t n) {
+  int jac_row_start;
+  int isRegular = 1;
+  double scaling;
+
+  for(int i=0; i<n; i++)
+  {
+    jac_row_start = i*n;
+    scaling = _omc_gen_maximumVectorNorm(&(jac[jac_row_start]), n);
+    if(scaling <= 0.0) {
+      //printf("Jacobian matrix is singular!\n");
+      scaling = 1e-16;
+      isRegular = 0;
+    }
+    res[i] = res[i] / scaling;
+  }
+
+  return isRegular;
 }
