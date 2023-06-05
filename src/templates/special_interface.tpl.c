@@ -10,6 +10,7 @@
 #include "../simulation/solver/solver_main.h"
 #include "../simulation/solver/nonlinearSolverHybrd.h"
 #include "../simulation/solver/nonlinearSolverHomotopy.h"
+#include "../simulation/solver/omc_math.h"
 #include "../util/simulation_options.h"
 #include "../<<MODELNAME>>_model.h"
 #include "../<<MODELNAME>>_12jac.h"
