@@ -42,7 +42,7 @@ function mymain(modelName::String, N::Integer, reuseArtifacts=true::Bool)
       BSON.@load onnxFile * ".bson" model
     else
       # build surrogate model
-      nInputs = length(inputVars)
+      nInputs = length(inputVars) + length(outputVars)
       nOutputs = length(outputVars)
       model = Flux.Chain(
         Flux.Dense(nInputs, nInputs * 20, Flux.σ),
@@ -65,18 +65,16 @@ function mymain(modelName::String, N::Integer, reuseArtifacts=true::Bool)
     rm(tempDir, force=true, recursive=true)
   end
 
-
   fmu_onnx = buildWithOnnx(
     fmu_interface,
     modelName,
     profilingInfo,
     onnxFiles;
     tempDir=omOptions.workingDir,
-    usePrevSol=false
+    usePrevSol=true
   )
 
   simulateFMU(modelName, N)
 end
-
 
 mymain(modelName, N)

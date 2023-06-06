@@ -57,11 +57,13 @@ function activeLearnWrapper(
   csvFile::String,
   eqId::Int64,
   inputVars::Array{String},
-  minBound::Array{Float64},
-  maxBound::Array{Float64},
+  inMin::Array{Float64},
+  inMax::Array{Float64},
   outputVars::Array{String};
   options=ActiveLearnOptions()::ActiveLearnOptions
 )
+
+  @assert length(inMin) == length(inMax) == length(inputVars) "Length of min, max and inputVars doesn't match"
 
   # Handle time input variable
   inputVarsCopy = copy(inputVars)
@@ -72,14 +74,14 @@ function activeLearnWrapper(
     @assert length(loc) == 1 "time variable occurs more than once"
     usesTime = true
     loc = first(loc)
-    timeBounds = (minBound[loc], maxBound[loc])
+    timeBounds = (inMin[loc], inMax[loc])
     deleteat!(inputVarsCopy, loc)
-    deleteat!(minBound, loc)
-    deleteat!(maxBound, loc)
+    deleteat!(inMin, loc)
+    deleteat!(inMax, loc)
   end
 
   fmu = FMI.fmiLoad(fmuPath)
-  activeLearn(fmu, initialData, model, onnxFile, csvFile, eqId, timeBounds, inputVarsCopy, minBound, maxBound, outputVars; options=options)
+  activeLearn(fmu, initialData, model, onnxFile, csvFile, eqId, timeBounds, inputVarsCopy, inMin, inMax, outputVars; options=options)
   FMI.fmiUnload(fmu)
 end
 
@@ -106,8 +108,6 @@ function activeLearn(
 
   samplesGenerated = 0
 
-  @assert length(inMin) == length(inMax) == nInputs "Length of min, max and inputVars doesn't match"
-
   try
     # Load FMU and initialize
     FMI.fmiInstantiate!(fmu; loggingOn=false, externalCallbacks=false)
@@ -121,12 +121,14 @@ function activeLearn(
     FMI.fmiExitInitializationMode(fmu)
 
     # Get initial training data
-    df = DataFrames.select(CSV.read(initialData, DataFrames.DataFrame; ntasks=1), vcat(inputVars, outputVars))
+    df = CSV.read(initialData, DataFrames.DataFrame; ntasks=1)
+    df = DataFrames.select(df, vcat(inputVars, outputVars))
+    df_prox = data2proximityData(df, inputVars, outputVars)
     @info "\n$(names(df))\n$(vcat(inputVars,outputVars))"
-    data = prepareData(df, inputVars, outputVars)
+    data = prepareData(df_prox, vcat(inputVars, outputVars .* "_old"), outputVars)
 
     # Initial training run
-    model, df_loss = trainSurrogate!(model, data.train, data.test)
+    model, _ = trainSurrogate!(model, data.train, data.test)
 
     row = Array{Float64}(undef, nVars)
     row_vr = FMI.fmiStringToValueReference(fmu.modelDescription, vcat(inputVars, outputVars))
@@ -136,41 +138,45 @@ function activeLearn(
 
       # Set input values with random values
       row[1:nInputs] = (inMax .- inMin) .* rand(nInputs) .+ inMin
-      # Set Output values with surrogate
-      row[nInputs+1:end] .= model(row[1:nInputs])
+
+      # Set previous output values to zero
+      # TODO get output from nearby input
+      row[nInputs+1:end] .= 0.0
+
+      # Set output values with surrogate
+      row[nInputs+1:end] .= model(row)
 
       status, res = fmiEvaluateRes(fmu, eqId, row[nInputs+1:end])
       @info "res $res"
 
+      # Generate new sample point
       if useTime
         status, row = generateDataPoint(fmu, eqId, nInputs, row_vr, row, timeBounds[1])
       else
         status, row = generateDataPoint(fmu, eqId, nInputs, row_vr, row, nothing)
       end
-
-      model, df_loss = trainSurrogate!(model, data.train, data.test)
-      #@info "$df_loss"
-
-      # Found a point: stop
       if status == fmi2OK
-        found = true
         samplesGenerated += 1
 
         # Update data frame
         if useTime
-          push!(df, vcat([timeBounds[1]], row))
+          push!(df_prox, vcat([timeBounds[1]], row[1:nInputs], wiggle.(row[nInputs+1:end]), row[nInputs+1:end]))
         else
-          push!(df, row)
+          push!(df_prox, vcat(row[1:nInputs], wiggle.(row[nInputs+1:end]), row[nInputs+1:end]))
         end
       else
         nFailures += 1
       end
+
+      # Train model with augmented data set
+      data = prepareData(df_prox, vcat(inputVars, outputVars .* "_old"), outputVars)
+      model, _ = trainSurrogate!(model, data.train, data.test)
     end
 
     # save model and data
     mkpath(dirname(onnxFile))
     BSON.@save onnxFile * ".bson" model
-    ONNXNaiveNASflux.save(onnxFile, model, (nInputs, 1))
+    ONNXNaiveNASflux.save(onnxFile, model, (nInputs + nOutputs, 1))
 
     mkpath(dirname(csvFile))
     CSV.write(csvFile, df)
@@ -201,4 +207,47 @@ function generateDataPoint(fmu, eqId, nInputs, row_vr, row, time)
   end
 
   return status, row
+end
+
+"""
+Transform data set into proximity data set.
+
+Take data point (x,y) and add y_tile = y + dy to the input.
+Save new datapoint ([x,y_tile], y).
+"""
+function data2proximityData(
+  df::DataFrames.DataFrame,
+  inputVars::Array{String},
+  outputVars::Array{String};
+  weight=0.01::Float64,
+  nCopies=1::Integer
+)::DataFrames.DataFrame
+
+  nInputs = length(inputVars)
+  nOutputs = length(outputVars)
+
+  # Create new empty data frame
+  col_names = Symbol.(vcat(inputVars, outputVars .* "_old", outputVars))
+  col_types = fill(Float64, nInputs + 2 * nOutputs)
+  named_tuple = NamedTuple{Tuple(col_names)}(type[] for type in col_types)
+  df_proximity = DataFrames.DataFrame(named_tuple)
+
+  # Fill new data frame
+  for row in eachrow(df)
+    usingVars = Vector(row[1:nInputs])
+    # Wiggle oldIterationVars
+    iterationVars = Vector(row[nInputs+1:nInputs+nOutputs])
+
+    for _ in 1:nCopies
+      oldIterationVars = wiggle.(iterationVars, weight)
+      new_row = vcat(usingVars, oldIterationVars, iterationVars)
+      push!(df_proximity, new_row)
+    end
+  end
+  return df_proximity
+end
+
+function wiggle(x; weight=0.01)
+  r = weight * (2 * rand() - 1)
+  return x + (r * x)
 end
