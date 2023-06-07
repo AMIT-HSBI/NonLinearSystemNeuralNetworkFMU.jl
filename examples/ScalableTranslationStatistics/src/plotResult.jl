@@ -22,7 +22,8 @@ function plotResult(referenceResult::String,
                     tspan::Union{Nothing, Tuple{Number,Number}}=nothing,
                     fullNames::Bool=false,
                     plotAbsErr::Bool=true,
-                    eqId::Union{Nothing,Integer}=nothing)
+                    eqId::Union{Nothing,Integer}=nothing,
+                    orientation=:horizontal)
 
   df_ref = CSV.read(referenceResult, DataFrames.DataFrame; ntasks=1)
   df_onnx = CSV.read(onnxResult, DataFrames.DataFrame; ntasks=1)
@@ -62,7 +63,7 @@ function plotResult(referenceResult::String,
 
   colors = distinguishable_colors(length(outputVars)+1, [RGB(1,1,1), RGB(0,0,0)], dropseed=true)
 
-  fig1 = Figure(fontsize = 18,
+  fig1 = Figure(fontsize = 24,
                 resolution = (800, 800))
   grid_simResults = fig1[1, 1:2] = GridLayout()
   grid_simError = fig1[2, 1:2] = GridLayout()
@@ -107,20 +108,16 @@ function plotResult(referenceResult::String,
              [elem_1, elem_2],
              ["reference", "surrogate"],
              position = :lt)
-  
-  orientation = :horizontal
-  if length(join(outputVars)) > 100
-    orientation = :vertical
-  end
+
   Legend(grid_legend[1,1], ax_simError,
-         tellwidth=false, tellheight=true,
+         tellwidth=true, tellheight=true,
          orientation = orientation)
   resize_to_layout!(fig1)
 
   # Optional residual plot
   local fig2
   if residualResults !== nothing
-    fig2 = Figure(fontsize = 18,
+    fig2 = Figure(fontsize = 24,
                   resolution = (800, 400))
     grid_residual = fig2[1, 1:2] = GridLayout()
 
@@ -138,7 +135,7 @@ function plotResult(referenceResult::String,
       lines!(ax_residual, df_res.time, df_res[!,Symbol("res[$(i-1)]")], color=colors[i], label=L"$f_{res_%$(i)}$")
     end
     #lines!(ax_residual, df_res.time, df_res[!,:rel_error], color=colors[length(outputVars)+1], label=L"\tau_{rel}(f_{res})")
-    lines!(ax_residual, df_res.time, df_res[!,:res_norm], color=colors[length(outputVars)+1], label=L"||f_{res}||_2")
+    lines!(ax_residual, df_res.time, df_res[!,:scaled_res_norm], color=colors[length(outputVars)+1], label=L"||\tau_s(J)||_2")
     lines!(ax_residual, df_res.time[[1,length(df_res.time)]], [1.0, 1.0] , color=:grey, linestyle=:dash)
 
     axislegend(ax_residual, orientation = :horizontal, position = :lt)

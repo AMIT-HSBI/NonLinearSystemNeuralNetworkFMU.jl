@@ -15,7 +15,7 @@ function plotAllResults(sizes; filetype="pdf", plotAbsErr::Bool=true)
     surrogateResult = datadir("exp_raw", shortName, shortName * "_res.onnx.csv")
 
     @info "Plotting results for size $size"
-    fig = plotResult(refResult, surrogateResult, outputVars[1:3], "Output"; plotAbsErr=plotAbsErr, tspan=(0.0, 10.0))
+    fig = plotResult(refResult, surrogateResult, outputVars[1:3], "Output"; plotAbsErr=plotAbsErr, tspan=(0.0, 10.0), orientation=:horizontal)
 
     fileName = plotsdir(shortName, "$(shortName)_results.$(filetype)")
     mkpath(dirname(fileName))
@@ -38,13 +38,13 @@ function plotItterationVariables(sizes; filetype="pdf")
       residualResults = datadir("sims", shortName, "temp-OMSimulator", "$(modelName)_eq$(prof.eqInfo.id)_residuum.csv")
 
       @info "Plotting itteration variables for eq $(prof.eqInfo.id)"
-      fig1, fig2 = plotResult(refResult, surrogateResult, outputVars, "Iteration"; tspan=(0.0, 10.0), residualResults=residualResults, fullNames=true, eqId=prof.eqInfo.id)
+      fig1, fig2 = plotResult(refResult, surrogateResult, outputVars, "Iteration"; tspan=(0.0, 10.0), residualResults=residualResults, fullNames=true, eqId=prof.eqInfo.id, orientation=:vertical)
 
       fileName = plotsdir(shortName, "loop_$(prof.eqInfo.id)_results_a.$(filetype)")
       mkpath(dirname(fileName))
-      save(fileName,fig1)
+      save(fileName, fig1; px_per_unit = 2)
       fileName = plotsdir(shortName, "loop_$(prof.eqInfo.id)_results_b.$(filetype)")
-      save(fileName,fig2)
+      save(fileName, fig2; px_per_unit = 2)
     end
   end
 end

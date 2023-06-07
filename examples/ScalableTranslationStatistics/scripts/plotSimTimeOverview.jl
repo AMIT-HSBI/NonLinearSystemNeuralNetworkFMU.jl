@@ -10,7 +10,8 @@ function plotSimTimes(sizes, csvFile; plotSpeedup::Bool=true, filetype="svg")
   df = CSV.read(csvFile, DataFrames.DataFrame; ntasks=1)
 
   lenSizes = length(sizes)
-  fig = Figure()
+  fig = Figure(fontsize = 24,
+               resolution = (800, 800))
   time_axis = Axis(fig[1,1],
                    #title = "Simulation time",
                    xticks = (1:lenSizes, ["N=$size" for size in sizes]),
@@ -78,11 +79,11 @@ function plotSimTimes(sizes, csvFile; plotSpeedup::Bool=true, filetype="svg")
   #       framevisible = false,
   #       tellheight = true, tellwidth = false,
   #       halign = :left, valign = :top)
-  axislegend(time_axis, position=:lt, margin=(20, 20, 20, 20))
+  axislegend(time_axis, position=:lt, labelsize = 21, margin=(20, 20, 20, 20))
   resize_to_layout!(fig)
 
   # Save file
   savename = plotsdir("Surrogat_vs_Reference.$(filetype)")
-  save(savename, fig)
+  save(savename, fig; px_per_unit = 2)
   return fig
 end

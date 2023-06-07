@@ -40,7 +40,7 @@ function genSurrogate(lib::String, modelName::String; n::Int=1000, genData::Bool
     #model = Flux.Chain(Flux.Dense(nInputs,   nInputs*5, Flux.sigmoid),
     #                   Flux.Dense(nInputs*5, nOutputs))
     model = nothing
-    @showtime trainONNX(csvFiles[i], onnxModel, prof.usingVars, prof.iterationVariables; lossFile=lossFile, model=model, nepochs=10000, losstol=1e-6)
+    @showtime trainONNX(csvFiles[i], onnxModel, prof.usingVars, prof.iterationVariables; lossFile=lossFile, model=model, nepochs=1000, losstol=1e-6)
   end
 
   # Include ONNX into FMU

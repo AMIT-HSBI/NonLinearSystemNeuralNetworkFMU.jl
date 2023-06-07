@@ -35,11 +35,11 @@ function plotAllTrainingData(sizes; filetype="pdf")
     fig = plotTrainArea(prof.iterationVariables, df_ref, df_trainData = df_data)
     file = plotsdir(shortName, "$(shortName)_trainData.$(filetype)")
     mkpath(dirname(file))
-    save(file, fig)
+    save(file, fig; px_per_unit = 2)
 
     fig = plotTrainDataHistogram(prof.usingVars, df_data, title = "Training Data Distribution - Equation $(prof.eqInfo.id)")
     file = plotsdir(shortName, "$(shortName)_trainData_hist.$(filetype)")
-    save(file, fig)
+    save(file, fig; px_per_unit = 2)
   end
 end
 
@@ -85,7 +85,7 @@ function simulationTimes(sizes;
 
   # Plot relative simulation time
   stack = [j for _ in 1:lenSizes for j in 1:numEqs]
-  fig = Figure(fontsize = 18)
+  fig = Figure(fontsize = 24)
   axis_frac = Axis(fig[1, 1],
                    xticks = (1:lenSizes, ["N=$size" for size in sizes]),
                    xgridvisible = false,
@@ -141,11 +141,11 @@ function simulationTimes(sizes;
   labels = vcat(["eq $(i)" for i in 1:numEqs-1], ["rest"])
   colors = ColorSchemes.viridis[range(0,1,length(labels))]
   elements = [PolyElement(polycolor = colors[i]) for i in 1:length(labels)]
-  Legend(fig[2,:], elements, labels,
-         tellheight = true, tellwidth = false, margin = (10, 10, 10, 10),
+  Legend(fig[2,:], elements, labels, labelsize=18,
+         tellheight = true, tellwidth = true,
          halign = :left, valign = :top, orientation = :horizontal)
 
-  save(filename, fig)
+  save(filename, fig; px_per_unit = 2)
 
   return filename
 end
@@ -160,7 +160,7 @@ function plotTrainingProgress(sizes; filetype="svg")
       fig = plotLoss(lossFile)
 
       filename = plotsdir(shortName, "$(shortName)_trainLoss_eq_$(prof.eqInfo.id).$(filetype)")
-      save(filename, fig)
+      save(filename, fig; px_per_unit = 2)
     end
   end
 end
