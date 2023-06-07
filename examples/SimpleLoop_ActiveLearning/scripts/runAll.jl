@@ -18,7 +18,16 @@ function mymain(modelName::String, N::Integer, reuseArtifacts=true::Bool)
     commandLineOptions="--preOptModules-=wrapFunctionCalls --postOptModules-=wrapFunctionCalls"
   )
 
-  (csvFiles, _, profilingInfo) = main(modelName, moFiles; omOptions=omOptions, reuseArtifacts=reuseArtifacts)
+  dataGenOptions = DataGenOptions(;
+    method=RandomMethod(),
+    n=N,
+    nBatches=1,
+    nThreads=Threads.nthreads(),
+    append=false,
+    clean=true
+  )
+
+  (csvFiles, _, profilingInfo) = main(modelName, moFiles; omOptions=omOptions, dataGenOptions=dataGenOptions, reuseArtifacts=reuseArtifacts)
 
   csvFilesReverse = reverse(csvFiles)
 
@@ -58,7 +67,8 @@ function mymain(modelName::String, N::Integer, reuseArtifacts=true::Bool)
     @assert csvFile == abspath(joinpath(omOptions.workingDir, "data", "eq_$(prof.eqInfo.id).csv")) "filename wrong"
     @assert isfile(csvFile) "csvFile does not exist"
 
-    activeLearnWrapper(fmu_interface, csvFile, model, onnxFile, csvFile, eqIndex, inputVars, minBoundary, maxBoundary, outputVars)
+    number_of_nls_evals = activeLearnWrapper(fmu_interface, csvFile, model, onnxFile, csvFile, eqIndex, inputVars, minBoundary, maxBoundary, outputVars)
+    @info "number of NLS evals: $number_of_nls_evals"
     push!(onnxFiles, onnxFile)
   end
   if omOptions.clean

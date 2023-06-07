@@ -61,7 +61,7 @@ function activeLearnWrapper(
   inMax::Array{Float64},
   outputVars::Array{String};
   options=ActiveLearnOptions()::ActiveLearnOptions
-)
+)::Integer
 
   @assert length(inMin) == length(inMax) == length(inputVars) "Length of min, max and inputVars doesn't match"
 
@@ -81,8 +81,10 @@ function activeLearnWrapper(
   end
 
   fmu = FMI.fmiLoad(fmuPath)
-  activeLearn(fmu, initialData, model, onnxFile, csvFile, eqId, timeBounds, inputVarsCopy, inMin, inMax, outputVars; options=options)
+  number_of_nls_evals = activeLearn(fmu, initialData, model, onnxFile, csvFile, eqId, timeBounds, inputVarsCopy, inMin, inMax, outputVars; options=options)
   FMI.fmiUnload(fmu)
+
+  return number_of_nls_evals
 end
 
 
@@ -99,14 +101,14 @@ function activeLearn(
   inMax::Array{Float64},
   outputVars::Array{String};
   options::ActiveLearnOptions
-)
+)::Integer
 
   nInputs = length(inputVars)
   nOutputs = length(outputVars)
   nVars = nInputs + nOutputs
   useTime = timeBounds !== nothing
 
-  samplesGenerated = 0
+  number_of_nls_evals = 0
 
   try
     # Load FMU and initialize
@@ -144,26 +146,39 @@ function activeLearn(
       row[nInputs+1:end] .= 0.0
 
       # Set output values with surrogate
-      row[nInputs+1:end] .= model(row)
+      # iterate until residual gets worse
+      temp = Array{Float64}(undef, nOutputs)
+      old_res = Inf
+      for _ in 1:10
+        temp .= model(row)
 
-      status, res = fmiEvaluateRes(fmu, eqId, row[nInputs+1:end])
-      @info "res $res"
+        status, res = fmiEvaluateRes(fmu, eqId, temp)
+        @assert status == fmi2OK "residual could not be evaluated"
+        res = sqrt(sum(res .^ 2))
+        @info "res $res"
+        if res > old_res
+          break
+        end
+        old_res = res
+        row[nInputs+1:end] .= temp
+      end
 
       # Generate new sample point
       if useTime
         status, row = generateDataPoint(fmu, eqId, nInputs, row_vr, row, timeBounds[1])
       else
-        status, row = generateDataPoint(fmu, eqId, nInputs, row_vr, row, nothing)
+        status, row = generateDataPoint(fmu, eqId, nInputs, row_vr, row)
       end
-      if status == fmi2OK
-        samplesGenerated += 1
+      number_of_nls_evals += 1
 
+      if status == fmi2OK
         # Update data frame
         if useTime
-          push!(df_prox, vcat([timeBounds[1]], row[1:nInputs], wiggle.(row[nInputs+1:end]), row[nInputs+1:end]))
+          new_row = vcat([timeBounds[1]], row[1:nInputs], wiggle.(row[nInputs+1:end]), row[nInputs+1:end])
         else
-          push!(df_prox, vcat(row[1:nInputs], wiggle.(row[nInputs+1:end]), row[nInputs+1:end]))
+          new_row = vcat(row[1:nInputs], wiggle.(row[nInputs+1:end]), row[nInputs+1:end])
         end
+        push!(df_prox, new_row)
       else
         nFailures += 1
       end
@@ -185,13 +200,15 @@ function activeLearn(
     FMI.fmiUnload(fmu)
     rethrow(err)
   end
+
+  return number_of_nls_evals
 end
 
 
 """
 Evaluate equation `eqId` with `row` as inputs + start values
 """
-function generateDataPoint(fmu, eqId, nInputs, row_vr, row, time)
+function generateDataPoint(fmu, eqId, nInputs, row_vr, row, time=nothing)
   # Set input values and start values for output
   FMIImport.fmi2SetReal(fmu, row_vr, row)
   if time !== nothing
@@ -219,8 +236,8 @@ function data2proximityData(
   df::DataFrames.DataFrame,
   inputVars::Array{String},
   outputVars::Array{String};
-  weight=0.01::Float64,
-  nCopies=1::Integer
+  delta=0.1::Float64,
+  nCopies=4::Integer
 )::DataFrames.DataFrame
 
   nInputs = length(inputVars)
@@ -234,20 +251,19 @@ function data2proximityData(
 
   # Fill new data frame
   for row in eachrow(df)
-    usingVars = Vector(row[1:nInputs])
-    # Wiggle oldIterationVars
-    iterationVars = Vector(row[nInputs+1:nInputs+nOutputs])
-
-    for _ in 1:nCopies
-      oldIterationVars = wiggle.(iterationVars, weight)
-      new_row = vcat(usingVars, oldIterationVars, iterationVars)
+    # Add copies with different y_tilde
+    for i in 0:nCopies-1
+      y = Vector(row[nInputs+1:nInputs+nOutputs])
+      y_tilde = wiggle.(y; delta=delta * 0.95^i)
+      x = Vector(row[1:nInputs])
+      new_row = vcat(x, y_tilde, y)
       push!(df_proximity, new_row)
     end
   end
   return df_proximity
 end
 
-function wiggle(x; weight=0.01)
-  r = weight * (2 * rand() - 1)
+function wiggle(x; delta=0.1)
+  r = delta * (2 * rand() - 1)
   return x + (r * x)
 end

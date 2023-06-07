@@ -233,7 +233,7 @@ function modifyCCode(modelName::String, fmuTmpDir::String, modelDescriptionXmlFi
   id1 = last(findStrWError("$(modelNameC)_setupDataStruc(DATA *data, threadData_t *threadData)", str))
   id1 = last(findStrWError("data->modelData->nExtObjs", str, id1))
   id1 = last(findStrWError(";$EOL", str, id1))
-  str = str[1:id1] * 
+  str = str[1:id1] *
         """
 
           if (USE_JULIA){
