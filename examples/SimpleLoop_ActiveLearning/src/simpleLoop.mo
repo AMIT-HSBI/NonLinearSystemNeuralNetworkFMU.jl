@@ -23,6 +23,7 @@ model simpleLoop
   Real x(start=1.0), y(start=0.5);
   parameter Real b = -0.5;
   Real x_ref, y_ref;
+  Real x_err, y_err, res_err[2];
 equation
   r = 1+time;
   s = sqrt((2-time)*0.9);
@@ -32,5 +33,11 @@ equation
 
   x_ref = 0.5 * ( -sqrt(-b^2 - 2*b*r*s - r^2*(s^2-2))+b+r*s);
   y_ref = r*s + b - x_ref;
+
+  x_err = x - x_ref;
+  y_err = y - y_ref;
+
+  res_err[1] = r^2 - (x^2 + y^2);
+  res_err[2] = r*s + b - (x + y);
   annotation(experiment(StartTime=0, StopTime=2));
 end simpleLoop;
