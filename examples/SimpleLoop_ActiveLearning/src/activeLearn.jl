@@ -136,10 +136,14 @@ function activeLearn(
 
     """
     """
-    function generateDataPoint(x)
+    function generateDataPoint(x; y=nothing)
       # Set input values and start values for output
       row[1:nInputs] .= x
-      row[nInputs+1:end] .= model(row)
+      if y === nothing
+        row[nInputs+1:end] .= model(row)
+      else
+        row[nInputs+1:end] .= y
+      end
       FMIImport.fmi2SetReal(fmu, row_vr, row)
       if useTime
         FMIImport.fmi2SetTime(fmu, timeBounds[1])
@@ -190,7 +194,7 @@ function activeLearn(
     """
     function makeNeighbor(old_x, old_y; delta)
       # Make random neighbor of old x
-      x = old_x + (inMax.-inMin).*(2.0 .*rand(nInputs) .- 1.0) .* delta
+      x = old_x + (inMax .- inMin) .* (2.0 .* rand(nInputs) .- 1.0) .* delta
       # Check boundaries
       x .= max.(x, inMin)
       x .= min.(x, inMax)
@@ -206,6 +210,9 @@ function activeLearn(
       # Evaluate residual
       status, res = fmiEvaluateRes(fmu, eqId, row)
       @assert status == fmi2OK "could not evaluated residual $eqId"
+
+      # maybe
+      row[nInputs+1:end] .= generateDataPoint(row[1:nInputs]; y=row[nInputs+1:end])
 
       return x, y, sum(res .^ 2)
     end
