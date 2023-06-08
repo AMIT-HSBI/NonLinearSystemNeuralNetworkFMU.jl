@@ -61,7 +61,7 @@ function activeLearnWrapper(
   inMax::Array{Float64},
   outputVars::Array{String};
   options=ActiveLearnOptions()::ActiveLearnOptions
-)::Integer
+)
 
   @assert length(inMin) == length(inMax) == length(inputVars) "Length of min, max and inputVars doesn't match"
 
@@ -81,10 +81,8 @@ function activeLearnWrapper(
   end
 
   fmu = FMI.fmiLoad(fmuPath)
-  number_of_nls_evals = activeLearn(fmu, initialData, model, onnxFile, csvFile, eqId, timeBounds, inputVarsCopy, inMin, inMax, outputVars; options=options)
+  activeLearn(fmu, initialData, model, onnxFile, csvFile, eqId, timeBounds, inputVarsCopy, inMin, inMax, outputVars; options=options)
   FMI.fmiUnload(fmu)
-
-  return number_of_nls_evals
 end
 
 
@@ -101,14 +99,14 @@ function activeLearn(
   inMax::Array{Float64},
   outputVars::Array{String};
   options::ActiveLearnOptions
-)::Integer
+)
 
   nInputs = length(inputVars)
   nOutputs = length(outputVars)
   nVars = nInputs + nOutputs
   useTime = timeBounds !== nothing
 
-  number_of_nls_evals = 0
+  samplesGenerated = 0
 
   try
     # Load FMU and initialize
@@ -135,53 +133,88 @@ function activeLearn(
     row = Array{Float64}(undef, nVars)
     row_vr = FMI.fmiStringToValueReference(fmu.modelDescription, vcat(inputVars, outputVars))
 
-    for step in 1:options.steps
-      @info "Step $(step):"
 
+    """
+    """
+    function generateDataPoint(x)
+      # Set input values and start values for output
+      row[1:nInputs] .= x
+      row[nInputs+1:end] .= model(row)
+      FMIImport.fmi2SetReal(fmu, row_vr, row)
+      if useTime
+        FMIImport.fmi2SetTime(fmu, timeBounds[1])
+      end
+
+      # Evaluate equation
+      # TODO: Supress stream prints, but Suppressor.jl is not thread safe
+      status = fmiEvaluateEq(fmu, eqId)
+      @assert status == fmi2OK "could not evaluate equation $eqId"
+
+      # Get output values
+      row[nInputs+1:end] .= FMIImport.fmi2GetReal(fmu, row_vr[nInputs+1:end])
+      # Update data frame
+      if useTime
+        new_row = vcat([timeBounds[1]], row[1:nInputs], wiggle.(row[nInputs+1:end]), row[nInputs+1:end])
+      else
+        new_row = vcat(row[1:nInputs], wiggle.(row[nInputs+1:end]), row[nInputs+1:end])
+      end
+      push!(df_prox, new_row)
+      samplesGenerated += 1
+
+      return row[nInputs+1:end]
+    end
+
+
+    """
+    """
+    function makeRandInputOutput()
       # Set input values with random values
       row[1:nInputs] = (inMax .- inMin) .* rand(nInputs) .+ inMin
 
-      # Set previous output values to zero
+      # Set initial guess to correct output
       # TODO get output from nearby input
-      row[nInputs+1:end] .= 0.0
+      row[nInputs+1:end] .= generateDataPoint(row[1:nInputs])
 
       # Set output values with surrogate
-      # iterate until residual gets worse
-      temp = Array{Float64}(undef, nOutputs)
-      old_res = Inf
-      for _ in 1:10
-        temp .= model(row)
 
-        status, res = fmiEvaluateRes(fmu, eqId, temp)
-        @assert status == fmi2OK "residual could not be evaluated"
-        res = sqrt(sum(res .^ 2))
-        @info "res $res"
-        if res > old_res
-          break
-        end
-        old_res = res
-        row[nInputs+1:end] .= temp
-      end
+      row[nInputs+1:end] .= model(row)
 
-      # Generate new sample point
-      if useTime
-        status, row = generateDataPoint(fmu, eqId, nInputs, row_vr, row, timeBounds[1])
-      else
-        status, row = generateDataPoint(fmu, eqId, nInputs, row_vr, row)
-      end
-      number_of_nls_evals += 1
+      status, res = fmiEvaluateRes(fmu, eqId, row)
+      @assert status == fmi2OK "residual could not be evaluated"
 
-      if status == fmi2OK
-        # Update data frame
-        if useTime
-          new_row = vcat([timeBounds[1]], row[1:nInputs], wiggle.(row[nInputs+1:end]), row[nInputs+1:end])
-        else
-          new_row = vcat(row[1:nInputs], wiggle.(row[nInputs+1:end]), row[nInputs+1:end])
-        end
-        push!(df_prox, new_row)
-      else
-        nFailures += 1
-      end
+      return row[1:nInputs], row[nInputs+1:end], sum(res .^ 2)
+    end
+
+
+    """
+    """
+    function makeNeighbor(old_x, old_y; delta)
+      # Make random neighbor of old x
+      x = old_x + (inMax.-inMin).*(2.0 .*rand(nInputs) .- 1.0) .* delta
+      # Check boundaries
+      x .= max.(x, inMin)
+      x .= min.(x, inMax)
+      row[1:nInputs] .= x
+
+      # Set initial guess to old y
+      row[nInputs+1:end] .= old_y
+
+      # Evaluate surrogate
+      y = model(row)
+      row[nInputs+1:end] .= y
+
+      # Evaluate residual
+      status, res = fmiEvaluateRes(fmu, eqId, row)
+      @assert status == fmi2OK "could not evaluated residual $eqId"
+
+      return x, y, sum(res .^ 2)
+    end
+
+
+    for step in 1:options.steps
+      @info "Step $(step):"
+
+      beesAlgorithm(makeRandInputOutput, makeNeighbor, generateDataPoint; samples=(options.samples-samplesGenerated))
 
       # Train model with augmented data set
       data = prepareData(df_prox, vcat(inputVars, outputVars .* "_old"), outputVars)
@@ -200,31 +233,17 @@ function activeLearn(
     FMI.fmiUnload(fmu)
     rethrow(err)
   end
-
-  return number_of_nls_evals
 end
 
-
-"""
-Evaluate equation `eqId` with `row` as inputs + start values
-"""
-function generateDataPoint(fmu, eqId, nInputs, row_vr, row, time=nothing)
-  # Set input values and start values for output
-  FMIImport.fmi2SetReal(fmu, row_vr, row)
-  if time !== nothing
-    FMIImport.fmi2SetTime(fmu, time)
+function beesAlgorithm(new, neighbor, gen)
+  x, y, res = new()
+  @info "$res\n$x\n$y"
+  for _ in 1:10
+    x_new, y_new, res_new = neighbor(x, y; delta=0.01)
+    @info "$res_new\n$x_new\n$y_new"
   end
-
-  # Evaluate equation
-  # TODO: Supress stream prints, but Suppressor.jl is not thread safe
-  status = fmiEvaluateEq(fmu, eqId)
-  if status == fmi2OK
-    # Get output values
-    row[nInputs+1:end] .= FMIImport.fmi2GetReal(fmu, row_vr[nInputs+1:end])
-  end
-
-  return status, row
 end
+
 
 """
 Transform data set into proximity data set.

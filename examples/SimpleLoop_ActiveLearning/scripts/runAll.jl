@@ -20,7 +20,7 @@ function mymain(modelName::String, N::Integer, reuseArtifacts=true::Bool)
 
   dataGenOptions = DataGenOptions(;
     method=RandomMethod(),
-    n=N,
+    n=round(Integer, N*0.5),
     nBatches=1,
     nThreads=Threads.nthreads(),
     append=false,
@@ -33,6 +33,9 @@ function mymain(modelName::String, N::Integer, reuseArtifacts=true::Bool)
 
   fmu_interface = joinpath(omOptions.workingDir, modelName * ".interface.fmu")
   @assert isfile(fmu_interface) "no file '*.interface.fmu' found"
+
+
+  alOptions = ActiveLearnOptions(; samples=N-dataGenOptions.n)
 
   # Train models
   @info "Train models"
@@ -67,8 +70,7 @@ function mymain(modelName::String, N::Integer, reuseArtifacts=true::Bool)
     @assert csvFile == abspath(joinpath(omOptions.workingDir, "data", "eq_$(prof.eqInfo.id).csv")) "filename wrong"
     @assert isfile(csvFile) "csvFile does not exist"
 
-    number_of_nls_evals = activeLearnWrapper(fmu_interface, csvFile, model, onnxFile, csvFile, eqIndex, inputVars, minBoundary, maxBoundary, outputVars)
-    @info "number of NLS evals: $number_of_nls_evals"
+    activeLearnWrapper(fmu_interface, csvFile, model, onnxFile, csvFile, eqIndex, inputVars, minBoundary, maxBoundary, outputVars; options=alOptions)
     push!(onnxFiles, onnxFile)
   end
   if omOptions.clean
