@@ -221,7 +221,7 @@ function activeLearn(
     for step in 1:options.steps
       @info "Step $(step):"
 
-      beesAlgorithm(makeRandInputOutput, makeNeighbor, generateDataPoint; samples=(options.samples-samplesGenerated))
+      beesAlgorithm(makeRandInputOutput, makeNeighbor, generateDataPoint; samples=floor(Integer, (options.samples - samplesGenerated)/(options.steps-step+1)))
 
       # Train model with augmented data set
       data = prepareData(df_prox, vcat(inputVars, outputVars .* "_old"), outputVars)
@@ -242,12 +242,15 @@ function activeLearn(
   end
 end
 
-function beesAlgorithm(new, neighbor, gen)
+function beesAlgorithm(new, neighbor, gen; samples)
+  @info "samples $samples"
+  generated = 0
   x, y, res = new()
-  @info "$res\n$x\n$y"
-  for _ in 1:10
+  generated += 1
+  #@info "$res\n$x\n$y"
+  for _ in generated:samples-1
     x_new, y_new, res_new = neighbor(x, y; delta=0.01)
-    @info "$res_new\n$x_new\n$y_new"
+    #@info "$res_new\n$x_new\n$y_new"
   end
 end
 
