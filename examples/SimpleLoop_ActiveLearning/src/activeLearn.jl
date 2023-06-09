@@ -195,7 +195,7 @@ function activeLearn(
 
     """
     """
-    function makeNeighbor(old_row; delta=0.01)
+    function makeNeighbor(old_row; delta=0.03)
       # Make random neighbor of old x
       x = old_row[1:nInputs] + (inMax .- inMin) .* (2.0 .* rand(nInputs) .- 1.0) .* delta
       # Check boundaries
@@ -220,12 +220,15 @@ function activeLearn(
 
 
     for step in 1:options.steps
-      @info "Step $(step):"
 
-      generated = beesAlgorithm(makeRandInputOutput, makeNeighbor, generateDataPoint; samples=floor(Integer, (options.samples - samplesGenerated)/(options.steps-step+1)))
-      if generated == 0
+      samples = floor(Integer, (options.samples - samplesGenerated)/(options.steps-step+1))
+      if samples <= 0
         break
       end
+
+      @info "Step $(step):"
+
+      beesAlgorithm(makeRandInputOutput, makeNeighbor, generateDataPoint; samples=samples)
 
       # Train model with augmented data set
       data = prepareData(df_prox, vcat(inputVars, outputVars .* "_old"), outputVars)
@@ -249,40 +252,66 @@ end
 """
     beesAlgorithm(new, next, gen; samples)
 
+    Find maximal value.
+
 # Arguments
-  - `new`: function to generate a new random bee
-  - `next`: function to generate a bee in the neighborhood of bee (x,y)
-  - `gen`:
+  - `new`:    function to generate a new random bee
+  - `next`:   function to generate a bee in the neighborhood of bee (x,y)
+  - `gen`:    function to actually generate the sample point (x, initialGuessY)
 
 # Keywords
-  - `samples::Integer`: number of samples to generate during optimization
+  - `samples::Integer`:   number of samples to generate during optimization
 
 """
 function beesAlgorithm(new, next, gen; samples::Integer)
   @info "samples $samples"
   generated = 0
 
-  popsize = floor(Integer, samples/10)
-  bestBees = floor(Integer, 0.5*popsize)
+  popsize = floor(Integer, samples*0.1)
+  nBest = floor(Integer, popsize*0.25)
+  nBestNeighbors = 5
 
-  optimum = (nothing, -Inf)
+  x = Array{Any}(undef,popsize)
+  y = Array{Float64}(undef,popsize)
+  #optimum = (nothing, -Inf)
 
-  x = Array{Any}(undef,samples)
-  y = Array{Float64}(undef,samples)
-
-  # starting population
+  # make starting population
   for i in 1:popsize
     x[i], y[i] = new()
     generated += 1
-    @info "$i = $((x[i],y[i]))"
-    if y[i] > optimum[2]
-      optimum = (x[i], y[i])
-    end
+    #if y[i] > optimum[2]
+    #  optimum = (x[i], y[i])
+    #end
   end
-  @info "optimum = $optimum"
 
-  for _ in generated:samples-1
-    x_new, y_new = next(optimum[1])
+  # main loop
+  while generated < samples
+    p = sortperm(y,rev=true)
+    for i in p[1:nBest]
+      # best bees look at neighbors
+      for _ in 1:nBestNeighbors
+        xn, yn = next(x[i])
+        # break if enough points were generated
+        generated += 1
+        if generated >= samples
+          break
+        end
+        # if new is better, replace
+        if yn > y[i]
+          x[i] .= xn
+          y[i] = yn
+        end
+      end
+    end
+    for i in p[nBest:end]
+      # rest looks randomly
+      x[i], y[i] = new()
+      # break if enough points were generated
+      generated += 1
+      if generated >= samples
+        break
+      end
+    end
   end
 
   return generated
