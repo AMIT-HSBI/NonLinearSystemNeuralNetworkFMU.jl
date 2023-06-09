@@ -127,7 +127,7 @@ function activeLearn(
     data = prepareData(df_prox, vcat(inputVars, outputVars .* "_old"), outputVars)
 
     # Initial training run
-    model, _ = trainSurrogate!(model, data.train, data.test)
+    model, _ = trainSurrogate!(model, data.train, data.test; nepochs=100)
 
     row_vr = FMI.fmiStringToValueReference(fmu.modelDescription, vcat(inputVars, outputVars))
 
@@ -227,19 +227,16 @@ function activeLearn(
 
 
     for step in 1:options.steps
-
-      samples = floor(Integer, (options.samples - samplesGenerated)/(options.steps-step+1))
-      if samples <= 0
-        break
-      end
-
       @info "Step $(step):"
 
-      beesAlgorithm(makeRandInputOutput, makeNeighbor; samples=samples)
+      samples = floor(Integer, (options.samples - samplesGenerated)/(options.steps-step+1))
+      if samples > 0
+        beesAlgorithm(makeRandInputOutput, makeNeighbor; samples=samples)
+        data = prepareData(df_prox, vcat(inputVars, outputVars .* "_old"), outputVars)
+      end
 
       # Train model with augmented data set
-      data = prepareData(df_prox, vcat(inputVars, outputVars .* "_old"), outputVars)
-      model, _ = trainSurrogate!(model, data.train, data.test)
+      model, _ = trainSurrogate!(model, data.train, data.test; nepochs=100)
     end
     @info "generated $samplesGenerated"
 

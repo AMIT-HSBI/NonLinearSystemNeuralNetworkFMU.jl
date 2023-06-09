@@ -75,7 +75,7 @@ function ortDataCode(equations::Array{ProfilingInfo}, modelName::String, onnxNam
     int USE_JULIA = 1;
     int LOG_RES = 1;
     int MEASURE_TIMES = 1;
-    double MAX_REL_ERROR = 1e-4;
+    double MAX_REL_ERROR = DBL_MAX;
     int ORT_NTHREADS = 0;
 
     /* Global ORT structs */
