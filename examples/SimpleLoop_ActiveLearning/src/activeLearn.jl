@@ -124,7 +124,6 @@ function activeLearn(
     df = CSV.read(initialData, DataFrames.DataFrame; ntasks=1)
     df = DataFrames.select(df, vcat(inputVars, outputVars))
     df_prox = data2proximityData(df, inputVars, outputVars)
-    @info "\n$(names(df))\n$(vcat(inputVars,outputVars))"
     data = prepareData(df_prox, vcat(inputVars, outputVars .* "_old"), outputVars)
 
     # Initial training run
