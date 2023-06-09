@@ -20,7 +20,7 @@
 model simpleLoop
   Real r(min = 0);
   Real s(min = -sqrt(2), max = sqrt(2));
-  Real x(start=1.0), y(start=0.5);
+  Real x(start=1.0), y(start=-0.1);
   parameter Real b = -0.5;
   Real x_ref, y_ref;
   Real x_err, y_err, res_err[2];
@@ -31,8 +31,8 @@ equation
   r^2 = x^2 + y^2;
   r*s + b = x + y;
 
-  x_ref = 0.5 * ( -sqrt(-b^2 - 2*b*r*s - r^2*(s^2-2))+b+r*s);
-  y_ref = r*s + b - x_ref;
+  y_ref = 0.5 * ( -sqrt(-b^2 - 2*b*r*s - r^2*(s^2-2))+b+r*s);
+  x_ref = r*s + b - y_ref;
 
   x_err = x - x_ref;
   y_err = y - y_ref;
