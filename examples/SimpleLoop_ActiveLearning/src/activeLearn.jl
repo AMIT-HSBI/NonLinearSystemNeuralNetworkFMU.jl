@@ -130,19 +130,21 @@ function activeLearn(
     # Initial training run
     model, _ = trainSurrogate!(model, data.train, data.test)
 
-    row = Array{Float64}(undef, nVars)
     row_vr = FMI.fmiStringToValueReference(fmu.modelDescription, vcat(inputVars, outputVars))
 
 
     """
     """
-    function generateDataPoint(x; y=nothing)
+    function generateDataPoint(old_x; old_y=nothing)
+      row = Array{Float64}(undef, nVars)
       # Set input values and start values for output
-      row[1:nInputs] .= x
-      if y === nothing
+      row[1:nInputs] .= old_x
+      if old_y === nothing
+        # TODO get output from nearby input
+        row[nInputs+1:end] .= 0.0
         row[nInputs+1:end] .= model(row)
       else
-        row[nInputs+1:end] .= y
+        row[nInputs+1:end] .= old_y
       end
       FMIImport.fmi2SetReal(fmu, row_vr, row)
       if useTime
@@ -172,49 +174,49 @@ function activeLearn(
     """
     """
     function makeRandInputOutput()
+      x = Array{Float64}(undef, nInputs)
+      y = Array{Float64}(undef, nOutputs)
+
       # Set input values with random values
-      row[1:nInputs] = (inMax .- inMin) .* rand(nInputs) .+ inMin
+      x = (inMax .- inMin) .* rand(nInputs) .+ inMin
 
       # Set initial guess to correct output
       # TODO get output from nearby input
-      row[nInputs+1:end] .= generateDataPoint(row[1:nInputs])
+      y .= generateDataPoint(x)
 
       # Set output values with surrogate
+      y .= model(vcat(x, y))
 
-      row[nInputs+1:end] .= model(row)
-
-      status, res = fmiEvaluateRes(fmu, eqId, row)
+      status, res = fmiEvaluateRes(fmu, eqId, vcat(x, y))
       @assert status == fmi2OK "residual could not be evaluated"
 
-      return row[1:nInputs], row[nInputs+1:end], sum(res .^ 2)
+      return vcat(x, y), sum(res .^ 2)
     end
 
 
     """
     """
-    function makeNeighbor(old_x, old_y; delta)
+    function makeNeighbor(old_row; delta=0.01)
       # Make random neighbor of old x
-      x = old_x + (inMax .- inMin) .* (2.0 .* rand(nInputs) .- 1.0) .* delta
+      x = old_row[1:nInputs] + (inMax .- inMin) .* (2.0 .* rand(nInputs) .- 1.0) .* delta
       # Check boundaries
       x .= max.(x, inMin)
       x .= min.(x, inMax)
-      row[1:nInputs] .= x
 
       # Set initial guess to old y
-      row[nInputs+1:end] .= old_y
+      y = old_row[nInputs+1:end]
 
       # Evaluate surrogate
-      y = model(row)
-      row[nInputs+1:end] .= y
+      y .= model(vcat(x, y))
 
       # Evaluate residual
-      status, res = fmiEvaluateRes(fmu, eqId, row)
+      status, res = fmiEvaluateRes(fmu, eqId, vcat(x, y))
       @assert status == fmi2OK "could not evaluated residual $eqId"
 
       # maybe
-      row[nInputs+1:end] .= generateDataPoint(row[1:nInputs]; y=row[nInputs+1:end])
+      y .= generateDataPoint(x; old_y=y)
 
-      return x, y, sum(res .^ 2)
+      return vcat(x, y), sum(res .^ 2)
     end
 
 
@@ -242,15 +244,43 @@ function activeLearn(
   end
 end
 
-function beesAlgorithm(new, neighbor, gen; samples)
+"""
+    beesAlgorithm(new, next, gen; samples)
+
+# Arguments
+  - `new`: function to generate a new random bee
+  - `next`: function to generate a bee in the neighborhood of bee (x,y)
+  - `gen`:
+
+# Keywords
+  - `samples::Integer`: number of samples to generate during optimization
+
+"""
+function beesAlgorithm(new, next, gen; samples::Integer)
   @info "samples $samples"
   generated = 0
-  x, y, res = new()
-  generated += 1
-  #@info "$res\n$x\n$y"
+
+  popsize = floor(Integer, samples/10)
+  bestBees = floor(Integer, 0.5*popsize)
+
+  optimum = (nothing, -Inf)
+
+  x = Array{Any}(undef,samples)
+  y = Array{Float64}(undef,samples)
+
+  # starting population
+  for i in 1:popsize
+    x[i], y[i] = new()
+    generated += 1
+    @info "$i = $((x[i],y[i]))"
+    if y[i] > optimum[2]
+      optimum = (x[i], y[i])
+    end
+  end
+  @info "optimum = $optimum"
+
   for _ in generated:samples-1
-    x_new, y_new, res_new = neighbor(x, y; delta=0.01)
-    #@info "$res_new\n$x_new\n$y_new"
+    x_new, y_new = next(optimum[1])
   end
 end
 
