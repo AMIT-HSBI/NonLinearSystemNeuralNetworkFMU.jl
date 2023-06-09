@@ -272,8 +272,6 @@ end
 
 """
 function beesAlgorithm(new, next; samples::Integer)
-  @info "samples $samples"
-
   popsize = floor(Integer, samples*0.1)
   nBest = floor(Integer, popsize*0.25)
   nBestNeighbors = 5
