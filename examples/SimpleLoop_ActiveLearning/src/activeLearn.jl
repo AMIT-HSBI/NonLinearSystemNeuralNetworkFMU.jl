@@ -135,13 +135,16 @@ function activeLearn(
     """
     """
     function generateDataPoint(old_x; old_y=nothing)
+      x = Array{Float64}(undef, nInputs)
+      y = Array{Float64}(undef, nOutputs)
+
       row = Array{Float64}(undef, nVars)
       # Set input values and start values for output
       row[1:nInputs] .= old_x
       if old_y === nothing
         # TODO get output from nearby input
         row[nInputs+1:end] .= 0.0
-        row[nInputs+1:end] .= model(row)
+        #row[nInputs+1:end] .= model(row)
       else
         row[nInputs+1:end] .= old_y
       end
@@ -157,13 +160,17 @@ function activeLearn(
 
       # Get output values
       row[nInputs+1:end] .= FMIImport.fmi2GetReal(fmu, row_vr[nInputs+1:end])
+      x .= row[1:nInputs]
+      y .= row[nInputs+1:end]
       # Update data frame
       if useTime
-        new_row = vcat([timeBounds[1]], row[1:nInputs], wiggle.(row[nInputs+1:end]), row[nInputs+1:end])
+        push!(df, vcat([timeBounds[1]], x, y))
+        push!(df_prox, vcat([timeBounds[1]], x, wiggle.(y), y))
       else
-        new_row = vcat(row[1:nInputs], wiggle.(row[nInputs+1:end]), row[nInputs+1:end])
+        push!(df, vcat(x, y))
+        push!(df_prox, vcat(x, wiggle.(y), y))
       end
-      push!(df_prox, new_row)
+
       samplesGenerated += 1
 
       return row[nInputs+1:end]
@@ -184,7 +191,7 @@ function activeLearn(
       y .= generateDataPoint(x)
 
       # Set output values with surrogate
-      y .= model(vcat(x, y))
+      y .= model(vcat(x, wiggle.(y)))
 
       status, res = fmiEvaluateRes(fmu, eqId, vcat(x, y))
       @assert status == fmi2OK "residual could not be evaluated"
@@ -228,12 +235,13 @@ function activeLearn(
 
       @info "Step $(step):"
 
-      beesAlgorithm(makeRandInputOutput, makeNeighbor, generateDataPoint; samples=samples)
+      beesAlgorithm(makeRandInputOutput, makeNeighbor; samples=samples)
 
       # Train model with augmented data set
       data = prepareData(df_prox, vcat(inputVars, outputVars .* "_old"), outputVars)
       model, _ = trainSurrogate!(model, data.train, data.test)
     end
+    @info "generated $samplesGenerated"
 
     # save model and data
     mkpath(dirname(onnxFile))
@@ -263,9 +271,8 @@ end
   - `samples::Integer`:   number of samples to generate during optimization
 
 """
-function beesAlgorithm(new, next, gen; samples::Integer)
+function beesAlgorithm(new, next; samples::Integer)
   @info "samples $samples"
-  generated = 0
 
   popsize = floor(Integer, samples*0.1)
   nBest = floor(Integer, popsize*0.25)
@@ -273,16 +280,12 @@ function beesAlgorithm(new, next, gen; samples::Integer)
 
   x = Array{Any}(undef,popsize)
   y = Array{Float64}(undef,popsize)
-  #optimum = (nothing, -Inf)
 
   # make starting population
   for i in 1:popsize
     x[i], y[i] = new()
-    generated += 1
-    #if y[i] > optimum[2]
-    #  optimum = (x[i], y[i])
-    #end
   end
+  generated = popsize
 
   # main loop
   while generated < samples
@@ -290,10 +293,10 @@ function beesAlgorithm(new, next, gen; samples::Integer)
     for i in p[1:nBest]
       # best bees look at neighbors
       for _ in 1:nBestNeighbors
-        xn, yn = next(x[i])
-        # break if enough points were generated
-        generated += 1
-        if generated >= samples
+        if generated < samples
+          xn, yn = next(x[i])
+          generated += 1
+        else
           break
         end
         # if new is better, replace
@@ -303,18 +306,19 @@ function beesAlgorithm(new, next, gen; samples::Integer)
         end
       end
     end
+    if generated >= samples
+      break
+    end
     for i in p[nBest:end]
       # rest looks randomly
-      x[i], y[i] = new()
-      # break if enough points were generated
-      generated += 1
       if generated >= samples
+        x[i], y[i] = new()
+        generated += 1
+      else
         break
       end
     end
   end
-
-  return generated
 end
 
 

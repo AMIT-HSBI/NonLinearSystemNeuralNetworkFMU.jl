@@ -7,7 +7,7 @@ include(srcdir("activeLearn.jl"))
 include(srcdir("simulateFMU.jl"))
 
 modelName = "simpleLoop"
-N = 10_000
+N = 1_000
 
 function mymain(modelName::String, N::Integer, reuseArtifacts=true::Bool)
   moFiles = [srcdir("$modelName.mo")]
@@ -20,7 +20,7 @@ function mymain(modelName::String, N::Integer, reuseArtifacts=true::Bool)
 
   dataGenOptions = DataGenOptions(;
     method=RandomMethod(),
-    n=round(Integer, N*0.5),
+    n=round(Integer, N*0.1),
     nBatches=1,
     nThreads=Threads.nthreads(),
     append=false,
