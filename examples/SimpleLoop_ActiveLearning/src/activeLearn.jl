@@ -63,11 +63,6 @@ function activeLearnWrapper(
   options=ActiveLearnOptions()::ActiveLearnOptions
 )
 
-  if options.samples <= 0
-    @info "nothing to do"
-    return
-  end
-
   @assert length(inMin) == length(inMax) == length(inputVars) "Length of min, max and inputVars doesn't match"
 
   # Handle time input variable
@@ -241,7 +236,7 @@ function activeLearn(
 
       for row in eachrow(df)[start:end]
         x .= Vector(row[1:nInputs])
-        y .= Vector(row[nInputs+1:end])
+        y .= wiggle.(Vector(row[nInputs+1:end]))
         y .= model(vcat(x, y))
 
         # Evaluate residual
@@ -254,8 +249,7 @@ function activeLearn(
       CSV.write(dirname(csvFile)*"/"*fname, df_res)
     end
 
-    resLandscape("res_0_a.csv", 1)
-    resLandscape("res_0_b.csv", 1)
+    resLandscape("res_0.csv", 1)
 
     for step in 1:options.steps
       @info "Step $(step):"
@@ -270,8 +264,7 @@ function activeLearn(
       beesAlgorithm(makeRandInputOutput, makeNeighbor; samples=samples)
       data = prepareData(df_prox, vcat(inputVars, outputVars .* "_old"), outputVars)
 
-      resLandscape("res_$(step)_a.csv", start)
-      resLandscape("res_$(step)_b.csv", start)
+      resLandscape("res_$(step).csv", start)
 
       # Train model with augmented data set
       model, df_loss = trainSurrogate!(model, data.train, data.test; losstol=1e-5, nepochs=500)
