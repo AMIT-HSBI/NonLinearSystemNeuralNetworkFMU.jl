@@ -132,13 +132,13 @@ function activeLearn(
     data = prepareData(df_prox, vcat(inputVars, outputVars .* "_old"), outputVars)
 
     # Initial training run
-    model, df_loss = trainSurrogate!(model, data.train, data.test; losstol=1e-3, nepochs=300)
+    model, df_loss = trainSurrogate!(model, data.train, data.test; losstol=1e-4, nepochs=400)
     CSV.write("loss_0.csv", df_loss)
 
     row_vr = FMI.fmiStringToValueReference(fmu.modelDescription, vcat(inputVars, outputVars))
 
 
-    function generateDataPoint(old_x; old_y=nothing, nCopies=8)
+    function generateDataPoint(old_x; old_y=nothing, nCopies=16)
       x = Array{Float64}(undef, nInputs)
       y = Array{Float64}(undef, nOutputs)
 
@@ -200,9 +200,9 @@ function activeLearn(
       y .= model(vcat(x, wiggle.(y)))
 
       status, res = fmiEvaluateRes(fmu, eqId, vcat(x, y))
-      @assert status == fmi2OK "residual could not be evaluated"
+      @assert status == fmi2OK "could not evaluated residual $eqId"
 
-      return vcat(x, y), sum(res .^ 2)
+      return vcat(x, y), sqrt(sum(res .^ 2))
     end
 
 
@@ -226,32 +226,36 @@ function activeLearn(
       status, res = fmiEvaluateRes(fmu, eqId, vcat(x, y))
       @assert status == fmi2OK "could not evaluated residual $eqId"
 
-      return vcat(x, y), sum(res .^ 2)
+      return vcat(x, y), sqrt(sum(res .^ 2))
     end
 
-    col_names = Symbol.(vcat(inputVars, "res_norm"))
-    col_types = fill(Float64, nInputs + 1)
-    named_tuple = NamedTuple{Tuple(col_names)}(type[] for type in col_types)
-    x = Array{Float64}(undef, nInputs)
-    y = Array{Float64}(undef, nOutputs)
     function resLandscape(fname::String, start::Integer)
       # Create new empty data frame
+      col_names = Symbol.(vcat(inputVars, "res_norm"))
+      col_types = fill(Float64, nInputs + 1)
+      named_tuple = NamedTuple{Tuple(col_names)}(type[] for type in col_types)
       df_res = DataFrames.DataFrame(named_tuple)
+
+      x = Array{Float64}(undef, nInputs)
+      y = Array{Float64}(undef, nOutputs)
 
       for row in eachrow(df)[start:end]
         x .= Vector(row[1:nInputs])
         y .= Vector(row[nInputs+1:end])
         y .= model(vcat(x, y))
+
+        # Evaluate residual
         status, res = fmiEvaluateRes(fmu, eqId, vcat(x, y))
-        @assert status == fmi2OK "residual could not be evaluated"
-        res = sum(res .^ 2)
-        push!(df_res, vcat(x, res))
+        @assert status == fmi2OK "could not evaluated residual $eqId"
+
+        push!(df_res, vcat(x, sqrt(sum(res .^ 2))))
       end
 
       CSV.write(fname, df_res)
     end
 
-    resLandscape("res_0.csv", 1)
+    resLandscape("res_0_a.csv", 1)
+    resLandscape("res_0_b.csv", 1)
 
     for step in 1:options.steps
       @info "Step $(step):"
@@ -266,10 +270,11 @@ function activeLearn(
       beesAlgorithm(makeRandInputOutput, makeNeighbor; samples=samples)
       data = prepareData(df_prox, vcat(inputVars, outputVars .* "_old"), outputVars)
 
-      resLandscape("res_$step.csv", start)
+      resLandscape("res_$(step)_a.csv", start)
+      resLandscape("res_$(step)_b.csv", start)
 
       # Train model with augmented data set
-      model, df_loss = trainSurrogate!(model, data.train, data.test; losstol=1e-5, nepochs=300)
+      model, df_loss = trainSurrogate!(model, data.train, data.test; losstol=1e-5, nepochs=500)
       CSV.write("loss_$step.csv", df_loss)
     end
     @info "generated $samplesGenerated"
@@ -305,7 +310,7 @@ end
 function beesAlgorithm(new, next; samples::Integer)
   popsize = floor(Integer, samples*0.1)
   nBest = floor(Integer, popsize*0.25)
-  nBestNeighbors = 5
+  nBestNeighbors = 4
 
   x = Array{Any}(undef,popsize)
   y = Array{Float64}(undef,popsize)
@@ -361,7 +366,7 @@ function data2proximityData(
   df::DataFrames.DataFrame,
   inputVars::Array{String},
   outputVars::Array{String};
-  nCopies=8::Integer
+  nCopies=16::Integer
 )::DataFrames.DataFrame
 
   nInputs = length(inputVars)
