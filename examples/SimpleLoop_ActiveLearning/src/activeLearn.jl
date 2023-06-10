@@ -63,6 +63,11 @@ function activeLearnWrapper(
   options=ActiveLearnOptions()::ActiveLearnOptions
 )
 
+  if options.samples <= 0
+    @info "nothing to do"
+    return
+  end
+
   @assert length(inMin) == length(inMax) == length(inputVars) "Length of min, max and inputVars doesn't match"
 
   # Handle time input variable
