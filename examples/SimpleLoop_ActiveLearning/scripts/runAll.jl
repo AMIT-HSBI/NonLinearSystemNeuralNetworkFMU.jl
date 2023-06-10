@@ -7,7 +7,7 @@ include(srcdir("activeLearn.jl"))
 include(srcdir("simulateFMU.jl"))
 
 modelName = "simpleLoop"
-N = 3_000
+N = 1_000
 
 function mymain(modelName::String, N::Integer, reuseArtifacts=true::Bool)
   moFiles = [srcdir("$modelName.mo")]

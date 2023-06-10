@@ -132,9 +132,7 @@ function activeLearn(
     row_vr = FMI.fmiStringToValueReference(fmu.modelDescription, vcat(inputVars, outputVars))
 
 
-    """
-    """
-    function generateDataPoint(old_x; old_y=nothing)
+    function generateDataPoint(old_x; old_y=nothing, nCopies=4)
       x = Array{Float64}(undef, nInputs)
       y = Array{Float64}(undef, nOutputs)
 
@@ -165,10 +163,14 @@ function activeLearn(
       # Update data frame
       if useTime
         push!(df, vcat([timeBounds[1]], x, y))
-        push!(df_prox, vcat([timeBounds[1]], x, wiggle.(y), y))
+        for _ in 1:nCopies
+          push!(df_prox, vcat([timeBounds[1]], x, wiggle.(y), y))
+        end
       else
         push!(df, vcat(x, y))
-        push!(df_prox, vcat(x, wiggle.(y), y))
+        for _ in 1:nCopies
+          push!(df_prox, vcat(x, wiggle.(y), y))
+        end
       end
 
       samplesGenerated += 1
@@ -177,8 +179,6 @@ function activeLearn(
     end
 
 
-    """
-    """
     function makeRandInputOutput()
       x = Array{Float64}(undef, nInputs)
       y = Array{Float64}(undef, nOutputs)
@@ -200,8 +200,6 @@ function activeLearn(
     end
 
 
-    """
-    """
     function makeNeighbor(old_row; delta=0.03)
       # Make random neighbor of old x
       x = old_row[1:nInputs] + (inMax .- inMin) .* (2.0 .* rand(nInputs) .- 1.0) .* delta
@@ -212,15 +210,15 @@ function activeLearn(
       # Set initial guess to old y
       y = old_row[nInputs+1:end]
 
+      # maybe
+      y .= generateDataPoint(x; old_y=y)
+
       # Evaluate surrogate
       y .= model(vcat(x, y))
 
       # Evaluate residual
       status, res = fmiEvaluateRes(fmu, eqId, vcat(x, y))
       @assert status == fmi2OK "could not evaluated residual $eqId"
-
-      # maybe
-      y .= generateDataPoint(x; old_y=y)
 
       return vcat(x, y), sum(res .^ 2)
     end
@@ -329,7 +327,6 @@ function data2proximityData(
   df::DataFrames.DataFrame,
   inputVars::Array{String},
   outputVars::Array{String};
-  delta=0.1::Float64,
   nCopies=4::Integer
 )::DataFrames.DataFrame
 
@@ -345,9 +342,9 @@ function data2proximityData(
   # Fill new data frame
   for row in eachrow(df)
     # Add copies with different y_tilde
-    for i in 0:nCopies-1
+    for _ in 1:nCopies
       y = Vector(row[nInputs+1:nInputs+nOutputs])
-      y_tilde = wiggle.(y; delta=delta * 0.95^i)
+      y_tilde = wiggle.(y)
       x = Vector(row[1:nInputs])
       new_row = vcat(x, y_tilde, y)
       push!(df_proximity, new_row)
@@ -356,7 +353,7 @@ function data2proximityData(
   return df_proximity
 end
 
-function wiggle(x; delta=0.1)
+function wiggle(x; delta=0.01)
   r = delta * (2 * rand() - 1)
   return x + (r * x)
 end
