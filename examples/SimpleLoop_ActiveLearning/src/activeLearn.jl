@@ -224,15 +224,15 @@ function activeLearn(
       return vcat(x, y), sum(res .^ 2)
     end
 
+    col_names = Symbol.(vcat(inputVars, "res_norm"))
+    col_types = fill(Float64, nInputs + 1)
+    named_tuple = NamedTuple{Tuple(col_names)}(type[] for type in col_types)
+    x = Array{Float64}(undef, nInputs)
+    y = Array{Float64}(undef, nOutputs)
     function resLandscape(fname::String, start::Integer)
       # Create new empty data frame
-      col_names = Symbol.(vcat(inputVars, "res_norm"))
-      col_types = fill(Float64, nInputs + 1)
-      named_tuple = NamedTuple{Tuple(col_names)}(type[] for type in col_types)
       df_res = DataFrames.DataFrame(named_tuple)
 
-      x = Array{Float64}(undef, nInputs)
-      y = Array{Float64}(undef, nOutputs)
       for row in eachrow(df)[start:end]
         x .= Vector(row[1:nInputs])
         y .= Vector(row[nInputs+1:end])
