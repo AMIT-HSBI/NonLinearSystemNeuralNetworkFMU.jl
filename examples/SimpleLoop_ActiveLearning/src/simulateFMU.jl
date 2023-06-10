@@ -1,8 +1,6 @@
 using NonLinearSystemNeuralNetworkFMU
 
-function simulateFMU(modelName, N)
-  workdir = datadir("sims", "$(modelName)_$(N)")
-
+function simulateFMU(modelName, N, workdir)
   tempdir = joinpath(workdir, "temp-omsimulator")
   logFile = joinpath(tempdir, "oms_call.log")
   mkpath(dirname(tempdir))

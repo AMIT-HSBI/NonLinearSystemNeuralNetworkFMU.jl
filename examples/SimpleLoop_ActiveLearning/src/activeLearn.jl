@@ -132,8 +132,8 @@ function activeLearn(
     data = prepareData(df_prox, vcat(inputVars, outputVars .* "_old"), outputVars)
 
     # Initial training run
-    model, df_loss = trainSurrogate!(model, data.train, data.test; losstol=1e-4, nepochs=400)
-    CSV.write("loss_0.csv", df_loss)
+    model, df_loss = trainSurrogate!(model, data.train, data.test; losstol=1e-5, nepochs=500)
+    CSV.write(dirname(csvFile)*"/"*"loss_0.csv", df_loss)
 
     row_vr = FMI.fmiStringToValueReference(fmu.modelDescription, vcat(inputVars, outputVars))
 
@@ -251,7 +251,7 @@ function activeLearn(
         push!(df_res, vcat(x, sqrt(sum(res .^ 2))))
       end
 
-      CSV.write(fname, df_res)
+      CSV.write(dirname(csvFile)*"/"*fname, df_res)
     end
 
     resLandscape("res_0_a.csv", 1)
@@ -275,7 +275,7 @@ function activeLearn(
 
       # Train model with augmented data set
       model, df_loss = trainSurrogate!(model, data.train, data.test; losstol=1e-5, nepochs=500)
-      CSV.write("loss_$step.csv", df_loss)
+      CSV.write(dirname(csvFile)*"/"*"loss_$step.csv", df_loss)
     end
     @info "generated $samplesGenerated"
 
@@ -308,7 +308,8 @@ end
 
 """
 function beesAlgorithm(new, next; samples::Integer)
-  popsize = floor(Integer, samples*0.1)
+  popsize = max(4, floor(Integer, samples*0.1))
+  @assert popsize < samples "not enough samples for bees algorithm"
   nBest = floor(Integer, popsize*0.25)
   nBestNeighbors = 4
 
@@ -343,7 +344,7 @@ function beesAlgorithm(new, next; samples::Integer)
     if generated >= samples
       break
     end
-    for i in p[nBest:end]
+    for i in p[nBest+1:end]
       # rest looks randomly
       if generated >= samples
         x[i], y[i] = new()
