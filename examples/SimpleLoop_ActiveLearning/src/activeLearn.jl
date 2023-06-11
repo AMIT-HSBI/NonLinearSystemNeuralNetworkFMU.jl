@@ -224,6 +224,7 @@ function activeLearn(
       return vcat(x, y), sqrt(sum(res .^ 2))
     end
 
+    #=
     function resLandscape(fname::String, start::Integer)
       # Create new empty data frame
       col_names = Symbol.(vcat(inputVars, "res_norm"))
@@ -250,6 +251,7 @@ function activeLearn(
     end
 
     resLandscape("res_0.csv", 1)
+    =#
 
     for step in 1:options.steps
       @info "Step $(step):"
@@ -260,11 +262,10 @@ function activeLearn(
       end
 
       start = length(eachrow(df)) + 1
-      @info "start $start"
       beesAlgorithm(makeRandInputOutput, makeNeighbor; samples=samples)
       data = prepareData(df_prox, vcat(inputVars, outputVars .* "_old"), outputVars)
 
-      resLandscape("res_$(step).csv", start)
+      #resLandscape("res_$(step).csv", start)
 
       # Train model with augmented data set
       model, df_loss = trainSurrogate!(model, data.train, data.test; losstol=1e-5, nepochs=500)

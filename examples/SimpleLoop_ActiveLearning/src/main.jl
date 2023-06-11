@@ -41,7 +41,7 @@ function mymain(modelName::String, N::Integer; reuseArtifacts=true::Bool, pretra
 
     onnxFile = abspath(joinpath(omOptions.workingDir, "onnx", "eq_$(prof.eqInfo.id).onnx"))
     local model
-    if reuseArtifacts && isfile(onnxFile * ".bson")
+    if false # reuseArtifacts && isfile(onnxFile * ".bson")
       @info "Reusing $(onnxFile).bson"
       BSON.@load onnxFile * ".bson" model
     else

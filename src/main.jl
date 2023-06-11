@@ -130,7 +130,7 @@ function main(modelName::String,
 
     fileName = abspath(joinpath(omOptions.workingDir, "data", "eq_$(prof.eqInfo.id).csv"))
     local csvFile
-    if reuseArtifacts && isfile(fileName)
+    if false # reuseArtifacts && isfile(fileName)
       @info "Reusing $fileName"
       csvFile = fileName
     else
