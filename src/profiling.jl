@@ -151,13 +151,18 @@ function findSlowEquations(profJsonFile::String, infoJsonFile::String; threshold
   equations = infoFile["equations"]
 
   profileFile = JSON.parsefile(profJsonFile)
-  totalTime = profileFile["totalTime"]
+  totalSimulationTime = profileFile["totalTime"]
   profileBlocks = profileFile["profileBlocks"]
+  totalEquationTime = 0
+  for block in profileBlocks
+    totalEquationTime += block["time"]
+  end
   profileBlocks = sort(profileBlocks, by=x->x["time"], rev=true)
 
   block = profileBlocks[1]
-  fraction = block["time"] / totalTime
-  @info "Slowest eq $(block["id"]): ncall: $(block["ncall"]), time: $(block["time"]), maxTime: $(block["maxTime"]), fraction: $(fraction)"
+  fraction = block["time"] / totalEquationTime
+  fraction_overhead = block["time"] / totalSimulationTime
+  @info "Slowest eq $(block["id"]): ncall: $(block["ncall"]), time: $(block["time"]), maxTime: $(block["maxTime"]), fraction without overhead: $(fraction), fraction with overhead: $(fraction_overhead)"
 
   bigger = true
   i = 0
@@ -165,7 +170,7 @@ function findSlowEquations(profJsonFile::String, infoJsonFile::String; threshold
   while(bigger)
     i += 1
     block = profileBlocks[i]
-    fraction = block["time"] / totalTime
+    fraction = block["time"] / totalSimulationTime
     bigger = fraction > threshold
     id = block["id"]
     if bigger && isnonlinearequation(equations[id+1]) && !(ignoreInit && isinitial(equations[id+1]))
