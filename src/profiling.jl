@@ -384,8 +384,8 @@ function minMaxValuesReSim(vars::Array{String},
                            moFiles::Array{String};
                            options::OMOptions)::Tuple{Array{Float64},Array{Float64}}
 
-  # FIXME don't simulate twice and use mat instead
-  # But the MAT.jl doesn't work with v4 mat files.....
+  # TODO: FIXME don't simulate twice and use mat instead
+  # MAT.jl can now support matv4 files: https://github.com/JuliaIO/MAT.jl/pull/186
   @assert options.outputFormat == "csv" "minMaxValuesReSim() needs outputFormat=csv"
   (_,_,result_file_csv) = simulateWithProfiling(modelName,
                                                 moFiles;

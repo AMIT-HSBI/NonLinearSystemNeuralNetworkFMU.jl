@@ -235,7 +235,6 @@ function modifyCCode(modelName::String, fmuTmpDir::String, modelDescriptionXmlFi
   id1 = last(findStrWError(";$EOL", str, id1))
   str = str[1:id1] * 
         """
-
           if (USE_JULIA){
             tic(&t_global);
             initGlobalOrtData(data);

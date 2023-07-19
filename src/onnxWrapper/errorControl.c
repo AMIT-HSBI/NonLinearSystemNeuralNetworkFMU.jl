@@ -114,6 +114,11 @@ double residualNorm(double time, struct OrtWrapperData* ortData) {
     return -1;
   }
 
+  if(ortData->csvFile == NULL) {
+    printf("writeResiduum: Warning, no csvFile available.");
+    return -1;
+  }
+
   int inBounds = isInBounds(ortData->model_input, ortData->min, ortData->max, ortData->nInputs);
 
   double scaled_res_norm = norm(ortData->res, ortData->nRes);

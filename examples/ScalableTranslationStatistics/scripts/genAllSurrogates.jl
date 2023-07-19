@@ -16,7 +16,7 @@ modelicaLib = joinpath(rootDir, "02_SourceModel", "02_Model", "01_AuthoringModel
 """
 Generate surroagate FMUs for Modelica model.
 """
-function genAllSurrogates(sizes::Array{Int}, modelicaLib::String; N::Int=1000)
+function genAllSurrogates(sizes::Array{Int}, modelicaLib::String; n::Int=1000, genData::Bool=true)
 
   @assert isfile(modelicaLib) "Couldn't find Modelica file '$(modelicaLib)'"
 
@@ -27,11 +27,8 @@ function genAllSurrogates(sizes::Array{Int}, modelicaLib::String; N::Int=1000)
     @info "Generating fmu and onnx.fmu"
     logFile = datadir("sims", split(modelName, ".")[end] * ".log")
     mkpath(dirname(logFile))
-    redirect_stdio(stdout=logFile, stderr=logFile) do
-      @time genSurrogate(modelicaLib, modelName; N=N)
-    end
+    #redirect_stdio(stdout=logFile, stderr=logFile) do
+      @time genSurrogate(modelicaLib, modelName; n=n, genData=genData)
+    #end
   end
 end
-
-sizes = [5, 10, 20, 40, 80]
-genAllSurrogates(sizes, modelicaLib; N=1000)

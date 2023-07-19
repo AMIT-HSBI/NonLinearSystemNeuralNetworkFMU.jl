@@ -65,32 +65,11 @@ You can change the size of the Modelica model by changing
 sizes = [5, 10, 20, 40, 80, 160]
 ```
 
-in the scripts.
+in the script [runAll.jl](./scripts/runAll.jl).
 
 Run
 
 ```julia
-include("scripts/runall.jl")
+include("scripts/runAll.jl")
 ```
- for all tests.
-
-### Data and FMU Surrogate Generation
-
-Run
-```julia
-include("scripts/genAllSurrogates.jl")
-```
-
-### Simulate Surrogates with FMI.jl
-
-Run
-```julia
-include("scripts/simulateSurrogates.jl")
-```
-
-### Plots
-
-Run
-```julia
-include("scripts/genAllPlots.jl")
-```
+for all tests.
