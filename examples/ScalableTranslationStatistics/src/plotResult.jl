@@ -135,7 +135,7 @@ function plotResult(referenceResult::String,
       lines!(ax_residual, df_res.time, df_res[!,Symbol("res[$(i-1)]")], color=colors[i], label=L"$f_{res_%$(i)}$")
     end
     #lines!(ax_residual, df_res.time, df_res[!,:rel_error], color=colors[length(outputVars)+1], label=L"\tau_{rel}(f_{res})")
-    lines!(ax_residual, df_res.time, df_res[!,:scaled_res_norm], color=colors[length(outputVars)+1], label=L"||\tau_s(J)||_2")
+    lines!(ax_residual, df_res.time, df_res[!,:scaled_res_norm], color=colors[length(outputVars)+1], label=L"\tau_s(J)")
     lines!(ax_residual, df_res.time[[1,length(df_res.time)]], [1.0, 1.0] , color=:grey, linestyle=:dash)
 
     axislegend(ax_residual, orientation = :horizontal, position = :lt)
