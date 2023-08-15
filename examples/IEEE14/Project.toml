@@ -10,6 +10,6 @@ PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
 
 [compat]
 DrWatson = "2.12.1"
-NaiveONNX = "0.1.0"
-NonLinearSystemNeuralNetworkFMU = "0.3.0"
+NaiveONNX = "0.2.0"
+NonLinearSystemNeuralNetworkFMU = "0.5.1"
 julia = "1.8.1"
