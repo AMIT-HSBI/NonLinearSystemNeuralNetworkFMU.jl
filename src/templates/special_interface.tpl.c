@@ -1,6 +1,6 @@
 //
 // Copyright (c) 1998-2022, Open Source Modelica Consortium (OSMC)
-// Copyright (c) 2022 Andreas Heuermann
+// Copyright (c) 2022-2023 Andreas Heuermann
 //
 // This file is provided under the terms of GPL Version 3.
 // GNU version 3 is obtained from: http://www.gnu.org/copyleft/gpl.html.

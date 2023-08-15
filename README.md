@@ -113,27 +113,14 @@ Currently HTML documentation is not active, but there is a
 
 ## LICENSE
 
-Copyright (c) 2022 Andreas Heuermann, Philip Hannebohm
+Copyright (c) 2022-2023 Andreas Heuermann, Philip Hannebohm
 
--------------------------------------------------------------------------------
+NonLinearSystemNeuralNetworkFMU.jl is licensed under the GNU Affero General Public License
+version 3 (GNU AGPL v3), see [LICENSE.md](./LICENSE.md).
 
-NonLinearSystemNeuralNetworkFMU.jl is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-NonLinearSystemNeuralNetworkFMU.jl is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with NonLinearSystemNeuralNetworkFMU.jl. If not, see <http://www.gnu.org/licenses/>.
-
--------------------------------------------------------------------------------
-
-NonLinearSystemNeuralNetworkFMU.jl uses header files from the FMI standard, licensed under
-BSD 2-Clause (see [FMI-Standard-2.0.3/LICENSE.txt](./FMI-Standard-2.0.3/LICENSE.txt)).
+NonLinearSystemNeuralNetworkFMU.jl uses, modifies and re-distributes source code generated
+by [OpenModelica](https://openmodelica.org/) which is provided under the terms of GNU AGPL
+v3 license or the [OSMC Public License (OSMC-PL) version 1.8](https://openmodelica.org/osmc-pl/osmc-pl-1.8.txt).
 
 ## Acknowledgments
 
