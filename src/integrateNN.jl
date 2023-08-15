@@ -309,7 +309,8 @@ function modifyCMakeLists(path_to_cmakelists::String)
   newStr = ""
   open(path_to_cmakelists, "r") do file
     str = read(file, String)
-    id1 = last(findStrWError("project(\${FMU_NAME})", str))
+    id1 = last(findStrWError("project(\${FMU_NAME}", str))
+    id1 = last(findStrWError(")", str, id1))
     newStr = str[1:id1] * EOL *
              """
              add_subdirectory(onnxWrapper)
