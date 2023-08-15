@@ -4,7 +4,7 @@ using DrWatson
 using NonLinearSystemNeuralNetworkFMU
 
 ENV["PYTHON"] = "python3"
-ENV["XLA_FLAGS"] = "--xla_gpu_cuda_data_dir=/usr/local/cuda-11.8"
+ENV["XLA_FLAGS"] = "--xla_gpu_cuda_data_dir=/usr/local/cuda-12.1"
 import Pkg; Pkg.build("PyCall")
 
 N = 1000
