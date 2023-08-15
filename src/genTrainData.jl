@@ -21,8 +21,8 @@ include("fmiExtensions.jl")
 
 
 """
-    generateDataBatch(fmu, fname, eqId, timeBounds, inputVars, inMin, inMax, outputVars, p;
-                      n, options) where T <: Number
+    generateDataBatch(fmu, fname, eqId, timeBounds, inputVars, inMin, inMax, outputVars, p; 
+     samples, options) where T <: Number
 
 Generate data points for given equation of FMU.
 
@@ -131,7 +131,7 @@ function generateDataBatch(fmu,
       timeValues = nothing
       if useTime
         # TODO time always increases, is this necessary
-        timeValues = sort((timeBounds[2]-timeBounds[1]).*rand(N-1) .+ timeBounds[1])
+        timeValues = sort((timeBounds[2]-timeBounds[1]).*rand(samples) .+ timeBounds[1])
       end
       nFailures = 0
       while samplesGenerated < samples && nFailures < 10
@@ -143,7 +143,7 @@ function generateDataBatch(fmu,
           error("Unknown method '$(typeof(options.method))'");
         end
 
-        status, row = generateDataPoint(fmu, eqId, nInputs, row_vr, row, if useTime timeValues[i] else nothing end)
+        status, row = generateDataPoint(fmu, eqId, nInputs, row_vr, row, if useTime timeValues[samplesGenerated+1] else nothing end)
 
         if status == fmi2OK
           ProgressMeter.next!(p)
@@ -152,7 +152,7 @@ function generateDataBatch(fmu,
 
           # Update data frame
           if useTime
-            push!(df, vcat([timeValues[i]], row))
+            push!(df, vcat([timeValues[samplesGenerated]], row))
           else
             push!(df, row)
           end

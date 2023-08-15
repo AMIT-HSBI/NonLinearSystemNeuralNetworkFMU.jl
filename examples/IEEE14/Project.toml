@@ -9,7 +9,7 @@ NonLinearSystemNeuralNetworkFMU = "cef0780c-fc83-4b94-9c0c-d964a51a3c65"
 PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
 
 [compat]
-DrWatson = "2.12.1"
-NaiveONNX = "0.1.0"
-NonLinearSystemNeuralNetworkFMU = "0.3.0"
-julia = "1.8.1"
+DrWatson = "2.12.7"
+NaiveONNX = "0.2.0"
+NonLinearSystemNeuralNetworkFMU = "0.5.2"
+julia = "1.9.0"
