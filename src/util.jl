@@ -18,6 +18,34 @@
 #
 
 """
+    runOutput(cmd)
+
+Run comand `cmd` and return output from stdout as String.
+If an error is encountered print stderr and rethrow error.
+"""
+function runOutput(cmd::Cmd)::String
+  # Get version string
+  local stdout
+  # IOBuffer breaks on Windows, see https://github.com/JuliaLang/julia/issues/39311
+  # Base.BufferStream are undocumented, but should be non-OS streams,
+  # so they shouldn't break everything. Otherwise use text files.
+  out = Base.BufferStream()
+  err = Base.BufferStream()
+  try
+    run(pipeline(cmd; stdout=out, stderr=err))
+    stdout = read(out, String)
+  catch e
+    println(read(err, String))
+    rethrow(e)
+  finally
+    close(out)
+    close(err)
+  end
+
+  return stdout
+end
+
+"""
     testCMakeVersion(;minimumVersion = "3.21")
 
 Test if CMake can be found in PATH and minimum version is satisfied.
@@ -36,23 +64,11 @@ function testCMakeVersion(;minimumVersion = "3.21")
   end
 
   # Get version string
-  local version
-  out = IOBuffer()
-  err = IOBuffer()
-  try
-    run(pipeline(`cmake --version`; stdout=out, stderr=err))
-    version = String(take!(out))
-    version = split(strip(version))[1:3]
-    @assert version[1] == "cmake"
-    @assert version[2] == "version"
-    version = version[3]
-  catch e
-    println(String(take!(err)))
-    rethrow(e)
-  finally
-    close(out)
-    close(err)
-  end
+  version = runOutput(`cmake --version`)
+  version = split(strip(version))[1:3]
+  @assert version[1] == "cmake"
+  @assert version[2] == "version"
+  version = version[3]
 
   if version < minimumVersion
     throw(MinimumVersionError("CMake", minimumVersion, version))
@@ -110,7 +126,6 @@ function getomc(omc::String="")
   throw(ProgramNotFoundError("omc", searchedLocations))
 end
 
-
 """
     testOmcVersion(omc;  minimumVersion = "v1.20.0-dev-342")
 
@@ -125,25 +140,9 @@ function testOmcVersion(omc; minimumVersion = "v1.20.0-dev-342")
   @debug "Using omc: $omc"
 
   # Get version string
-  local version
-  out = IOBuffer()
-  err = IOBuffer()
-  try
-    run(pipeline(`"$(omc)" --version`; stdout=out, stderr=err))
-    version = strip(String(take!(out)))
-  catch e
-    println(String(take!(err)))
-    rethrow(e)
-  finally
-    close(out)
-    close(err)
-  end
-  if isempty(version)
-    throw("Failed to get version of $(omc)")
-  end
+  version = runOutput(`$omc --version`)
 
-
-  version="v1.21.0-dev-19-g2a0d7a5e71"
+  minimumVersion = "v1.21.0-dev-19-g2a0d7a5e71"
   def_min = "9999"
   main_ver_min = minimumVersion
   loc = findStrWError("dev", minimumVersion)
