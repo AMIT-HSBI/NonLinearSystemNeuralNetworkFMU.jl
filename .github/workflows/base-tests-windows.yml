@@ -16,7 +16,7 @@ jobs:
       ORT_DIR: '${{ github.workspace }}/${{ matrix.ort_dir }}'
     strategy:
       matrix:
-        julia-version: ['1.7.3']
+        julia-version: ['1.9']
         julia-arch: [x64]
         os: [windows-latest]
         include:
@@ -24,7 +24,7 @@ jobs:
             ort_url: 'https://github.com/microsoft/onnxruntime/releases/download/v1.12.1/onnxruntime-win-x64-1.12.1.zip'
             ort_archieve_name: 'onnxruntime-win-x64-1.12.1.zip'
             ort_dir: 'onnxruntime-win-x64-1.12.1'
-    timeout-minutes: 30
+    timeout-minutes: 60
 
     steps:
       - uses: actions/checkout@v3
