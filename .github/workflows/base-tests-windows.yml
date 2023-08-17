@@ -51,7 +51,8 @@ jobs:
       - run: |
           which omc
           omc --version
-          rm $OPENMODELICAHOME\\tools\\msys\\mingw64\\bin\\cmake*.exe
+          rm "$OPENMODELICAHOME"\\tools\\msys\\mingw64\\bin\\cmake.exe "$OPENMODELICAHOME"\\tools\\msys\\mingw64\\bin\\cmake-gui.exe
+        shell: bash
 
       # Build and test NonLinearSystemNeuralNetworkFMU.jl
       - uses: julia-actions/setup-julia@v1
