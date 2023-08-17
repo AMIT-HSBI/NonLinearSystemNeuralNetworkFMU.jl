@@ -110,6 +110,7 @@ Currently HTML documentation is not active, but there is a
 
   - MAT.jl doesn't support the v4 mat files OpenModelica generates, so one
     needs to use CSV result files.
+  - The Windows build can't link to the ONNX Runtime, because it is not compatible with MSYS2 MINGW environment. See [OpenModelica/OpenModelica #9514](https://github.com/OpenModelica/OpenModelica/issues/9514).
 
 ## LICENSE
 

@@ -24,6 +24,10 @@ using NonLinearSystemNeuralNetworkFMU
 using Test
 
 function runIncludeOnnxTests()
+  if Sys.iswindows()
+    @warn "Automated test for ONNX integration can't succeed on Windows. ORT is incompatbility with MSYS."
+  end
+
   @assert haskey(ENV, "ORT_DIR") "Environamet variable `ORT_DIR` has to be set and point to ONNX Runtime directory for testing."
 
   @testset "Build FMU with ONNX" begin

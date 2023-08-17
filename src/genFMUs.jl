@@ -40,10 +40,16 @@ Add OPENMODELICAHOME to PATH for Windows to get access to Unix tools from MSYS.
 function omrun(cmd::Cmd; dir=pwd()::String, logFile=stdout, timeout=10*60::Integer)
   env = copy(ENV)
   if Sys.iswindows()
-    path *= ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "mingw64", "bin"))
-    path *= ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "usr", "bin"))
+    path = env["PATH"]
+    if haskey(ENV, "OMDEV_MSYS")
+      path *= ";" * abspath(joinpath(ENV["OMDEV_MSYS"], "ucrt64", "bin"))
+      path *= ";" * abspath(joinpath(ENV["OMDEV_MSYS"], "usr", "bin"))
+    else
+      path *= ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "mingw64", "bin"))
+      path *= ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "usr", "bin"))
+    end
     env["PATH"] = path
-    env["CLICOLOR"] = 0
+    env["CLICOLOR"] = "0"
   end
   @debug "PATH: $(env["PATH"])"
 
@@ -165,19 +171,20 @@ function generateFMU(modelName::String,
                      options::OMOptions)
 
   # Create / clean working diretory
-  if !isdir(options.workingDir)
-    mkpath(options.workingDir)
+  workingDir = options.workingDir
+  if !isdir(workingDir)
+    mkpath(workingDir)
   elseif options.clean
-    rm(options.workingDir, force=true, recursive=true)
-    mkpath(options.workingDir)
+    rm(workingDir, force=true, recursive=true)
+    mkpath(workingDir)
   end
 
   if Sys.iswindows()
-    moFiles::Array{String} = replace.(moFiles::Array{String}, "\\"=> "\\\\")
-    options.workingDir = replace(options.workingDir, "\\"=> "\\\\")
+    moFiles = replace.(moFiles, "\\"=> "\\\\")
+    workingDir = replace(workingDir, "\\"=> "\\\\")
   end
 
-  logFilePath = joinpath(options.workingDir,"callsFMI.log")
+  logFilePath = joinpath(workingDir,"callsFMI.log")
   logFile = open(logFilePath, "w")
 
   local omc
@@ -195,7 +202,7 @@ function generateFMU(modelName::String,
         throw(OpenModelicaError("Failed to load file $(file)!", abspath(logFilePath)))
       end
     end
-    OMJulia.sendExpression(omc, "cd(\"$(options.workingDir)\")")
+    OMJulia.sendExpression(omc, "cd(\"$(workingDir)\")")
 
     @debug "setCommandLineOptions"
     msg = OMJulia.sendExpression(omc, "setCommandLineOptions(\"-d=newInst --fmiFilter=internal --fmuCMakeBuild=true --fmuRuntimeDepends=modelica "*options.commandLineOptions*"\")")
@@ -216,11 +223,11 @@ function generateFMU(modelName::String,
     OMJulia.sendExpression(omc, "quit()",parsed=false)
   end
 
-  if !isfile(joinpath(options.workingDir, modelName*".fmu"))
+  if !isfile(joinpath(workingDir, modelName*".fmu"))
     throw(OpenModelicaError("Could not generate FMU!", abspath(logFilePath)))
   end
 
-  return joinpath(options.workingDir, modelName*".fmu")
+  return joinpath(workingDir, modelName*".fmu")
 end
 
 
@@ -278,7 +285,7 @@ function compileFMU(fmuRootDir::String, modelname::String, workdir::String)
     pathToFmiHeader = abspath(joinpath(dirname(@__DIR__), "FMI-Standard-2.0.3", "headers"))
     if Sys.iswindows()
       omrun(`cmake -S . -B build_cmake -Wno-dev -G "MSYS Makefiles" -DCMAKE_COLOR_MAKEFILE=OFF`, dir = joinpath(fmuRootDir,"sources"), logFile=logFile)
-      omrun(`make install -Oline -j`, dir = joinpath(fmuRootDir, "sources", "build_cmake"), logFile=logFile)
+      omrun(`mingw32-make install -Oline -j`, dir = joinpath(fmuRootDir, "sources", "build_cmake"), logFile=logFile)
     else
       omrun(`cmake -S . -B build_cmake`, dir = joinpath(fmuRootDir,"sources"), logFile=logFile)
       omrun(`cmake --build build_cmake/ --target install --parallel`, dir = joinpath(fmuRootDir, "sources"), logFile=logFile)

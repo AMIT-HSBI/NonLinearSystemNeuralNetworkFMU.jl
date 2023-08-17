@@ -39,7 +39,7 @@ function runProfilingTests()
     @test profilingInfo[2].eqInfo.id == 6
     @test profilingInfo[2].iterationVariables == ["y"]
     @test sort(profilingInfo[2].usingVars) == ["r","s"]
-    rm(joinpath(workingDir,modelName), recursive=true)
+    rm(joinpath(workingDir,modelName), recursive=true, force=true)
   end
 end
 

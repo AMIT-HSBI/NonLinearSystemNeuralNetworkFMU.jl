@@ -36,6 +36,7 @@ function simulateWithProfiling(modelName::String,
   workingDir = options.workingDir
   if Sys.iswindows()
     workingDir = replace(options.workingDir, "\\"=> "\\\\")
+    moFiles = replace.(moFiles, "\\"=> "\\\\")
   end
 
   if !isdir(workingDir)
