@@ -8,7 +8,9 @@ Generate Neural Networks to replace non-linear systems inside OpenModelica 2.0 F
     "Home" => "index.md",
     "Main" => "main.md",
     "Profiling" => "profiling.md",
-    "Data Generation" => "dataGen.md"
+    "Data Generation" => "dataGen.md",
+    "ONNX Generation" => "train.md",
+    "Integrate ONNX" => "integrateONNX.md"
   ]
 ```
 
@@ -28,25 +30,26 @@ The package generates an FMU from a modelica file in 3 steps (+ 1 user step):
   2. Generate training data.
 
       * Generate 2.0 Model Exchange FMU with OpenModelica.
-      * Add C interface to evaluate single non-linear equation system without evaluating anything else.
+      * Add C interface to evaluate single non-linear equation system without evaluating
+        anything else.
       * Re-compile FMU.
       * Initialize FMU using [FMI.jl](https://github.com/ThummeTo/FMI.jl).
       * Generate training data for each equation system by calling new interface.
 
-  3. Train neural network.
+  3. Create ONNX (performed by user).
 
-      * Step performed by user.
+      * Use your favorite environment to create a trained Open Neural Network Exchange
+        ([ONNX](https://onnx.ai/)) model.
+          * Use the generated training data to train artificial neural network.
 
-  4. Integrate neural network into FMU
+  4. Integrate ONNX into FMU.
 
-      * Replace equations with neural network in generated C code.
+      * Replace equations with ONNX evaluation done by [ONNX Runtime](https://onnxruntime.ai/)
+        in generated C code.
       * Re-compile FMU.
+          * Environment variable ORT_DIR has to be set and point to the ONNX runtime
+            directory (with include/ and lib/ inside).
 
 ## Installation
 
-Clone this repository to your machine and use the package manager Pkg to develop this package.
-
-```julia-repl
-(@v1.7) pkg> dev /path/to/NonLinearSystemNeuralNetworkFMU
-julia> using NonLinearSystemNeuralNetworkFMU
-```
+See [AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl README.md](https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl#nonlinearsystemneuralnetworkfmujl) for installation instructions.

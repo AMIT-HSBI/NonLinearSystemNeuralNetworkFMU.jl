@@ -14,3 +14,21 @@ These functionalities are bundled in [`main`](@ref).
 ```@docs
 main
 ```
+
+## Example
+
+```@repl
+using NonLinearSystemNeuralNetworkFMU
+modelName = "simpleLoop";
+moFiles = [joinpath("test","simpleLoop.mo")];
+omOptions = OMOptions(workingDir="tempDir")
+dataGenOptions = DataGenOptions(method=NonLinearSystemNeuralNetworkFMU.RandomMethod(),
+                                n=10,
+                                nBatches=2)
+
+(csvFiles, fmu, profilingInfo) = main(modelName,
+                                      moFiles;
+                                      omOptions=omOptions,
+                                      dataGenOptions=dataGenOptions,
+                                      reuseArtifacts=false)
+```

@@ -67,10 +67,4 @@ jobs:
       - name: Install dependencies, build and deploy
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: julia -e 'using Pkg; Pkg.add(name="Documenter", version="0.27"); Pkg.activate(pwd()); Pkg.instantiate(); include("docs/make.jl")'
-      # Upload pdf artifact
-      # TODO: Remove when switching back to HTML doc
-      - uses: actions/upload-artifact@v3
-        with:
-          name: documentation
-          path: ${{ github.workspace }}/docs/build/NonLinearSystemNeuralNetworkFMU.jl.pdf
+        run: julia -e 'using Pkg; Pkg.activate("docs/"); include("docs/make.jl")'

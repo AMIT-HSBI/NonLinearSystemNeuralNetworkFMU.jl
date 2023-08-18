@@ -43,6 +43,8 @@ All input-output pairs are saved in `fname`.
 # Keywords
   - `samples::Integer`:                       Number of input-output pairs to generate.
   - `options::DataGenOptions:                 Data generation settings.
+
+See also [`DataGenOptions`](@ref).
 """
 function generateDataBatch(fmu,
                            fname::String,
@@ -202,7 +204,7 @@ All input-output pairs are saved in CSV file `fname`.
 # Keywords
   - `options::DataGenOptions`:        Settings for data generation.
 
-See also [`generateFMU`](@ref).
+See also [`generateFMU`](@ref), [`DataGenOptions`](@ref)..
 """
 function generateTrainingData(fmuPath::String,
                               workDir::String,

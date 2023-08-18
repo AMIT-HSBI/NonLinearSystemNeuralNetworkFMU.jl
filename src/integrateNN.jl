@@ -217,7 +217,13 @@ end
 """
 Modify C code in fmuTmpDir/sources/modelname.c to use ONNX instead of algebraic loops.
 """
-function modifyCCode(modelName::String, fmuTmpDir::String, modelDescriptionXmlFile::String, equations::Array{ProfilingInfo}, onnxFiles::Array{String}, usePrevSol::Bool)
+function modifyCCode(modelName::String,
+                     fmuTmpDir::String,
+                     modelDescriptionXmlFile::String,
+                     equations::Array{ProfilingInfo},
+                     onnxFiles::Array{String},
+                     usePrevSol::Bool)
+
   cfile = joinpath(fmuTmpDir, "sources", "$(replace(modelName, "."=>"_")).c")
   str = open(cfile, "r") do file
     read(file, String)
@@ -377,7 +383,7 @@ end
 
 
 """
-    buildWithOnnx(fmu, modelName, equations, onnxFiles; tempDir=modelName*"_onnx")
+    buildWithOnnx(fmu, modelName, equations, onnxFiles; usePrevSol=false, tempDir=modelName*"_onnx")
 
 Include ONNX into FMU and recompile to generate FMU with ONNX surrogates.
 
@@ -388,12 +394,18 @@ Include ONNX into FMU and recompile to generate FMU with ONNX surrogates.
   - `onnxFiles::Array{String}`:           Array of paths to ONNX surrogates.
 
 # Keywords
-  - `tempDir::String=modelName*"_onnx"`:  Working directory
+  - `usePrevSol::Bool`:                   ONNX uses previous solution as additional input.
+  - `tempDir::String`:                    Working directory
 
 # Returns
   - Path to ONNX FMU.
 """
-function buildWithOnnx(fmu::String, modelName::String, equations::Array{ProfilingInfo}, onnxFiles::Array{String}; usePrevSol=false::Bool, tempDir=modelName*"_onnx"::String)
+function buildWithOnnx(fmu::String,
+                       modelName::String,
+                       equations::Array{ProfilingInfo},
+                       onnxFiles::Array{String};
+                       usePrevSol::Bool=false,
+                       tempDir::String=modelName*"_onnx")
   # Unzip FMU into tmp dir
   fmuTmpDir = abspath(joinpath(tempDir,"FMU"))
   rm(fmuTmpDir, force=true, recursive=true)

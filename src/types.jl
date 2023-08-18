@@ -57,6 +57,8 @@ end
     MinMaxBoundaryValues <: Any
 
 Minimum and maximum boundary values of list of variables.
+
+$(DocStringExtensions.TYPEDFIELDS)
 """
 struct MinMaxBoundaryValues{T}
   "Minimum boundary values."
@@ -116,6 +118,8 @@ end
     OMOptions <: Any
 
 Settings for profiling and simulating with the OpenModelica Compiler (OMC).
+
+$(DocStringExtensions.TYPEDFIELDS)
 """
 struct OMOptions
   "Path to omc used for simulating the model."
@@ -129,49 +133,74 @@ struct OMOptions
   "Additional comannd line options for `setCommandLineOptions`."
   commandLineOptions::String
 
-  # Constructor
+  """
+      OMOptions(;pathToOmc = "", workingDir = pwd(), outputFormat = "csv", clean = false, commandLineOptions = "", disableCSE = true)
+
+  `OMOptions` constructor.
+  """
   function OMOptions(;pathToOmc::String = "",
-                     workingDir::String = pwd(),
-                     outputFormat::Union{String,Nothing} = "csv",
-                     clean::Bool = false,
-                     commandLineOptions::String = "",
-                     disableCSE = true)
+                    workingDir::String = pwd(),
+                    outputFormat::Union{String,Nothing} = "csv",
+                    clean::Bool = false,
+                    commandLineOptions::String = "",
+                    disableCSE = true)
 
-    # Try to find omc executable
-    pathToOmc = getomc(pathToOmc)
+  # Try to find omc executable
+  pathToOmc = getomc(pathToOmc)
 
-    # Assert output format
-    if outputFormat != "csv" && outputFormat != "mat" && outputFormat !== nothing
-      error("output format $(outputFormat) not supperted. Has to be \"csv\" or \"mat\".")
-    end
+  # Assert output format
+  if outputFormat != "csv" && outputFormat != "mat" && outputFormat !== nothing
+    error("output format $(outputFormat) not supperted. Has to be \"csv\" or \"mat\".")
+  end
 
-    # Disable CSE variables in loops
-    if disableCSE
-      commandLineOptions *= " --preOptModules-=wrapFunctionCalls --postOptModules-=wrapFunctionCalls"
-    end
+  # Disable CSE variables in loops
+  if disableCSE
+    commandLineOptions *= " --preOptModules-=wrapFunctionCalls --postOptModules-=wrapFunctionCalls"
+  end
 
-    new(pathToOmc, workingDir, outputFormat, clean, commandLineOptions)
+  new(pathToOmc, workingDir, outputFormat, clean, commandLineOptions)
   end
 end
 
 abstract type DataGenerationMethod end
 
+"""
+    RandomMethod <: DataGenerationMethod
+
+Random data generation using `rand`.
+"""
 struct RandomMethod <: DataGenerationMethod
 end
 
+"""
+    RandomWalkMethod <: DataGenerationMethod
+
+Randomized brownian-like motion data generation.
+Tries to stay within one solution in case the non-linear system is not unique
+solveable. Uses previous data point to generate close data point with previous
+solution as input to NLS solver.
+
+$(DocStringExtensions.TYPEDFIELDS)
+"""
 struct RandomWalkMethod <: DataGenerationMethod
   "Step size of random walk."
   delta::Float64
+
+  # Constructor
   RandomWalkMethod(;delta=1e-3) = delta <= 0 ? error("Non-positive step size") : new(delta)
 end
 
 """
-  DataGenOptions <: Any
+    DataGenOptions <: Any
 
 Settings for data generation.
+
+$(DocStringExtensions.TYPEDFIELDS)
+
+See als [`RandomMethod`](@ref), [`RandomWalkMethod`](@ref).
 """
 struct DataGenOptions
-  "Method to generate data points."
+  "Method to generate data points. Allowed values: `RandomMethod`, `RandomWalkMethod`"
   method::DataGenerationMethod
   "Number of data points to generate."
   n::Integer
@@ -184,13 +213,17 @@ struct DataGenOptions
   "Clean up temp CSV files"
   clean::Bool
 
-  # Constructor
-  function DataGenOptions(;method=RandomWalkMethod(delta=1e-3)::DataGenerationMethod,
-                          n=1000::Integer,
-                          nBatches=1::Integer,
-                          nThreads=Threads.nthreads()::Integer,
-                          append=false::Bool,
-                          clean=true::Bool)
+  """
+      DataGenOptions(;method=RandomWalkMethod(delta=1e-3), n=1000:, nBatches=, nThreads=Threads.nthreads(), append=false, clean=true)
+
+  Settings for data generation.
+  """
+  function DataGenOptions(;method::DataGenerationMethod=RandomWalkMethod(delta=1e-3),
+                          n::Integer=1000,
+                          nBatches::Integer=1,
+                          nThreads::Integer=Threads.nthreads(),
+                          append::Bool=false,
+                          clean::Bool=true)
     if nThreads <= 0
       error("nThreas=$(nThreads) too low. Use at least one thread.")
     elseif nThreads > Threads.nthreads()
