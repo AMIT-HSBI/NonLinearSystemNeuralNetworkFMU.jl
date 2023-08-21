@@ -26,6 +26,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: recursive
 
       - name: Setup CMake v3.21
         uses: jwlawson/actions-setup-cmake@v1.13
