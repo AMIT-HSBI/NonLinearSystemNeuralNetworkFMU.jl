@@ -6,14 +6,15 @@ using DataFrames
 using CSV
 using LinearAlgebra
 using Random
+using OMJulia
 Random.seed!(100)
 include(srcdir("symbolicRegression.jl"))
 
 # JetPump training data
-modelName = "JetPumpInverse"
+modelName = "Scenario_01_flat"
 N = 100_000
 workdir = datadir("sims", "$(modelName)_$(N)")
-eq = 101
+eq = 46
 dataFile = joinpath(workdir, "data", "eq_$(eq).csv")
 df = CSV.read(dataFile, DataFrame)
 
@@ -24,47 +25,85 @@ data = df[idx_row[1:n],:]
 
 prof = getProfilingInfo(joinpath(workdir, "profilingInfo.bson"))
 
-n_inputs = length(prof[1].usingVars)            # 4
-n_outputs = length(prof[1].iterationVariables)  # 6
+n_inputs = length(prof[1].usingVars)
+n_outputs = length(prof[1].iterationVariables)
 
 X = transpose(Matrix{Float32}(data[:,1:n_inputs]))
 Y = transpose(Matrix{Float32}(data[:,n_inputs+1:n_inputs+n_outputs]))
-#y = Y[1,:]
 
 # Symbolic Regression
 bestEq = fitEquation(X, Y; tempDir=joinpath(workdir, "temp-symbolicRegression"))
 
-# Code generation with SymbolicUtils.jl
-function generateFunc(bestEq)
-  @syms x1 x2 x3 x4
+function genJuliaFunc(equation::Array{Any},
+                      inputs::Array{String},
+                      outputs::Array{String},
+                      eq::Int,
+                      outFile::String)
 
-  func = Func[]
+  open(outFile,"w") do file
+    write(file, """
+    function eq_$eq(u::Array{Float64,1}, y:::Array{Float64,1})
+      @assert size(u) == (1, $(length(inputs))) "Dimension mismatch input u"
+      @assert size(y) == (1, $(length(outputs))) "Dimension mismatch output y"
+    """
+    )
 
-  for i in eachindex(bestEq)
-    push!(func,Func([x1, x2, x3, x4], # args
-                    [],               # kwargs
-                    bestEq[i]))
+    for (i,inputName) in enumerate(inputs)
+      write(file, """
+        x$(i) = u[$(i)] # $(inputName)
+      """
+      )
+    end
+
+    for (i,eq) in enumerate(equation)
+      outputName = outputs[i]
+      write(file, """
+        y[$(i)] #= $(outputName) =# = $(string(eq))
+      """
+      )
+    end
+
+    write(file, """
+    end
+    """
+    )
   end
-
-  f1 = eval(toexpr(func[1]))
-  f2 = eval(toexpr(func[2]))
-  f3 = eval(toexpr(func[3]))
-  f4 = eval(toexpr(func[4]))
-  f5 = eval(toexpr(func[5]))
-  f6 = eval(toexpr(func[6]))
-
-  f = (x1,x2,x3,x4) -> [f1(x1,x2,x3,x4), f2(x1,x2,x3,x4), f3(x1,x2,x3,x4), f4(x1,x2,x3,x4), f5(x1,x2,x3,x4), f6(x1,x2,x3,x4)]
-  return f
 end
 
-f = generateFunc(bestEq)
+function genMoCode(equation::Array{Any},
+                   inputs::Array{String},
+                   outputs::Array{String};
+                   replaceDots::Bool = false)
 
-# Test reference solution
-refSol = CSV.read(srcdir("referenceSolution.csv"), DataFrame)
-x_ref = Matrix{Float32}(refSol[1:1,1:n_inputs])
-y_ref = Matrix{Float32}(refSol[1:1,n_inputs+1:n_inputs+n_outputs])
+  if replaceDots
+    inputs = replace.(inputs, "." => "_")
+    outputs = replace.(outputs, "." => "_")
+  end
+  equations = Array{String}(undef, length(equation))
+  for (i, eq) in enumerate(equation)
+    eq = string(eq)
+    for (j, inputName) in enumerate(inputs)
+      eq = replace(eq, "x$j"=>inputName)
+    end
+    equations[i] = "$(outputs[i]) = $(string(eq));"
+  end
 
-abs_err = f(x_ref[1], x_ref[2], x_ref[3], x_ref[4]) - y_ref[1,:]
-@info abs_err
-rel_error = norm(abs_err)/norm(y_ref)
-@info rel_error
+  return equations
+end
+
+eqns = genMoCode(bestEq, prof[1].usingVars, prof[1].iterationVariables)
+for eq in eqns
+  println(eq)
+end
+
+workdir = datadir("sims", "$(modelName)_$(N)", "resultSim")
+mkdir(workdir)
+cd(workdir)
+omc= OMJulia.OMCSession()
+sendExpression(omc, "loadFile(\"$(srcdir("Scenario_01_flat_resolved.mo"))\")")
+sendExpression(omc, "simulate(Scenario_01_flat)")
+
+# TODO:
+# Automate replacing residual equations with explicit modelica fucntions in flat model.
+
+

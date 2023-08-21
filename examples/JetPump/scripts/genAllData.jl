@@ -3,7 +3,7 @@ using DrWatson
 
 using NonLinearSystemNeuralNetworkFMU
 
-modelName = "JetPumpInverse"
+modelName = "Scenario_01_flat"
 rootDir = "/mnt/home/aheuermann/workdir/phymos/JetPump"
 moFiles = [joinpath(rootDir, "02_SourceModel", "Modelica", "JetPumpTool", "package.mo"), srcdir("$(modelName).mo")]
 
