@@ -7,7 +7,7 @@ fetch information using git without entering SSH key password.
 
 ```bash
 git remote set-url origin https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl.git
-git remote set-url --push origin git@github.com:AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl.git 
+git remote set-url --push origin git@github.com:AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl.git
 ```
 
 Make sure you developed NonLinearSystemNeuralNetworkFMU.jl and NaiveONNX.jl.

@@ -67,4 +67,4 @@ jobs:
       - name: Install dependencies, build and deploy
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: julia -e 'using Pkg; Pkg.activate("docs/"); include("docs/make.jl")'
+        run: julia -e 'using Pkg; Pkg.activate("docs/"); Pkg.instantiate(); include("docs/make.jl")'
