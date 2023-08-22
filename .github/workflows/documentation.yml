@@ -1,19 +1,17 @@
-name: Linux Tests
+name: Documentation
 
 on:
   push:
     branches:
       - main
+    tags: '*'
   pull_request:
 
-env:
-  BUILD_TYPE: RelWithDebInfo
-
 jobs:
-  test:
-    runs-on: ${{ matrix.os }}
-    env:
-      ORT_DIR: '${{ github.workspace }}/${{ matrix.ort_dir }}'
+  build:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         julia-version: ['1.9']
@@ -24,10 +22,12 @@ jobs:
             ort_url: 'https://github.com/microsoft/onnxruntime/releases/download/v1.12.1/onnxruntime-linux-x64-1.12.1.tgz'
             ort_archieve_name: 'onnxruntime-linux-x64-1.12.1.tgz'
             ort_dir: 'onnxruntime-linux-x64-1.12.1'
-    timeout-minutes: 60
+    timeout-minutes: 120
 
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: recursive
 
       - name: Setup CMake v3.21
         uses: jwlawson/actions-setup-cmake@v1.13
@@ -47,7 +47,6 @@ jobs:
           version: 'nightly'
           packages: |
             'omc'
-            'omsimulator'
       - run: |
           which omc
           omc --version
@@ -61,8 +60,10 @@ jobs:
       - name: Cache Julia
         uses: julia-actions/cache@v1
 
-      - name: Build package
-        uses: julia-actions/julia-buildpkg@v1
+      - name: Install dependencies
+        run: julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.develop(PackageSpec(path=joinpath(pwd(), "examples", "NaiveONNX.jl"))); Pkg.instantiate()'
 
-      - name: Run tests
-        uses: julia-actions/julia-runtest@v1
+      - name: Build and deploy
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # If authenticating with GitHub Actions token
+        run: julia --project=docs/ docs/make.jl

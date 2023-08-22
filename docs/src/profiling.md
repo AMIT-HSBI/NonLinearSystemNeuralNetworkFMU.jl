@@ -1,23 +1,39 @@
 
 # Profiling Modelica Models
 
+The profiling functionalities of OpenModelica are used to decide if an equation is slow
+enough to be replaced by a surrogate.
+
 ## Functions
+
+### Profiling
+
+Simulate Modelica model to find slowest equations and what variables are used and what
+values these variables have during simulation.
 
 ```@docs
 profiling
+minMaxValuesReSim
 ```
 
+### Getting Profiling
+
+The [`main`](@ref) function will save profiling artifacts that can be loaded with the
+following functions.
+
 ```@docs
-minMaxValuesReSim
+getProfilingInfo
+getUsingVars
+getIterationVars
+getInnerEquations
+getMinMax
 ```
 
 ## Structures
 
 ```@docs
+OMOptions
 ProfilingInfo
-```
-
-```@docs
 EqInfo
 ```
 
@@ -41,8 +57,8 @@ So let's start [`profiling`](@ref):
 using NonLinearSystemNeuralNetworkFMU
 modelName = "simpleLoop";
 moFiles = [joinpath("test","simpleLoop.mo")];
-omc = string(strip(read(`which omc`, String))) #hide
-profilingInfo = profiling(modelName, moFiles, omc; threshold=0)
+options = OMOptions(workingDir = "tempDir")
+profilingInfo = profiling(modelName, moFiles; options=options, threshold=0)
 ```
 
 We can see that non-linear equation system `14` is using variables `s` and `r`
@@ -65,4 +81,12 @@ We can check them by looking into
 ```@repl profilingexample
 profilingInfo[1].boundary.min
 profilingInfo[1].boundary.min
+```
+
+It's possible to save and later load the profilingInfo in binary JSON format:
+
+```@repl profilingexample
+using BSON
+BSON.@save "simpleLoop.bson" profilingInfo
+getProfilingInfo("simpleLoop.bson")
 ```
