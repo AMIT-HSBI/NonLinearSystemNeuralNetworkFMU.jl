@@ -42,7 +42,7 @@ jobs:
           rm ${{ matrix.ort_archieve_name }}
 
       - name: Setup OpenModelica
-        uses: AnHeuermann/setup-openmodelica@v0.4
+        uses: AnHeuermann/setup-openmodelica@v0.6
         with:
           version: 'nightly'
           packages: |
