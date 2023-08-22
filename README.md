@@ -1,9 +1,8 @@
 # NonLinearSystemNeuralNetworkFMU.jl
 
-[![Linux Tests](https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/actions/workflows/base-tests-linux.yml/badge.svg?branch=main)](https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/actions/workflows/base-tests-linux.yml)
-[![Windows Tests](https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/actions/workflows/base-tests-windows.yml/badge.svg?branch=main)](https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/actions/workflows/base-tests-windows.yml)
+*Generate Neural Networks to replace non-linear systems inside [OpenModelica](https://openmodelica.org/) 2.0 FMUs.*
 
-Generate Neural Networks to replace non-linear systems inside [OpenModelica](https://openmodelica.org/) 2.0 FMUs.
+[![][docs-dev-img]][docs-dev-url] [![][GHA-img-linux]][GHA-url-linux] [![][GHA-img-win]][GHA-url-win]
 
 ## Working with this repository
 
@@ -102,9 +101,7 @@ for more information.
 
 ## Documentation
 
-Currently HTML documentation is not active, but there is a
-[PDF](https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/blob/gh-pages/dev/NonLinearSystemNeuralNetworkFMU.jl.pdf).
-
+- [**Main**][docs-dev-url] &mdash; *documentation of the in-development version.*
 
 ## Known Limitations
 
@@ -128,3 +125,11 @@ v3 license or the [OSMC Public License (OSMC-PL) version 1.8](https://openmodeli
 This package was developed as part of the [Proper Hybrid Models for Smarter Vehicles (PHyMoS)](https://phymos.de/en/) project,
 supported by the German [Federal Ministry for Economic Affairs and Climate Action](https://www.bmwk.de/Navigation/EN/Home/home.html)
 with project number 19|200022G.
+
+[docs-dev-img]: https://img.shields.io/badge/docs-dev-blue.svg
+[docs-dev-url]: https://anheuermann.github.io/NonLinearSystemNeuralNetworkFMU.jl/dev/
+
+[GHA-img-linux]: https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/actions/workflows/base-tests-linux.yml/badge.svg?branch=main
+[GHA-url-linux]: https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/actions/workflows/base-tests-linux.yml
+[GHA-img-win]: https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/actions/workflows/base-tests-windows.yml/badge.svg?branch=main
+[GHA-url-win]: https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/actions/workflows/base-tests-windows.yml

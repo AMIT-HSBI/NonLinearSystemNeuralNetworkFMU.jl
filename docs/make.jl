@@ -17,8 +17,8 @@ makedocs(
   ]
 )
 
-#@info "Deploy the docs"
-#deploydocs(
-#  repo = "github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl.git",
-#  devbranch = "main"
-#)
+@info "Deploy the docs"
+deploydocs(
+  repo = "github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl.git",
+  devbranch = "main"
+)
