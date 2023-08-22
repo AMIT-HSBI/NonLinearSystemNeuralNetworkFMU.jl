@@ -30,7 +30,7 @@ jobs:
           submodules: recursive
 
       - name: Setup CMake v3.21
-        uses: jwlawson/actions-setup-cmake@v1.13
+        uses: jwlawson/actions-setup-cmake@v1.14
         with:
           cmake-version: '3.21'
       - run: cmake --version

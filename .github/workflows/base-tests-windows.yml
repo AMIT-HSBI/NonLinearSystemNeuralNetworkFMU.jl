@@ -31,7 +31,7 @@ jobs:
 
       # Install CMake version 3.21
       - name: Setup cmake
-        uses: jwlawson/actions-setup-cmake@v1.13
+        uses: jwlawson/actions-setup-cmake@v1.14
         with:
           cmake-version: '3.21'
       - run: cmake --version
