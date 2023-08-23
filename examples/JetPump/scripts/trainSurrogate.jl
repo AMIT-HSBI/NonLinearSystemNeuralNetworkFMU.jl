@@ -2,26 +2,25 @@ using DrWatson
 @quickactivate "JetPump"
 
 using NonLinearSystemNeuralNetworkFMU
-using DataFrames
 using CSV
+using DataFrames
 using LinearAlgebra
 using Random
-using OMJulia
 Random.seed!(100)
 include(srcdir("symbolicRegression.jl"))
 
 # JetPump training data
-modelName = "Scenario_01_flat"
-N = 100_000
-workdir = datadir("sims", "$(modelName)_$(N)")
+modelName = "Scenario_01"
+n = 100_000
+workdir = datadir("sims", "$(modelName)_$(n)")
 eq = 46
 dataFile = joinpath(workdir, "data", "eq_$(eq).csv")
 df = CSV.read(dataFile, DataFrame)
 
-# Get n random data points of total training set
-n = 1000
+# Get m random data points of total training set
+m = 1000
 idx_row = shuffle(1:size(df,1))
-data = df[idx_row[1:n],:]
+data = df[idx_row[1:m],:]
 
 prof = getProfilingInfo(joinpath(workdir, "profilingInfo.bson"))
 
@@ -91,19 +90,13 @@ function genMoCode(equation::Array{Any},
   return equations
 end
 
-eqns = genMoCode(bestEq, prof[1].usingVars, prof[1].iterationVariables)
-for eq in eqns
-  println(eq)
-end
+surrogatEqns = genMoCode(bestEq, prof[1].usingVars, prof[1].iterationVariables)
+println.(surrogatEqns);
 
-workdir = datadir("sims", "$(modelName)_$(N)", "resultSim")
-mkdir(workdir)
-cd(workdir)
-omc= OMJulia.OMCSession()
-sendExpression(omc, "loadFile(\"$(srcdir("Scenario_01_flat_resolved.mo"))\")")
-sendExpression(omc, "simulate(Scenario_01_flat)")
+surrogatEqnsMo = joinpath(workdir, "surrogatEqns.mo")
+open(surrogatEqnsMo,"w") do file
+  write(file, join(surrogatEqns, "\n"))
+end
 
 # TODO:
 # Automate replacing residual equations with explicit modelica fucntions in flat model.
-
-
