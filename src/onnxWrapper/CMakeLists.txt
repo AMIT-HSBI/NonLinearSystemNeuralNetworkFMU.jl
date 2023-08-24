@@ -29,6 +29,11 @@ elseif(DEFINED ENV{ORT_DIR})
 endif()
 message(STATUS "Using ORT_DIR: ${ORT_DIR}")
 
+# Export all symbols on Windows
+if(MSVC)
+  set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+endif()
+
 # Find ONNX Runtime (ORT)
 find_path(ORT_INCLUDE
           "onnxruntime_c_api.h"

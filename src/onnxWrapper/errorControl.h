@@ -21,6 +21,7 @@
 #define ERROR_CONTROL_H
 
 #include <stdio.h>
+#include "onnxWrapper.h"
 
 /* forward types */
 struct OrtWrapperData;
@@ -29,8 +30,8 @@ struct OrtWrapperData;
 typedef void (*resFunction)(void*, const double*, double*, const int*);
 
 /* Function prototypes */
-void evalResidual(resFunction f, void* userData, struct OrtWrapperData* ortData);
-void printResiduum(unsigned int id, double time, struct OrtWrapperData* ortData);
-double residualNorm(double time, struct OrtWrapperData* ortData);
+LIBRARY_API void evalResidual(resFunction f, void* userData, struct OrtWrapperData* ortData);
+LIBRARY_API void printResiduum(unsigned int id, double time, struct OrtWrapperData* ortData);
+LIBRARY_API double residualNorm(double time, struct OrtWrapperData* ortData);
 
 #endif  // ERROR_CONTROL_H

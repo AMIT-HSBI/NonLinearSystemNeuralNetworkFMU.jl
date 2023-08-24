@@ -29,18 +29,20 @@ static fmi2String logCategoriesNames[] = {"logEvents", "logSingularLinearSystems
 
 static inline void resetThreadData(ModelInstance* comp)
 {
+#if !OMC_NO_THREADS
   if (comp->threadDataParent) {
     pthread_setspecific(mmc_thread_data_key, comp->threadDataParent);
   }
-  /* Clear the extra memory pools */
-  omc_alloc_interface.collect_a_little();
+#endif
 }
 
 static inline void setThreadData(ModelInstance* comp)
 {
+#if !OMC_NO_THREADS
   if (comp->threadDataParent) {
     pthread_setspecific(mmc_thread_data_key, comp->threadData);
   }
+#endif
 }
 
 /* Forwarded equations */

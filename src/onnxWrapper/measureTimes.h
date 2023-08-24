@@ -26,15 +26,23 @@
 #ifndef MEASURE_TIMES_H
 #define MEASURE_TIMES_H
 
-#include <stdio.h>
-#include <sys/time.h>
+#ifdef WIN32
+  #include <Windows.h>
+#endif
 
+#include <stdio.h>
+#if defined(_MSC_VER) || defined(MSVC)
+  #include <time.h>
+#else
+  #include <sys/time.h>
+#endif
+#include "onnxWrapper.h"
 struct timer {
   struct timeval start;
   struct timeval stop;
 };
 
-void tic(struct timer* t);
-double toc(struct timer* t);
+LIBRARY_API void tic(struct timer* t);
+LIBRARY_API double toc(struct timer* t);
 
 #endif // MEASURE_TIMES_H

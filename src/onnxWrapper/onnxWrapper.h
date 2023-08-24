@@ -20,6 +20,16 @@
 #ifndef ONNX_WWRAPPER_H
 #define ONNX_WWRAPPER_H
 
+#ifdef _WIN32
+#    ifdef LIBRARY_EXPORTS
+#        define LIBRARY_API __declspec(dllexport)
+#    else
+#        define LIBRARY_API __declspec(dllimport)
+#    endif
+#elif
+#    define LIBRARY_API
+#endif
+
 #include "onnxruntime_c_api.h"
 #include "errorControl.h"
 
@@ -48,8 +58,8 @@ struct OrtWrapperData {
   double* max;                        /* Maximum allowed values for model_input, size nInputs */
 };
 
-struct OrtWrapperData* initOrtData(const char* equationName, const char* pathToONNX, const char* modelName, unsigned int nInputs, unsigned int nOutputs, int logResiduum, int numThreads);
-void deinitOrtData(struct OrtWrapperData* ortData);
-void evalModel(struct OrtWrapperData* ortData);
+LIBRARY_API struct OrtWrapperData* initOrtData(const char* equationName, const char* pathToONNX, const char* modelName, unsigned int nInputs, unsigned int nOutputs, int logResiduum, int numThreads);
+LIBRARY_API void deinitOrtData(struct OrtWrapperData* ortData);
+LIBRARY_API void evalModel(struct OrtWrapperData* ortData);
 
 #endif // ONNX_WWRAPPER_H

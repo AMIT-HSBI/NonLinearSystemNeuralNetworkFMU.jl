@@ -162,7 +162,7 @@ struct OrtWrapperData* initOrtData(const char* equationName, const char* pathToO
     for(int i=0; i<ortData->nRes-1; i++) {
       fprintf(ortData->csvFile, "res[%i],", i);
     }
-    fprintf(ortData->csvFile, "res[%li]\n", ortData->nRes-1);
+    fprintf(ortData->csvFile, "res[%zu]\n", ortData->nRes-1);
 
     /* Initialize training area boundaries */
     ortData->min = calloc(nInputs, sizeof ortData->min[0]);
@@ -193,10 +193,10 @@ void deinitOrtData(struct OrtWrapperData* ortData) {
 
   free(ortData->model_input);
   free((char*)ortData->input_names[0]);
-  free(ortData->input_names);
+  free((char**)ortData->input_names);
   free(ortData->model_output);
   free((char*)ortData->output_names[0]);
-  free(ortData->output_names);
+  free((char**)ortData->output_names);
 
   /* Free ORT */
   ortData->g_ort->ReleaseSessionOptions(ortData->session_options);
