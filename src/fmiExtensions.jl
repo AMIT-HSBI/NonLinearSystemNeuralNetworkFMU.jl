@@ -85,6 +85,7 @@ function fmiEvaluateRes(comp::FMICore.FMU2Component, eq::Integer, x::Array{Float
 
   fmiEvaluateRes = Libdl.dlsym(comp.fmu.libHandle, :myfmi2EvaluateRes)
 
+
   res = Array{Float64}(undef, length(x))
 
   eqCtype = Csize_t(eq)

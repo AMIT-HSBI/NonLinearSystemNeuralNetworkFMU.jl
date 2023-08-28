@@ -41,6 +41,8 @@ if !isdefined(Base, :get_extension)
 end
 
 include("types.jl")
+export fmiEvaluateRes
+export fmiEvaluateEq
 export EqInfo
 export ProfilingInfo
 export OMOptions
