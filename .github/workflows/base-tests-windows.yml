@@ -27,7 +27,7 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       # Install CMake version 3.21
       - name: Setup cmake
