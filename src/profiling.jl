@@ -34,10 +34,6 @@ function simulateWithProfiling(modelName::String,
                                options::OMOptions)
 
   workingDir = options.workingDir
-  if Sys.iswindows()
-    workingDir = replace(options.workingDir, "\\"=> "\\\\")
-    moFiles = replace.(moFiles, "\\"=> "\\\\")
-  end
 
   if !isdir(workingDir)
     mkpath(workingDir)
@@ -54,39 +50,23 @@ function simulateWithProfiling(modelName::String,
     omc = OMJulia.OMCSession(options.pathToOmc)
   end
   try
-    msg = OMJulia.sendExpression(omc, "getVersion()")
-    write(logFile, msg*"\n")
+    version = OMJulia.API.getVersion(omc)
+    write(logFile, version*"\n")
     for file in moFiles
-      msg = OMJulia.sendExpression(omc, "loadFile(\"$(file)\")")
-      if (msg != true)
-        msg = OMJulia.sendExpression(omc, "getErrorString()")
-        write(logFile, msg*"\n")
-        throw(OpenModelicaError("Failed to load file $(file)!", abspath(logFilePath)))
-      end
-      write(logFile, string(msg)*"\n")
-      if !msg
-        throw(SimulationError("Failed to load file $(file)!", modelName, logFilePath))
-      end
-      msg = OMJulia.sendExpression(omc, "getErrorString()")
-      write(logFile, msg*"\n")
+      OMJulia.API.loadFile(omc, file)
     end
-    OMJulia.sendExpression(omc, "cd(\"$(workingDir)\")")
+    OMJulia.API.cd(omc, workingDir)
 
     @debug "setCommandLineOptions"
-    msg = OMJulia.sendExpression(omc, "setCommandLineOptions(\"-d=newInst,infoXmlOperations,backenddaeinfo --profiling=all " * options.commandLineOptions * "\")")
-    write(logFile, string(msg)*"\n")
-    msg = OMJulia.sendExpression(omc, "getErrorString()")
-    write(logFile, msg*"\n")
+    OMJulia.API.setCommandLineOptions(omc, "-d=newInst,infoXmlOperations,backenddaeinfo --profiling=all " * options.commandLineOptions)
 
     @debug "simulate"
     outputFormat = options.outputFormat === Nothing ? "csv" : options.outputFormat
-    msg = OMJulia.sendExpression(omc, "simulate($(modelName), outputFormat=\"$(outputFormat)\", simflags=\"-lv=LOG_STATS -clock=RT -cpu -w\")")
-    write(logFile, msg["messages"]*"\n")
-    msg = OMJulia.sendExpression(omc, "getErrorString()")
-    write(logFile, msg*"\n")
+    simulationResults = OMJulia.API.simulate(omc, modelName, outputFormat=outputFormat, simflags="-lv=LOG_STATS -clock=RT -cpu -w")
+    write(logFile, simulationResults["messages"]*"\n")
   finally
     close(logFile)
-    OMJulia.sendExpression(omc, "quit()", parsed=false)
+    OMJulia.quit(omc)
   end
 
   profJsonFile = abspath(joinpath(workingDir, modelName*"_prof.json"))

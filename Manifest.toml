@@ -1,6 +1,6 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.9.0"
+julia_version = "1.9.1"
 manifest_format = "2.0"
 project_hash = "ee3369cb3dde4b513f196e9f9abf83e94ca50099"
 
@@ -1160,7 +1160,7 @@ version = "1.9.0"
 deps = ["DataFrames", "DataStructures", "LightXML", "Random", "ZMQ"]
 git-tree-sha1 = "cf0dbd5aace52f602147ec23b2cbe5ccd298ae07"
 uuid = "0f4fe800-344e-11e9-2949-fb537ad918e1"
-version = "0.2.1"
+version = "0.2.2"
 
 [[deps.ONNX]]
 deps = ["Ghost", "LinearAlgebra", "NNlib", "Pkg", "ProtoBuf", "StaticArrays", "Statistics", "Test"]
@@ -1949,7 +1949,7 @@ version = "1.1.0"
 [[deps.libblastrampoline_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
-version = "5.7.0+0"
+version = "5.8.0+0"
 
 [[deps.libsodium_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
