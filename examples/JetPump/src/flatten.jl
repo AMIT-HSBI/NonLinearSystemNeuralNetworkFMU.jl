@@ -10,8 +10,8 @@ function flattentModelica(modelName::String, moFiles::Array{String}, flatModel::
     msg = sendExpression(omc, "loadFile(\"$(file)\")")
     if (msg != true)
       msg = sendExpression(omc, "getErrorString()")
-      write(logFile, msg*"\n")
-      throw(OpenModelicaError("Failed to load file $(file)!", abspath(logFilePath)))
+      @error msg
+      error("Failed to load file $(file)!")
     end
   end
 
@@ -32,4 +32,25 @@ function flattentModelica(modelName::String, moFiles::Array{String}, flatModel::
   end
 
   return flatModel
+end
+
+function saveTotalModel(modelName::String, moFiles::Array{String}, totalModel::String; workdir::String)
+
+  mkpath(workdir)
+  omc = OMJulia.OMCSession()
+
+  for file in moFiles
+    msg = sendExpression(omc, "loadFile(\"$(file)\")")
+    if (msg != true)
+      msg = sendExpression(omc, "getErrorString()")
+      @error msg
+      error("Failed to load file $(file)!")
+    end
+  end
+
+  sendExpression(omc, "cd(\"$(workdir)\")")
+  sendExpression(omc, "saveTotalModel(\"$(totalModel)\", $(modelName))")
+  OMJulia.sendExpression(omc, "quit()",parsed=false)
+
+  return totalModel
 end

@@ -5,14 +5,18 @@ using NonLinearSystemNeuralNetworkFMU
 include(srcdir("flatten.jl"))
 
 n = 100_000
-modelName = "Scenario_01"
+modelName = "Scenario_02"
 rootDir = "/mnt/home/aheuermann/workdir/phymos/JetPump"
 moFiles = [joinpath(rootDir, "02_SourceModel", "Modelica", "JetPumpTool", "package.mo"), projectdir("models", "$(modelName).mo")]
 workdir = datadir("sims", "$(modelName)_$(n)", "temp-flatmodel")
 
 # Flatten Modelica model
-flatModel = flattentModelica(modelName, moFiles, datadir("sims", "$(modelName)_$(n)", "$(modelName)_flat.mo"), workdir=workdir)
-moFiles = [flatModel]
+#flatModel = flattentModelica(modelName, moFiles, datadir("sims", "$(modelName)_$(n)", "$(modelName)_flat.mo"), workdir=workdir)
+#moFiles = [flatModel]
+#flatModel = datadir("sims", "$(modelName)_$(n)", "$(modelName)_flat.mo")
+
+#totalModel = saveTotalModel(modelName, moFiles, datadir("sims", "$(modelName)_$(n)", "$(modelName)_total.mo"), workdir=workdir)
+#moFiles = [totalModel]
 
 # Generate data
 function genData(modelName::String, moFiles::Array{String}, n::Integer)

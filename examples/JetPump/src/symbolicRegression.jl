@@ -32,8 +32,15 @@ function fitEquation(X, Y; tempDir)
 
   # Convert best equation to SymbolicUtils
   bestEq = Any[]
-  for (i,_) in enumerate(eachrow(Y))
-    dominating = calculate_pareto_frontier(hall_of_fame[i])
+  if size(Y,1) > 1
+    for (i,_) in enumerate(eachrow(Y))
+      dominating = calculate_pareto_frontier(hall_of_fame[i])
+      bestEqDim = node_to_symbolic(dominating[end].tree, options)
+      bestEqDim = simplify(bestEqDim)
+      push!(bestEq, bestEqDim)
+    end
+  else
+    dominating = calculate_pareto_frontier(hall_of_fame)
     bestEqDim = node_to_symbolic(dominating[end].tree, options)
     bestEqDim = simplify(bestEqDim)
     push!(bestEq, bestEqDim)
