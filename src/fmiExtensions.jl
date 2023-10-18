@@ -33,17 +33,15 @@ fmi2Status myfmi2EvaluateEq(fmi2Component c, const size_t eqNumber)
 for given equation number.
 
 # Arguments
-  - `fmu::FMICore.FMU2`: FMU object containing C void pointer to FMU component.
+  - `comp::FMICore.FMU2Component`: FMU component.
   - `eqNumber::Int`: Equation index specifying equation to evaluate.
 
 # Returns
   - Returns status of Libdl.ccall for `:myfmi2EvaluateEq`.
 """
-function fmiEvaluateEq(fmu::FMIImport.FMU2, eqNumber::Integer)::fmi2Status
-  return fmiEvaluateEq(fmu.components[1], eqNumber)
-end
-
 function fmiEvaluateEq(comp::FMICore.FMU2Component, eq::Integer)::fmi2Status
+
+  @debug "Thread $(Threads.threadid()): fmiEvaluateEq - comp"
 
   @assert eq>=0 "Equation index has to be non-negative!"
 
@@ -51,11 +49,13 @@ function fmiEvaluateEq(comp::FMICore.FMU2Component, eq::Integer)::fmi2Status
 
   eqCtype = Csize_t(eq)
 
+  @debug "Thread $(Threads.threadid()): Call fmiEvaluateEq"
   status = ccall(fmiEvaluateEq,
                  Cuint,
                  (Ptr{Nothing}, Csize_t),
                  comp.compAddr, eqCtype)
 
+  @debug "Thread $(Threads.threadid()):Finished fmiEvaluateEq"
   return status
 end
 

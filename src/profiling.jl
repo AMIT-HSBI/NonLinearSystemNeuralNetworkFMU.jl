@@ -277,7 +277,7 @@ end
 
 
 Read CSV `resultFile` to find smallest and biggest value for each variable in `variables`.
-Add ± `epsilon` to minimum and maximum.
+Add `-|epsilon*min|` to minimum and `|epsilon*max|` to maximum.
 """
 function minMaxValues(resultFile::String, variables::Array{String}; epsilon=0.05)
   df = DataFrames.DataFrame(CSV.File(resultFile))

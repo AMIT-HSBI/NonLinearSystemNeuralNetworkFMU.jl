@@ -64,6 +64,7 @@ function genSurrogate(lib::String, modelName::String; n::Int=1000, genData::Bool
 end
 
 function logProfilingInfo(sizes, logFile)
+  mkpath(dirname(logFile))
   file = open(logFile, "w")
   for size in sizes
     (shortName, modelName) = getNames(size)

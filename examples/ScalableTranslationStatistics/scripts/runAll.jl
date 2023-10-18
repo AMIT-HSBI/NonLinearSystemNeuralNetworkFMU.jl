@@ -4,11 +4,11 @@
 using DrWatson
 @quickactivate "ScalableTranslationStatistics"
 
-sizes = [40]
+sizes = [5]
 
 begin
   include("genAllSurrogates.jl")
-  #ENV["JULIA_DEBUG"] = NonLinearSystemNeuralNetworkFMU
+  ENV["JULIA_DEBUG"] = "NonLinearSystemNeuralNetworkFMU,FMICore"
   genAllSurrogates(sizes, modelicaLib; n=5000, genData=true)
   logFile = plotsdir("LoopInfo.log")
   logProfilingInfo(sizes, logFile)

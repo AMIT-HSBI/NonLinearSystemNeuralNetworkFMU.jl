@@ -40,9 +40,9 @@ function runMainTest()
     # NLS from simulation system
     @test profilingInfo[1].eqInfo.id == 14
     @test profilingInfo[1].iterationVariables == ["y"]
-    @test sort(profilingInfo[1].usingVars) == ["r","s"]
-    @test profilingInfo[1].boundary.min[1] ≈ 0.0 && profilingInfo[1].boundary.max[1] ≈ 1.4087228258248679
-    @test profilingInfo[1].boundary.min[2] ≈ 0.95 && profilingInfo[1].boundary.max[2] ≈ 3.15
+    @test profilingInfo[1].usingVars == ["s", "r"]
+    @test profilingInfo[1].boundary.min[1] ≈ 0.0 && profilingInfo[1].boundary.max[1] ≈ 1.4087228258248679 # s
+    @test profilingInfo[1].boundary.min[2] ≈ 0.95 && profilingInfo[1].boundary.max[2] ≈ 3.15              # r
   end
 
   @testset "Test function getUsingVars" begin

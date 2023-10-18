@@ -27,19 +27,19 @@ function runProfilingTests()
   options = NonLinearSystemNeuralNetworkFMU.OMOptions(workingDir=workingDir)
 
   @testset "Find slowes equations" begin
+    rm(joinpath(workingDir,modelName), recursive=true, force=true)
     profilingInfo = NonLinearSystemNeuralNetworkFMU.profiling(modelName, moFiles; options=options, threshold=0, ignoreInit=false)
     @test length(profilingInfo) == 2
     # NLS from simulation system
     @test profilingInfo[1].eqInfo.id == 14
     @test profilingInfo[1].iterationVariables == ["y"]
-    @test sort(profilingInfo[1].usingVars) == ["r","s"]
-    @test profilingInfo[1].boundary.min[1] ≈ 0.0 && profilingInfo[1].boundary.max[1] ≈ 1.4087228258248679
-    @test profilingInfo[1].boundary.min[2] ≈ 0.95 && profilingInfo[1].boundary.max[2] ≈ 3.15
+    @test profilingInfo[1].usingVars == ["s", "r"]
+    @test profilingInfo[1].boundary.min[1] ≈ 0.0 && profilingInfo[1].boundary.max[1] ≈ 1.4087228258248679 # s
+    @test profilingInfo[1].boundary.min[2] ≈ 0.95 && profilingInfo[1].boundary.max[2] ≈ 3.15              # r
     # NLS from initialization system
     @test profilingInfo[2].eqInfo.id == 6
     @test profilingInfo[2].iterationVariables == ["y"]
     @test sort(profilingInfo[2].usingVars) == ["r","s"]
-    rm(joinpath(workingDir,modelName), recursive=true, force=true)
   end
 end
 

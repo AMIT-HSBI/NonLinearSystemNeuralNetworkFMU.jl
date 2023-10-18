@@ -1,3 +1,6 @@
 [submodule "examples/NaiveONNX.jl"]
 	path = examples/NaiveONNX.jl
 	url = git@github.com:AnHeuermann/NaiveONNX.jl.git
+[submodule "examples/ScalableTranslationStatistics/ScalableTranslationStatistics"]
+	path = examples/ScalableTranslationStatistics/ScalableTranslationStatistics
+	url = git@github.com:ltx-simulation/ScalableTranslationStatistics.git

@@ -12,9 +12,12 @@ surrogate FMUs.
 
 ## Dependencies
 
-  1. Get access to Modelica library ScalableTranslationStatistics.
-     Ask AnHeuermann if you don't have access to the GitLab with the library.
-     This example uses commit 166959e3b706230782cad741b02ee1adf3f2af3c.
+  1. Make sure sub-module ScalableTranslationStatistics is in sub-directory [./ScalableTranslationStatistics.](ScalableTranslationStatistics./).
+     If not update your git submodule with
+
+     ```bash
+     $ git submodule update --force --init --recursive
+     ```
 
   2. Make sure you have local Julia package
      [NaiveONNX](https://github.com/AnHeuermann/NaiveONNX.jl) in [../NaiveONNX.jl](../NaiveONNX.jl).

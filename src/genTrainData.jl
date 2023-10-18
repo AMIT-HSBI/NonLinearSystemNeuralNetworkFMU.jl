@@ -83,15 +83,15 @@ function generateDataBatch(fmu,
   try
     # Load FMU and initialize
     @debug "Instantiate fmu for eq $eqId for $fname"
-    FMI.fmiInstantiate!(fmu; loggingOn = false, externalCallbacks=false)
+    comp = FMI.fmiInstantiate!(fmu; loggingOn = false, externalCallbacks=false)
 
     if useTime
-      FMI.fmiSetupExperiment(fmu, timeBounds[1], timeBounds[2])
+      FMI.fmiSetupExperiment(comp, timeBounds[1], timeBounds[2])
     else
-      FMI.fmiSetupExperiment(fmu)
+      FMI.fmiSetupExperiment(comp)
     end
-    FMI.fmiEnterInitializationMode(fmu)
-    FMI.fmiExitInitializationMode(fmu)
+    FMI.fmiEnterInitializationMode(comp)
+    FMI.fmiExitInitializationMode(comp)
 
     # Generate training data
     row = Array{Float64}(undef, nVars)
@@ -106,7 +106,7 @@ function generateDataBatch(fmu,
       row[1:nInputs] = (inMax.-inMin).*rand(nInputs) .+ inMin
       # Set start values to 0?
       # TODO start values from Modelica attributes?
-      status, row = generateDataPoint(fmu, eqId, nInputs, row_vr, row, if useTime timeBounds[1] else nothing end)
+      status, row = generateDataPoint(comp, eqId, nInputs, row_vr, row, if useTime timeBounds[1] else nothing end)
 
       # Found a point: stop
       if status == fmi2OK
@@ -145,7 +145,7 @@ function generateDataBatch(fmu,
           error("Unknown method '$(typeof(options.method))'");
         end
 
-        status, row = generateDataPoint(fmu, eqId, nInputs, row_vr, row, if useTime timeValues[samplesGenerated+1] else nothing end)
+        status, row = generateDataPoint(comp, eqId, nInputs, row_vr, row, if useTime timeValues[samplesGenerated+1] else nothing end)
 
         if status == fmi2OK
           ProgressMeter.next!(p)
@@ -171,8 +171,8 @@ function generateDataBatch(fmu,
       end
     end
   catch err
-    @error "Catched error, unloading FMU"
-    FMI.fmiUnload(fmu)
+    #@error "Catched error, unloading FMU"
+    #FMI.fmiUnload(fmu) # not allowed to unload FMU here if we have multiple threads running!
     rethrow(err)
   end
 
@@ -242,11 +242,10 @@ function generateTrainingData(fmuPath::String,
       error("Can't do 0 batches!")
     end
     @debug "Running $parallelBatches batches"
-    # A FMU that is instantiate once can't be reused by another (or the same) thread.
-    fmuArray = [FMI.fmiLoad(fmuPath) for _ in 1:parallelBatches]
+    fmu = FMI.fmiLoad(fmuPath)
 
+    # TODO: Add try-catch arround this block!
     Threads.@threads for i in 1:parallelBatches  # enumerate not thread safe
-      fmu = fmuArray[i]
       @debug "Thread $(Threads.threadid()) running FMU $i"
       tempCsvFile = joinpath(workDir, "trainingData_eq_$(eqId)_batch_$(batchesDone+i).csv")
       samples = nPerBatch
@@ -257,7 +256,7 @@ function generateTrainingData(fmuPath::String,
     end
 
     @debug "Unloading FMU"
-    FMI.fmiUnload.(fmuArray)
+    FMI.fmiUnload(fmu)
     batchesDone += parallelBatches
   end
   ProgressMeter.finish!(progressMeter)
@@ -285,19 +284,24 @@ end
 """
 Evaluate equation `eqId` with `row` as inputs + start values
 """
-function generateDataPoint(fmu, eqId, nInputs, row_vr, row, time)
+function generateDataPoint(comp::FMI.FMU2Component, eqId, nInputs, row_vr::AbstractArray, row::AbstractArray, time)
   # Set input values and start values for output
-  FMIImport.fmi2SetReal(fmu, row_vr, row)
+
+  @debug "Thread $(Threads.threadid()) fmi2SetReal"
+  FMIImport.fmi2Set(comp, row_vr, row)
   if time !== nothing
-    FMIImport.fmi2SetTime(fmu, time)
+    @debug "Thread $(Threads.threadid()) fmi2SetTime"
+    FMIImport.fmi2SetTime(comp, time)
   end
 
   # Evaluate equation
   # TODO: Supress stream prints, but Suppressor.jl is not thread safe
-  status = fmiEvaluateEq(fmu, eqId)
+  @debug "Thread $(Threads.threadid()) fmiEvaluateEq"
+  #status = fmiEvaluateEq(comp, eqId)
+  status = fmi2OK
   if status == fmi2OK
     # Get output values
-    row[nInputs+1:end] .= FMIImport.fmi2GetReal(fmu, row_vr[nInputs+1:end])
+    row[nInputs+1:end] .= FMIImport.fmi2GetReal(comp, row_vr[nInputs+1:end])
   end
 
   return status, row
