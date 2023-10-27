@@ -171,8 +171,7 @@ function generateDataBatch(fmu,
       end
     end
   catch err
-    #@error "Catched error, unloading FMU"
-    #FMI.fmiUnload(fmu) # not allowed to unload FMU here if we have multiple threads running!
+    @error "Catched error, unloading FMU"
     rethrow(err)
   end
 
@@ -237,26 +236,27 @@ function generateTrainingData(fmuPath::String,
   nPerBatch = Integer(ceil(options.n / options.nBatches))
   batchesDone = 0
   while batchesDone < options.nBatches
-    parallelBatches = min(options.nThreads, options.nBatches-batchesDone)
+    parallelBatches = min(options.nThreads, options.nBatches-batchesDone, Threads.nthreads())
     if parallelBatches <= 0
       error("Can't do 0 batches!")
     end
     @debug "Running $parallelBatches batches"
-    fmu = FMI.fmiLoad(fmuPath)
+    fmuArray = [FMI.fmiLoad(fmuPath) for _ in 1:parallelBatches]
 
     # TODO: Add try-catch arround this block!
     Threads.@threads for i in 1:parallelBatches  # enumerate not thread safe
-      @debug "Thread $(Threads.threadid()) running FMU $i"
+      threadid = Threads.threadid()
+      @debug "Thread $(threadid) running FMU $i"
       tempCsvFile = joinpath(workDir, "trainingData_eq_$(eqId)_batch_$(batchesDone+i).csv")
       samples = nPerBatch
       if i == parallelBatches
         samples = options.n - nPerBatch*(options.nBatches-1)
       end
-      generateDataBatch(fmu, tempCsvFile, eqId, timeBounds, inputVarsCopy, minBound, maxBound, outputVars, progressMeter; samples, options=options)
+      generateDataBatch(fmuArray[i], tempCsvFile, eqId, timeBounds, inputVarsCopy, minBound, maxBound, outputVars, progressMeter; samples, options=options)
     end
 
     @debug "Unloading FMU"
-    FMI.fmiUnload(fmu)
+    FMI.fmiUnload.(fmuArray)
     batchesDone += parallelBatches
   end
   ProgressMeter.finish!(progressMeter)
