@@ -323,9 +323,10 @@ function modifyCMakeLists(path_to_cmakelists::String)
              set(CMAKE_BUILD_TYPE "RelWithDebInfo")
              """ *
              str[id1+1:end]
+    str = newStr
 
     # Link to onnxWrapper
-    id1 = last(findStrWError("# Add include directories", str))
+    id1 = last(findStrWError("# Add include directories", newStr))
     newStr = str[1:id1-1] * EOL *
              """
              target_link_libraries(\${FMU_NAME} PRIVATE onnxWrapper)
