@@ -25,8 +25,8 @@ onnxFiles = ["eq_14.onnx"]
 
 buildWithOnnx(fmu,
               modelName,
-              profilingInfo::Array{ProfilingInfo},
-              onnxFiles::Array{String},
+              profilingInfo,
+              onnxFiles,
               tempDir = "onnxTempDir")
 ```
 

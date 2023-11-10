@@ -323,11 +323,15 @@ function modifyCMakeLists(path_to_cmakelists::String)
              set(CMAKE_BUILD_TYPE "RelWithDebInfo")
              """ *
              str[id1+1:end]
+    str = newStr
 
-    newStr = replace(newStr,
-                     "target_link_libraries(\${FMU_NAME} PRIVATE m Threads::Threads)"
-                     =>
-                     "target_link_libraries(\${FMU_NAME} PRIVATE m Threads::Threads onnxWrapper)")
+    # Link to onnxWrapper
+    id1 = last(findStrWError("# Add include directories", newStr))
+    newStr = str[1:id1-1] * EOL *
+             """
+             target_link_libraries(\${FMU_NAME} PRIVATE onnxWrapper)
+             """ * EOL *
+             str[id1+1:end]
   end
 
   write(path_to_cmakelists, newStr)

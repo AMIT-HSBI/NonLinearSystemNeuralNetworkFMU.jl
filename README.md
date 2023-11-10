@@ -22,8 +22,8 @@ git submodule update --init
 
 ## Requirements
 
-  - Julia v1.7.1 or newer.
-  - OpenModelica version v1.22.0-dev-43-g33a50c3 or newer.
+  - Julia v1.9 or newer.
+  - OpenModelica version v1.23.0-dev-83 or newer.
     - Path has to contain the OpenModelica bin directory `/path/to/OpenModelica/bin/`.
     - For running the tests: Environment variable `OPENMODELICAHOME` set to point to the installation directory of OpenModelica.
   - CMake version 3.21 or newer.
