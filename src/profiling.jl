@@ -18,7 +18,7 @@
 #
 
 """
-    simulateWithProfiling(modelName, pathToMo; [pathToOmc], workingDir=pwd(), outputFormat="mat", clean=false])
+    simulateWithProfiling(modelName, moFiles; options)
 
 Simulate Modelica model with profiling enabled using given omc.
 
@@ -132,7 +132,7 @@ end
 
 
 """
-    findSlowEquations(profJsonFile, infoJsonFile; threshold)
+    findSlowEquations(profJsonFile, infoJsonFile; threshold = 0.03, ignoreInit = true)
 
 Read JSON profiling file and find slowest non-linear loop equatiosn that need more then `threshold` of total simulation time.
 
@@ -383,7 +383,7 @@ end
 
 
 """
-    minMaxValuesReSim(vars, modelName, moFiles; pathToOmc="" workingDir=pwd())
+    minMaxValuesReSim(vars, modelName, moFiles; options)
 
 (Re-)simulate Modelica model and find miminum and maximum value each variable has during simulation.
 
