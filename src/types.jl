@@ -135,6 +135,8 @@ struct OMOptions
   clean::Bool
   "Additional comannd line options for `setCommandLineOptions`."
   commandLineOptions::String
+  "Additional simulation flags."
+  simFlags::String
 
   """
       OMOptions(;pathToOmc = "", workingDir = pwd(), outputFormat = "csv", clean = false, commandLineOptions = "", disableCSE = true)
@@ -146,6 +148,7 @@ struct OMOptions
                     outputFormat::Union{String,Nothing} = "csv",
                     clean::Bool = false,
                     commandLineOptions::String = "",
+                    simFlags::String = "",
                     disableCSE = true)
 
   # Try to find omc executable
@@ -161,7 +164,7 @@ struct OMOptions
     commandLineOptions *= " --preOptModules-=wrapFunctionCalls --postOptModules-=wrapFunctionCalls"
   end
 
-  new(pathToOmc, workingDir, outputFormat, clean, commandLineOptions)
+  new(pathToOmc, workingDir, outputFormat, clean, commandLineOptions, simFlags)
   end
 end
 
