@@ -156,6 +156,7 @@ fmi2Status myfmi2EvaluateRes(fmi2Component c, const size_t eqNumber, double* x, 
  * @return jac          Return pointer to Jacobian matrix in row-major-format or NULL in error case.
  */
 double* getJac(DATA* data, const size_t sysNumber) {
+  // maybe pass double* x, double* res additionally
   double* jac;
   NONLINEAR_SYSTEM_DATA* nlsSystem = &(data->simulationInfo->nonlinearSystemData[sysNumber]);
 
@@ -170,12 +171,15 @@ double* getJac(DATA* data, const size_t sysNumber) {
   //  jac = solverData->fjac;
   //  break;
   case NLS_HOMOTOPY:
+    // here evaluate jac at x and set it equal to res and return res
     return getHomotopyJacobian(nlsSystem);
   default:
     printf("Unknown NLS method  %d in myfmi2GetJac\n", (int)nlsSystem->nlsMethod);
     return NULL;
   }
 }
+
+
 
 /**
  * @brief Scale residual vector.
@@ -203,4 +207,41 @@ int scaleResidual(double* jac, double* res, size_t n) {
   }
 
   return isRegular;
+}
+
+
+//------------------
+// fmi2Status myfmi2EvaluateJacobian(fmi2Component c, const size_t eqNumber, double* x, double* res)
+// {
+//   // sollte wahrscheinlich getJac aufrufen
+//   //double* jacobian = getJac(c, eqNumber); 
+//   // und dann irgendwie auswerten
+//   return fmi2OK;
+// }
+
+
+fmi2Status myfmi2EvaluateJacobian(fmi2Component c, const size_t eqNumber, double* x, double* jac)
+{
+  ModelInstance *comp = (ModelInstance *)c;
+  DATA* data = comp->fmuData;
+  threadData_t *threadData = comp->threadData;
+  //sysNumber?
+  NONLINEAR_SYSTEM_DATA* nlsSystem = &(data->simulationInfo->nonlinearSystemData[0]);
+
+  switch(nlsSystem->nlsMethod)
+  {
+    case NLS_HOMOTOPY:
+      printf("in case homotopy");
+      DATA_HOMOTOPY* solverData = (DATA_HOMOTOPY*) nlsSystem->solverData;
+      printf("solver data fertig");
+      int status = getAnalyticalJacobianHomotopy(solverData, jac);
+      printf("jacobi matrix fertig");
+    default:
+      printf("fehler");
+      abort();
+  }
+  // sollte wahrscheinlich getJac aufrufen
+  //double* jacobian = getJac(c, eqNumber); 
+  // und dann irgendwie auswerten
+  
 }
