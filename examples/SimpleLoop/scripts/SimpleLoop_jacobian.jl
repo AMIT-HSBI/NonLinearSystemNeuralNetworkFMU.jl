@@ -18,11 +18,12 @@ function fmiEvaluateJacobian(comp::FMICore.FMU2Component, eq::Integer, x::Array{
   
     eqCtype = Csize_t(eq)
   
+    print("before ccall")
     status = ccall(fmiEvaluateJacobian,
                    Cuint,
                    (Ptr{Nothing}, Csize_t, Ptr{Cdouble}, Ptr{Cdouble}),
                    comp.compAddr, eqCtype, x, jac)
-  
+    print("after ccall")
     return status, jac
   end
   
@@ -34,7 +35,7 @@ function fmiEvaluateJacobian(comp::FMICore.FMU2Component, eq::Integer, x::Array{
   #(status, res) = NonLinearSystemNeuralNetworkFMU.fmiEvaluateRes(fmu_comp, eq_num, rand(Float64, 110))
   #"/home/fbrandt3/arbeit/NonLinearSystemNeuralNetworkFMU.jl/examples/IEEE14/data/sims/IEEE_14_Buses_1000/IEEE_14_Buses.interface.fmu"
   fmu = FMI.fmiLoad("/home/fbrandt3/arbeit/NonLinearSystemNeuralNetworkFMU.jl/examples/SimpleLoop/data/sims/simpleLoop_100/unzipped_fmu_sl/simpleLoop.fmu")
-  comp = FMI.fmiInstantiate!(fmu) # this or only load?
+  comp = FMI.fmiInstantiate!(fmu)
   FMI.fmiSetupExperiment(comp)
   FMI.fmiEnterInitializationMode(comp)
   FMI.fmiExitInitializationMode(comp)
