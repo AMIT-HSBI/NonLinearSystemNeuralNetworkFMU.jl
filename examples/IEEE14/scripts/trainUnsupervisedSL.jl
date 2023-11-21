@@ -169,7 +169,7 @@ train_out = mapreduce(permutedims, vcat, train_out)'
 
 
 
-dataloader = Flux.DataLoader((train_in, train_out), batchsize=16, shuffle=true)
+dataloader = Flux.DataLoader((train_in, train_out), batchsize=1, shuffle=true)
 
 # specify network architecture
 # maybe add normalization layer at Start
@@ -180,7 +180,7 @@ model = Flux.Chain(Flux.Dense(nInputs, 64, relu),
                     Flux.Dense(64, nOutputs))
 
 ps = Flux.params(model)
-opt = Flux.Adam(1e-3)
+opt = Flux.Adam(1e-4)
 
 opt_state = Flux.setup(opt, model)
 
@@ -188,23 +188,22 @@ loss_vector = []
 #println(loss(model(train_in[1]), train_out[1], fmu, eq_num)[1])
 
 # problem: geht nur mit batchsize = 1
-epoch_range = 1:10000
+epoch_range = 1:10
 for epoch in epoch_range
     for (x, y) in dataloader
         prepare_x(x, y, row_vr, row_vr_y, fmu)
         l, grads = Flux.withgradient(model) do m  
-          prediction = m(x)
-
+          prediction = m(x[1:end])
           # different losses
-          #1.0 * Flux.mse(prediction, y[1]) + 0.5 * loss(prediction, y[1], fmu, eq_num)
-          Flux.mae(prediction, y)
-          #loss(prediction, y[1], fmu, eq_num)
+          #1.0 * Flux.mse(prediction, y[1]) + 1.0 * loss(prediction, y[1], fmu, eq_num)
+          Flux.mse(prediction, y)
+          #loss(prediction, y[1:end], fmu, eq_num)
         end
         push!(loss_vector, l)  # logging, outside gradient context
         Flux.update!(opt_state, model, grads[1])
-        break
     end
 end
+
 
 #println(loss(model(train_in[1]), train_out[1], fmu, eq_num)[1])
 
@@ -219,3 +218,7 @@ train_in_mat = mapreduce(permutedims, vcat, train_in)
 train_out_mat = mapreduce(permutedims, vcat, train_out)
 surface(vec(train_in_mat[:,1]), vec(train_in_mat[:,2]), vec(train_out_mat))
 
+
+
+# supervised works in batchsize>1
+# residual doesnt need batchsize=1 in dataloader and 
