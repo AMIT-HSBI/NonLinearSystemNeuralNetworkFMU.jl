@@ -19,11 +19,12 @@ import CSV
 import InvertedIndices
 import StatsBase
 
+
 import FMICore
 using Libdl
 
 
-function readData(filename::String, nInputs::Integer; ratio=0.8, shuffle::Bool=true)
+function readData(filename::String, nInputs::Integer; ratio=0.9, shuffle::Bool=true)
     df = DataFrames.select(CSV.read(filename, DataFrames.DataFrame; ntasks=1), InvertedIndices.Not([:Trace]))
     m = Matrix{Float32}(df)
     n = length(m[:,1]) # num samples
@@ -76,21 +77,21 @@ function fmiEvaluateJacobian(comp::FMICore.FMU2Component, eq::Integer, vr::Array
 # when using residual loss, load fmu
 #(status, res) = NonLinearSystemNeuralNetworkFMU.fmiEvaluateRes(fmu_comp, eq_num, rand(Float64, 110))
 #"/home/fbrandt3/arbeit/NonLinearSystemNeuralNetworkFMU.jl/examples/IEEE14/data/sims/IEEE_14_Buses_1000/IEEE_14_Buses.interface.fmu"
-fmu = FMI.fmiLoad("/home/fbrandt3/arbeit/NonLinearSystemNeuralNetworkFMU.jl/examples/SimpleLoop/data/sims/simpleLoop_100/unzipped_fmu_sl/simpleLoop.fmu")
+fmu = FMI.fmiLoad("/home/fbrandt3/arbeit/NonLinearSystemNeuralNetworkFMU.jl/examples/IEEE14/data/sims/simpleLoop_1000/simpleLoop.interface.fmu")
 comp = FMI.fmiInstantiate!(fmu)
 FMI.fmiSetupExperiment(comp)
 FMI.fmiEnterInitializationMode(comp)
 FMI.fmiExitInitializationMode(comp)
 
-vr = FMI.fmiStringToValueReference(fmu, ["x","y"])
+vr = FMI.fmiStringToValueReference(fmu, ["y"])
 # status, jac = fmiEvaluateJacobian(comp, 0, vr, [1.,2.])
 
 # jac
 
 
-eq_num = 0 # hardcoded but okay
+eq_num = 14 # hardcoded but okay
 
-profilinginfo = getProfilingInfo("/home/fbrandt3/arbeit/NonLinearSystemNeuralNetworkFMU.jl/examples/SimpleLoop/data/sims/simpleLoop_100/profilingInfo.bson")
+profilinginfo = getProfilingInfo("/home/fbrandt3/arbeit/NonLinearSystemNeuralNetworkFMU.jl/examples/IEEE14/data/sims/simpleLoop_1000/profilingInfo.bson")
 
 row_vr = FMI.fmiStringToValueReference(fmu.modelDescription, profilinginfo[1].usingVars)
 row_vr_y = FMI.fmiStringToValueReference(fmu.modelDescription, profilinginfo[1].iterationVariables)
@@ -122,13 +123,14 @@ function ChainRulesCore.rrule(::typeof(loss), x, y, fmu, eq_num)
   status, jac = NonLinearSystemNeuralNetworkFMU.fmiEvaluateJacobian(comp, eq_num, vr, Float64.(x))
   mat_dim = trunc(Int,sqrt(length(jac)))
   jac = reshape(jac, (mat_dim,mat_dim))
-  println(jac)
+
   #jac = rand(110,110) # jacobian dresidual/dx, still need that, probably of shape (110x16), what shape is that?
   # IST DIE QUADRATISCH?
 
   # x̄ (110,) so wie model output
 
   function loss_pullback(l̄)
+
     # print(l̄[1])
     # print(size(res_out[2]))
     # print(size(jac * res_out[2]))
@@ -152,9 +154,9 @@ end
 
 
 
-fileName = "/home/fbrandt3/arbeit/NonLinearSystemNeuralNetworkFMU.jl/examples/SimpleLoop/data/sims/simpleLoop_100/data/eq_16.csv"
+fileName = "/home/fbrandt3/arbeit/NonLinearSystemNeuralNetworkFMU.jl/examples/IEEE14/data/sims/simpleLoop_1000/data/eq_14.csv"
 nInputs = 2
-nOutputs = 2
+nOutputs = 1
 
 # prepare train and test data
 (train_in, train_out, test_in, test_out) = readData(fileName, nInputs)
@@ -163,40 +165,48 @@ dataloader = Flux.DataLoader((train_in, train_out), batchsize=1, shuffle=true)
 
 # specify network architecture
 # maybe add normalization layer at Start
-model = Flux.Chain(Flux.Dense(nInputs, 32, relu),
-                  Flux.Dense(32, nOutputs))
+model = Flux.Chain(Flux.Dense(nInputs, 64, relu),
+                    Flux.Dense(64, 64, relu),
+                    Flux.Dense(64, 64, relu),
+                    Flux.Dense(64, 64, relu),
+                    Flux.Dense(64, nOutputs))
 
 ps = Flux.params(model)
-opt = Flux.Adam(1e-3)
+opt = Flux.Adam(1e-4)
 opt_state = Flux.setup(opt, model)
 
-
-println(loss(model(train_in[1]), train_out[1], fmu, eq_num)[1])
+loss_vector = []
+#println(loss(model(train_in[1]), train_out[1], fmu, eq_num)[1])
 
 # problem: geht nur mit batchsize = 1
-losses = []
-for epoch in 1:5
+epoch_range = 1:10000
+for epoch in epoch_range
     for (x, y) in dataloader
-        print(x[1], y[1])
-        #print(size(x), size(x[1]), size(y), size(y[1]))
         prepare_x(x[1], y[1], row_vr, row_vr_y, fmu)
-        grads = Flux.gradient(model) do m  
-          result = m(x[1])
-          #print(size(result))
-          loss(result, y[1], fmu, eq_num)
-          #Flux.mse(result, y[1])
-          #return l
+        l, grads = Flux.withgradient(model) do m  
+          prediction = m(x[1])
+
+          # different losses
+          #1.0 * Flux.mse(prediction, y[1]) + 0.5 * loss(prediction, y[1], fmu, eq_num)
+          Flux.mse(prediction, y[1])
+          #loss(prediction, y[1], fmu, eq_num)
         end
-        
-        #push!(losses, l)  # logging, outside gradient context
-        println(grads[1])
+        push!(loss_vector, l)  # logging, outside gradient context
         Flux.update!(opt_state, model, grads[1])
         break
     end
 end
 
-println(loss(model(train_in[1]), train_out[1], fmu, eq_num)[1])
+#println(loss(model(train_in[1]), train_out[1], fmu, eq_num)[1])
 
 
-# loss(rand(110,), rand(110,), fmu, eq_num)
-# rrule(loss, rand(110,), rand(110,), fmu, eq_num)
+# plot loss curve
+x = 1:length(loss_vector)
+y = loss_vector
+plot(x, y)
+
+
+train_in_mat = mapreduce(permutedims, vcat, train_in)
+train_out_mat = mapreduce(permutedims, vcat, train_out)
+surface(vec(train_in_mat[:,1]), vec(train_in_mat[:,2]), vec(train_out_mat))
+
