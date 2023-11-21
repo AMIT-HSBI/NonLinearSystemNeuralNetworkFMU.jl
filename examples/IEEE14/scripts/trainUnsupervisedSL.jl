@@ -98,8 +98,11 @@ row_vr_y = FMI.fmiStringToValueReference(fmu.modelDescription, profilinginfo[1].
 
 
 function prepare_x(x, y, row_vr, row_vr_y, fmu)
-  FMIImport.fmi2SetReal(fmu, row_vr, x[1:end])
-  FMIImport.fmi2SetReal(fmu, row_vr_y, y)
+  batchsize = size(x)[2]
+  for i in 1:batchsize
+    FMIImport.fmi2SetReal(fmu, row_vr, x[1:end,i])
+    FMIImport.fmi2SetReal(fmu, row_vr_y, y[i])
+  end
 #   if time !== nothing
 #     FMIImport.fmi2SetTime(fmu, x[1])
 #     FMIImport.fmi2SetReal(fmu, row_vr, x[2:end])
@@ -161,7 +164,12 @@ nOutputs = 1
 # prepare train and test data
 (train_in, train_out, test_in, test_out) = readData(fileName, nInputs)
 
-dataloader = Flux.DataLoader((train_in, train_out), batchsize=1, shuffle=true)
+train_in = mapreduce(permutedims, vcat, train_in)'
+train_out = mapreduce(permutedims, vcat, train_out)'
+
+
+
+dataloader = Flux.DataLoader((train_in, train_out), batchsize=16, shuffle=true)
 
 # specify network architecture
 # maybe add normalization layer at Start
@@ -172,7 +180,8 @@ model = Flux.Chain(Flux.Dense(nInputs, 64, relu),
                     Flux.Dense(64, nOutputs))
 
 ps = Flux.params(model)
-opt = Flux.Adam(1e-4)
+opt = Flux.Adam(1e-3)
+
 opt_state = Flux.setup(opt, model)
 
 loss_vector = []
@@ -182,13 +191,13 @@ loss_vector = []
 epoch_range = 1:10000
 for epoch in epoch_range
     for (x, y) in dataloader
-        prepare_x(x[1], y[1], row_vr, row_vr_y, fmu)
+        prepare_x(x, y, row_vr, row_vr_y, fmu)
         l, grads = Flux.withgradient(model) do m  
-          prediction = m(x[1])
+          prediction = m(x)
 
           # different losses
           #1.0 * Flux.mse(prediction, y[1]) + 0.5 * loss(prediction, y[1], fmu, eq_num)
-          Flux.mse(prediction, y[1])
+          Flux.mae(prediction, y)
           #loss(prediction, y[1], fmu, eq_num)
         end
         push!(loss_vector, l)  # logging, outside gradient context
