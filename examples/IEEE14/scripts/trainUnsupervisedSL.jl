@@ -47,28 +47,28 @@ end
 
 
 
-function fmiEvaluateJacobian(comp::FMICore.FMU2Component, eq::Integer, vr::Array{FMI.fmi2ValueReference}, x::Array{Float64})::Tuple{FMI.fmi2Status, Array{Float64}}
-    # wahrscheinlich braucht es eine c-Funktion, die nicht nur einen pointer auf die Jacobi-Matrix returned, sondern gleich die Auswertung an der Stelle x
-    # diese Funktion muss auch ein Argument res nehmen welches dann die Evaluation enthält.?
+# function fmiEvaluateJacobian(comp::FMICore.FMU2Component, eq::Integer, vr::Array{FMI.fmi2ValueReference}, x::Array{Float64})::Tuple{FMI.fmi2Status, Array{Float64}}
+#     # wahrscheinlich braucht es eine c-Funktion, die nicht nur einen pointer auf die Jacobi-Matrix returned, sondern gleich die Auswertung an der Stelle x
+#     # diese Funktion muss auch ein Argument res nehmen welches dann die Evaluation enthält.?
   
-    @assert eq>=0 "Residual index has to be non-negative!"
+#     @assert eq>=0 "Residual index has to be non-negative!"
   
-    FMIImport.fmi2SetReal(comp, vr, x)
+#     FMIImport.fmi2SetReal(comp, vr, x)
   
-    # this is a pointer to Jacobian matrix in row-major-format or NULL in error case.
-    fmiEvaluateJacobian = Libdl.dlsym(comp.fmu.libHandle, :myfmi2EvaluateJacobian)
+#     # this is a pointer to Jacobian matrix in row-major-format or NULL in error case.
+#     fmiEvaluateJacobian = Libdl.dlsym(comp.fmu.libHandle, :myfmi2EvaluateJacobian)
   
-    jac = Array{Float64}(undef, length(x)*length(x))
+#     jac = Array{Float64}(undef, length(x)*length(x))
   
-    eqCtype = Csize_t(eq)
+#     eqCtype = Csize_t(eq)
   
-    status = ccall(fmiEvaluateJacobian,
-                   Cuint,
-                   (Ptr{Nothing}, Csize_t, Ptr{Cdouble}, Ptr{Cdouble}),
-                   comp.compAddr, eqCtype, x, jac)
+#     status = ccall(fmiEvaluateJacobian,
+#                    Cuint,
+#                    (Ptr{Nothing}, Csize_t, Ptr{Cdouble}, Ptr{Cdouble}),
+#                    comp.compAddr, eqCtype, x, jac)
   
-    return status, jac
-  end
+#     return status, jac
+#   end
 
 
 
@@ -167,8 +167,15 @@ nOutputs = 1
 train_in = mapreduce(permutedims, vcat, train_in)'
 train_out = mapreduce(permutedims, vcat, train_out)'
 
+# scale data between [0,1]
+train_in_transform = StatsBase.fit(StatsBase.UnitRangeTransform, train_in, dims=2)
+train_out_transform = StatsBase.fit(StatsBase.UnitRangeTransform, train_out, dims=2)
+
+train_in = StatsBase.transform(train_in_transform, train_in)
+train_out = StatsBase.transform(train_out_transform, train_out)
 
 
+# only batchsize=1!!
 dataloader = Flux.DataLoader((train_in, train_out), batchsize=1, shuffle=true)
 
 # specify network architecture
@@ -181,7 +188,6 @@ model = Flux.Chain(Flux.Dense(nInputs, 64, relu),
 
 ps = Flux.params(model)
 opt = Flux.Adam(1e-4)
-
 opt_state = Flux.setup(opt, model)
 
 loss_vector = []
@@ -195,8 +201,8 @@ for epoch in epoch_range
         l, grads = Flux.withgradient(model) do m  
           prediction = m(x[1:end])
           # different losses
-          #1.0 * Flux.mse(prediction, y[1]) + 1.0 * loss(prediction, y[1], fmu, eq_num)
-          Flux.mse(prediction, y)
+          1.0 * Flux.mse(prediction, y[1:end]) + 1.0 * loss(prediction, y[1:end], fmu, eq_num)
+          #Flux.mse(prediction, y[1:end])
           #loss(prediction, y[1:end], fmu, eq_num)
         end
         push!(loss_vector, l)  # logging, outside gradient context
