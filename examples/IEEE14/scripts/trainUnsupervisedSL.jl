@@ -45,34 +45,6 @@ end
 
 
 
-
-
-# function fmiEvaluateJacobian(comp::FMICore.FMU2Component, eq::Integer, vr::Array{FMI.fmi2ValueReference}, x::Array{Float64})::Tuple{FMI.fmi2Status, Array{Float64}}
-#     # wahrscheinlich braucht es eine c-Funktion, die nicht nur einen pointer auf die Jacobi-Matrix returned, sondern gleich die Auswertung an der Stelle x
-#     # diese Funktion muss auch ein Argument res nehmen welches dann die Evaluation enthält.?
-  
-#     @assert eq>=0 "Residual index has to be non-negative!"
-  
-#     FMIImport.fmi2SetReal(comp, vr, x)
-  
-#     # this is a pointer to Jacobian matrix in row-major-format or NULL in error case.
-#     fmiEvaluateJacobian = Libdl.dlsym(comp.fmu.libHandle, :myfmi2EvaluateJacobian)
-  
-#     jac = Array{Float64}(undef, length(x)*length(x))
-  
-#     eqCtype = Csize_t(eq)
-  
-#     status = ccall(fmiEvaluateJacobian,
-#                    Cuint,
-#                    (Ptr{Nothing}, Csize_t, Ptr{Cdouble}, Ptr{Cdouble}),
-#                    comp.compAddr, eqCtype, x, jac)
-  
-#     return status, jac
-#   end
-
-
-
-
 #-------------------------------
 # when using residual loss, load fmu
 #(status, res) = NonLinearSystemNeuralNetworkFMU.fmiEvaluateRes(fmu_comp, eq_num, rand(Float64, 110))
@@ -98,11 +70,13 @@ row_vr_y = FMI.fmiStringToValueReference(fmu.modelDescription, profilinginfo[1].
 
 
 function prepare_x(x, y, row_vr, row_vr_y, fmu)
-  batchsize = size(x)[2]
-  for i in 1:batchsize
-    FMIImport.fmi2SetReal(fmu, row_vr, x[1:end,i])
-    FMIImport.fmi2SetReal(fmu, row_vr_y, y[i])
-  end
+  # batchsize = size(x)[2]
+  # for i in 1:batchsize
+  #   FMIImport.fmi2SetReal(fmu, row_vr, x[1:end,i])
+  #   FMIImport.fmi2SetReal(fmu, row_vr_y, y[i])
+  # end
+  x_rec = StatsBase.reconstruct(train_in_transform, x)
+  FMIImport.fmi2SetReal(fmu, row_vr, vec(x_rec))
 #   if time !== nothing
 #     FMIImport.fmi2SetTime(fmu, x[1])
 #     FMIImport.fmi2SetReal(fmu, row_vr, x[2:end])
@@ -112,7 +86,12 @@ function prepare_x(x, y, row_vr, row_vr_y, fmu)
 end
 
 function loss(y_hat, y, fmu, eq_num)
-  res_out = NonLinearSystemNeuralNetworkFMU.fmiEvaluateRes(fmu, eq_num, Float64.(y_hat))
+  y_hat_rec = StatsBase.reconstruct(train_out_transform, y_hat)
+  status, res_out = NonLinearSystemNeuralNetworkFMU.fmiEvaluateRes(fmu, eq_num, Float64.(y_hat_rec))
+  # p = 0
+  # if y_hat_rec[1] < 0
+  #   p = abs(y_hat_rec[1])
+  # end
   return LinearAlgebra.norm(res_out), res_out
 end
 
@@ -123,7 +102,8 @@ function ChainRulesCore.rrule(::typeof(loss), x, y, fmu, eq_num)
   l, res_out = loss(x, y, fmu, eq_num) # res_out: residual output, what shape is that?
 
   # maybe like this: status, res = NonLinearSystemNeuralNetworkFMU.fmiEvaluateJacobian(fmu, eq_num, Float64.(x))?
-  status, jac = NonLinearSystemNeuralNetworkFMU.fmiEvaluateJacobian(comp, eq_num, vr, Float64.(x))
+  # RECONSTRUCT
+  status, jac = NonLinearSystemNeuralNetworkFMU.fmiEvaluateJacobian(comp, eq_num, vr, Float64.(vec(x)))
   mat_dim = trunc(Int,sqrt(length(jac)))
   jac = reshape(jac, (mat_dim,mat_dim))
 
@@ -140,7 +120,7 @@ function ChainRulesCore.rrule(::typeof(loss), x, y, fmu, eq_num)
     # print(size(l̄[1] * ((jac * res_out[2]) / l)))
     f̄ = NoTangent()
     # https://math.stackexchange.com/questions/291318/derivative-of-the-2-norm-of-a-multivariate-function
-    x̄ = l̄[1] * ((jac' * res_out[2]) / l) # <-------------- ACTUAL derivative, result should be of shape (110,)
+    x̄ = l̄[1] * ((jac' * res_out) / l) # <-------------- ACTUAL derivative, result should be of shape (110,)
     # res_out[2] (110,) jac' (110,110) jac'*res_out[2] (110,) x̄ (110,)
     ȳ = ZeroTangent()
     fmū = NoTangent()
@@ -175,6 +155,17 @@ train_in = StatsBase.transform(train_in_transform, train_in)
 train_out = StatsBase.transform(train_out_transform, train_out)
 
 
+
+test_in = mapreduce(permutedims, vcat, test_in)'
+test_out = mapreduce(permutedims, vcat, test_out)'
+
+test_in_transform = StatsBase.fit(StatsBase.UnitRangeTransform, test_in, dims=2)
+test_out_transform = StatsBase.fit(StatsBase.UnitRangeTransform, test_out, dims=2)
+
+test_in = StatsBase.transform(train_in_transform, test_in)
+test_out = StatsBase.transform(train_out_transform, test_out)
+
+
 # only batchsize=1!!
 dataloader = Flux.DataLoader((train_in, train_out), batchsize=1, shuffle=true)
 
@@ -191,23 +182,30 @@ opt = Flux.Adam(1e-4)
 opt_state = Flux.setup(opt, model)
 
 loss_vector = []
+test_loss_vector = []
 #println(loss(model(train_in[1]), train_out[1], fmu, eq_num)[1])
 
 # problem: geht nur mit batchsize = 1
-epoch_range = 1:10
+epoch_range = 1:100
 for epoch in epoch_range
     for (x, y) in dataloader
         prepare_x(x, y, row_vr, row_vr_y, fmu)
-        l, grads = Flux.withgradient(model) do m  
-          prediction = m(x[1:end])
+        lv, grads = Flux.withgradient(model) do m  
+          prediction = m(x)
           # different losses
-          1.0 * Flux.mse(prediction, y[1:end]) + 1.0 * loss(prediction, y[1:end], fmu, eq_num)
-          #Flux.mse(prediction, y[1:end])
-          #loss(prediction, y[1:end], fmu, eq_num)
+          1.0 * Flux.mse(prediction, y) + 1.0 * loss(prediction, y, fmu, eq_num)
+          #Flux.mse(prediction, y)
+          loss(prediction, y, fmu, eq_num)
         end
-        push!(loss_vector, l)  # logging, outside gradient context
+        push!(loss_vector, lv)  # logging, outside gradient context
         Flux.update!(opt_state, model, grads[1])
     end
+    m = 0
+    for i in 1:size(test_in,2)
+        prepare_x(test_in[:,i], test_out[:,i], row_vr, row_vr_y, fmu)
+      	m += loss(model(test_in[:,i]), test_out[:,i], fmu, eq_num)[2][1]^2
+    end
+    push!(test_loss_vector, m / size(test_in,2))
 end
 
 
@@ -217,14 +215,30 @@ end
 # plot loss curve
 x = 1:length(loss_vector)
 y = loss_vector
-plot(x, y)
+plot(x, y, ylims=(0,5))
 
 
-train_in_mat = mapreduce(permutedims, vcat, train_in)
-train_out_mat = mapreduce(permutedims, vcat, train_out)
-surface(vec(train_in_mat[:,1]), vec(train_in_mat[:,2]), vec(train_out_mat))
+xx = 1:length(test_loss_vector)
+yy = test_loss_vector
+plot(xx,yy, title="testloss", label="loss")
+
 
 
 
 # supervised works in batchsize>1
-# residual doesnt need batchsize=1 in dataloader and 
+# residual doesnt need batchsize=1 in dataloader and
+
+
+
+
+Flux.mse(model(train_in), train_out)
+# MSE auf TRAININGSDATEN
+# mse nach 100 epochs mit mse loss: 0.05
+# mse nach 100 epochs mit residual loss: 0.24
+# mse nach 100 epochs mit combined loss: 0.16
+
+Flux.mse(model(test_in), test_out)
+# MSE auf TESTDATEN
+# mse nach 100 epochs mit mse loss: 0.06
+# mse nach 100 epochs mit residual loss: 0.59
+# mse nach 100 epochs mit combined loss: 0.33
