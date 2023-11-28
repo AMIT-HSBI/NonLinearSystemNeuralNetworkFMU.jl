@@ -121,9 +121,11 @@ Evaluate Jacobian Matrix of given equation system 'eq' at a vector of iteration 
 function fmiEvaluateJacobian(comp::FMICore.FMU2Component, eq::Integer, vr::Array{FMI.fmi2ValueReference}, x::Array{Float64})::Tuple{fmi2Status, Array{Float64}}
   # wahrscheinlich braucht es eine c-Funktion, die nicht nur einen pointer auf die Jacobi-Matrix returned, sondern gleich die Auswertung an der Stelle x
   # diese Funktion muss auch ein Argument res nehmen welches dann die Evaluation enthält.?
-
   @assert eq>=0 "Residual index has to be non-negative!"
 
+  # for i in 1:size(x,2)
+  #   FMIImport.fmi2SetReal(comp, vr, x[:,i])
+  # end
   FMIImport.fmi2SetReal(comp, vr, x)
 
   # this is a pointer to Jacobian matrix in row-major-format or NULL in error case.
@@ -137,7 +139,6 @@ function fmiEvaluateJacobian(comp::FMICore.FMU2Component, eq::Integer, vr::Array
                  Cuint,
                  (Ptr{Nothing}, Csize_t, Ptr{Cdouble}, Ptr{Cdouble}),
                  comp.compAddr, eqCtype, x, jac)
-
   return status, jac
 end
 

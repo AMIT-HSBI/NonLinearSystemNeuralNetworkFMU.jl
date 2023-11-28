@@ -40,6 +40,11 @@ function readData(filename::String, nInputs::Integer; ratio=0.9, shuffle::Bool=t
     train_out = [m[i, nInputs+1:end] for i in trainIters]
     test_in   = [m[i, 1:nInputs]     for i in testIters]
     test_out  = [m[i, nInputs+1:end] for i in testIters]
+    
+    train_in = mapreduce(permutedims, vcat, train_in)'
+    train_out = mapreduce(permutedims, vcat, train_out)'
+    test_in = mapreduce(permutedims, vcat, test_in)'
+    test_out = mapreduce(permutedims, vcat, test_out)'
     return train_in, train_out, test_in, test_out
 end
 
@@ -55,21 +60,17 @@ FMI.fmiSetupExperiment(comp)
 FMI.fmiEnterInitializationMode(comp)
 FMI.fmiExitInitializationMode(comp)
 
-vr = FMI.fmiStringToValueReference(fmu, ["y"])
-# status, jac = fmiEvaluateJacobian(comp, 0, vr, [1.,2.])
-
-# jac
-
-
-eq_num = 14 # hardcoded but okay
-
 profilinginfo = getProfilingInfo("/home/fbrandt3/arbeit/NonLinearSystemNeuralNetworkFMU.jl/examples/IEEE14/data/sims/simpleLoop_1000/profilingInfo.bson")
+
+vr = FMI.fmiStringToValueReference(fmu, profilinginfo[1].iterationVariables)
+
+eq_num = profilinginfo[1].eqInfo.id # hardcoded but okay
 
 row_vr = FMI.fmiStringToValueReference(fmu.modelDescription, profilinginfo[1].usingVars)
 row_vr_y = FMI.fmiStringToValueReference(fmu.modelDescription, profilinginfo[1].iterationVariables)
 
 
-function prepare_x(x, y, row_vr, row_vr_y, fmu)
+function prepare_x(x, row_vr, row_vr_y, fmu)
   # batchsize = size(x)[2]
   # for i in 1:batchsize
   #   FMIImport.fmi2SetReal(fmu, row_vr, x[1:end,i])
@@ -85,9 +86,15 @@ function prepare_x(x, y, row_vr, row_vr_y, fmu)
 #   end
 end
 
-function loss(y_hat, y, fmu, eq_num)
+b = -0.5
+function compute_x_from_y(s, r, y)
+  return (r*s+b)-y
+end
+
+
+function loss(y_hat, fmu, eq_num)
   y_hat_rec = StatsBase.reconstruct(train_out_transform, y_hat)
-  status, res_out = NonLinearSystemNeuralNetworkFMU.fmiEvaluateRes(fmu, eq_num, Float64.(y_hat_rec))
+  _, res_out = NonLinearSystemNeuralNetworkFMU.fmiEvaluateRes(fmu, eq_num, Float64.(y_hat_rec))
   # p = 0
   # if y_hat_rec[1] < 0
   #   p = abs(y_hat_rec[1])
@@ -97,9 +104,9 @@ end
 
 
 # rrule for loss(x,y)
-function ChainRulesCore.rrule(::typeof(loss), x, y, fmu, eq_num)
+function ChainRulesCore.rrule(::typeof(loss), x, fmu, eq_num)
   # x is model output, y is target
-  l, res_out = loss(x, y, fmu, eq_num) # res_out: residual output, what shape is that?
+  l, res_out = loss(x, fmu, eq_num) # res_out: residual output, what shape is that?
 
   # maybe like this: status, res = NonLinearSystemNeuralNetworkFMU.fmiEvaluateJacobian(fmu, eq_num, Float64.(x))?
   # RECONSTRUCT
@@ -122,11 +129,10 @@ function ChainRulesCore.rrule(::typeof(loss), x, y, fmu, eq_num)
     # https://math.stackexchange.com/questions/291318/derivative-of-the-2-norm-of-a-multivariate-function
     x̄ = l̄[1] * ((jac' * res_out) / l) # <-------------- ACTUAL derivative, result should be of shape (110,)
     # res_out[2] (110,) jac' (110,110) jac'*res_out[2] (110,) x̄ (110,)
-    ȳ = ZeroTangent()
     fmū = NoTangent()
     eq_num̄ = NoTangent()
     #print(size(x̄), size(jac'), size(res_out[2]))
-    return (f̄, x̄, ȳ, fmū, eq_num̄)
+    return (f̄, x̄, fmū, eq_num̄)
   end
 
   return l, loss_pullback
@@ -144,8 +150,7 @@ nOutputs = 1
 # prepare train and test data
 (train_in, train_out, test_in, test_out) = readData(fileName, nInputs)
 
-train_in = mapreduce(permutedims, vcat, train_in)'
-train_out = mapreduce(permutedims, vcat, train_out)'
+
 
 # scale data between [0,1]
 train_in_transform = StatsBase.fit(StatsBase.UnitRangeTransform, train_in, dims=2)
@@ -153,11 +158,6 @@ train_out_transform = StatsBase.fit(StatsBase.UnitRangeTransform, train_out, dim
 
 train_in = StatsBase.transform(train_in_transform, train_in)
 train_out = StatsBase.transform(train_out_transform, train_out)
-
-
-
-test_in = mapreduce(permutedims, vcat, test_in)'
-test_out = mapreduce(permutedims, vcat, test_out)'
 
 test_in_transform = StatsBase.fit(StatsBase.UnitRangeTransform, test_in, dims=2)
 test_out_transform = StatsBase.fit(StatsBase.UnitRangeTransform, test_out, dims=2)
@@ -171,10 +171,10 @@ dataloader = Flux.DataLoader((train_in, train_out), batchsize=1, shuffle=true)
 
 # specify network architecture
 # maybe add normalization layer at Start
-model = Flux.Chain(Flux.Dense(nInputs, 64, relu),
-                    Flux.Dense(64, 64, relu),
-                    Flux.Dense(64, 64, relu),
-                    Flux.Dense(64, 64, relu),
+model = Flux.Chain(Flux.Dense(nInputs, 64, tanh),
+                    Flux.Dense(64, 64, tanh),
+                    Flux.Dense(64, 64, tanh),
+                    Flux.Dense(64, 64, tanh),
                     Flux.Dense(64, nOutputs))
 
 ps = Flux.params(model)
@@ -183,45 +183,51 @@ opt_state = Flux.setup(opt, model)
 
 loss_vector = []
 test_loss_vector = []
-#println(loss(model(train_in[1]), train_out[1], fmu, eq_num)[1])
+
+function compute_test_loss(model, test_in)
+  m = 0
+  for i in 1:size(test_in,2)
+      prepare_x(test_in[:,i], row_vr, row_vr_y, fmu)
+      m += loss(model(test_in[:,i]), fmu, eq_num)[2][1]^2
+  end
+  return m / size(test_in,2)
+end
+
 
 # problem: geht nur mit batchsize = 1
-epoch_range = 1:100
+epoch_range = 1:10
 for epoch in epoch_range
     for (x, y) in dataloader
-        prepare_x(x, y, row_vr, row_vr_y, fmu)
+        prepare_x(x, row_vr, row_vr_y, fmu)
         lv, grads = Flux.withgradient(model) do m  
           prediction = m(x)
           # different losses
-          1.0 * Flux.mse(prediction, y) + 1.0 * loss(prediction, y, fmu, eq_num)
+          #1.0 * Flux.mse(prediction, y) + 1.0 * loss(prediction, y, fmu, eq_num)
           #Flux.mse(prediction, y)
-          loss(prediction, y, fmu, eq_num)
+          loss(prediction, fmu, eq_num)
         end
         push!(loss_vector, lv)  # logging, outside gradient context
         Flux.update!(opt_state, model, grads[1])
     end
-    m = 0
-    for i in 1:size(test_in,2)
-        prepare_x(test_in[:,i], test_out[:,i], row_vr, row_vr_y, fmu)
-      	m += loss(model(test_in[:,i]), test_out[:,i], fmu, eq_num)[2][1]^2
-    end
-    push!(test_loss_vector, m / size(test_in,2))
+    push!(test_loss_vector, compute_test_loss(model, test_in))
 end
 
-
-#println(loss(model(train_in[1]), train_out[1], fmu, eq_num)[1])
-
-
 # plot loss curve
-x = 1:length(loss_vector)
-y = loss_vector
-plot(x, y, ylims=(0,5))
+function plot_curve(curve; kwargs...)
+  x = 1:length(curve)
+  y = curve
+  plot(x, y; kwargs...)
+end
+
+plot_curve(test_loss_vector; title="test loss")
 
 
-xx = 1:length(test_loss_vector)
-yy = test_loss_vector
-plot(xx,yy, title="testloss", label="loss")
 
+
+# plot x and y
+scatter(compute_x_from_y.(test_in[1,:],test_in[2,:],vec(test_out)), vec(test_out))
+p = model(test_in)
+scatter!(compute_x_from_y.(test_in[1,:],test_in[2,:],vec(p)), vec(p))
 
 
 
