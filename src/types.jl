@@ -242,8 +242,7 @@ Program not found in PATH error.
 """
 struct ProgramNotFoundError <: Exception
   program::String
-  locations::Union{Nothing, Array{String}}
-  ProgramNotFoundError(program) = new(program, nothing)
+  locations::Union{Nothing, Vector{String}}
 end
 function Base.showerror(io::IO, e::ProgramNotFoundError)
   println(io, e.program, " not found")

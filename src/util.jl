@@ -141,8 +141,8 @@ function testOmcVersion(omc; minimumVersion = "v1.20.0-dev-342")
 
   # Get version string
   version = runOutput(`$omc --version`)
+  version = strip(replace(version, "OpenModelica "=>""))
 
-  minimumVersion = "v1.21.0-dev-19-g2a0d7a5e71"
   def_min = "9999"
   main_ver_min = minimumVersion
   loc = findStrWError("dev", minimumVersion)
@@ -157,14 +157,16 @@ function testOmcVersion(omc; minimumVersion = "v1.20.0-dev-342")
 
   def_omc = "0"
   main_ver_omc = version
-  loc = findStrWError("dev", version)
-  if findfirst("~", version) !== nothing
-    (main_ver_omc, _) = split(version, "~")
-  else
-    (main_ver_omc, def_omc) = split(version, "-")[1:2:3]
-  end
-  if startswith(main_ver_omc, "v")
-    main_ver_omc = main_ver_omc[2:end]
+  if occursin("dev", version)
+    loc = findStrWError("dev", version)
+    if findfirst("~", version) !== nothing
+      (main_ver_omc, _) = split(version, "~")
+    else
+      (main_ver_omc, def_omc) = split(version, "-")[1:2:3]
+    end
+    if startswith(main_ver_omc, "v")
+      main_ver_omc = main_ver_omc[2:end]
+    end
   end
 
   if main_ver_omc < main_ver_min
@@ -174,6 +176,8 @@ function testOmcVersion(omc; minimumVersion = "v1.20.0-dev-342")
     @show def_min, def_omc
     throw(MinimumVersionError("omc", minimumVersion, version))
   end
+
+  return true
 end
 
 
