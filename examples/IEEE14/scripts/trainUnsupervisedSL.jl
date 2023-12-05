@@ -54,23 +54,44 @@ end
 # when using residual loss, load fmu
 #(status, res) = NonLinearSystemNeuralNetworkFMU.fmiEvaluateRes(fmu_comp, eq_num, rand(Float64, 110))
 #"/home/fbrandt3/arbeit/NonLinearSystemNeuralNetworkFMU.jl/examples/IEEE14/data/sims/IEEE_14_Buses_1000/IEEE_14_Buses.interface.fmu"
-fmu = FMI.fmiLoad("/home/fbrandt3/arbeit/NonLinearSystemNeuralNetworkFMU.jl/examples/IEEE14/data/sims/simpleLoop_1000/simpleLoop.interface.fmu")
-comp = FMI.fmiInstantiate!(fmu)
-FMI.fmiSetupExperiment(comp)
-FMI.fmiEnterInitializationMode(comp)
-FMI.fmiExitInitializationMode(comp)
-
-profilinginfo = getProfilingInfo("/home/fbrandt3/arbeit/NonLinearSystemNeuralNetworkFMU.jl/examples/IEEE14/data/sims/simpleLoop_1000/profilingInfo.bson")
-
-vr = FMI.fmiStringToValueReference(fmu, profilinginfo[1].iterationVariables)
-
-eq_num = profilinginfo[1].eqInfo.id # hardcoded but okay
-
-row_vr = FMI.fmiStringToValueReference(fmu.modelDescription, profilinginfo[1].usingVars)
-row_vr_y = FMI.fmiStringToValueReference(fmu.modelDescription, profilinginfo[1].iterationVariables)
+#/home/fbrandt3/arbeit/NonLinearSystemNeuralNetworkFMU.jl/examples/IEEE14/data/sims/simpleLoop_1000/simpleLoop.interface.fmu
+#/home/fbrandt3/arbeit/NonLinearSystemNeuralNetworkFMU.jl/examples/IEEE14/data/sims/simpleLoop_1000/profilingInfo.bson
 
 
-function prepare_x(x, row_vr, row_vr_y, fmu)
+function prepare_fmu(fmu_path, prof_info_path)
+  """
+  loads fmu from path
+  loads profilinginfo from path
+  creates value references for the iteration variables and using variables
+  is called once for Initialization
+  """
+  fmu = FMI.fmiLoad(fmu_path)
+  comp = FMI.fmiInstantiate!(fmu)
+  FMI.fmiSetupExperiment(comp)
+  FMI.fmiEnterInitializationMode(comp)
+  FMI.fmiExitInitializationMode(comp)
+
+  profilinginfo = getProfilingInfo(prof_info_path)
+
+  vr = FMI.fmiStringToValueReference(fmu, profilinginfo[1].iterationVariables)
+
+  eq_num = profilinginfo[1].eqInfo.id
+
+  row_value_reference = FMI.fmiStringToValueReference(fmu.modelDescription, profilinginfo[1].usingVars)
+
+  return comp, fmu, profilinginfo, vr, row_value_reference, eq_num
+end
+
+comp, fmu, profilinginfo, vr, row_value_reference, eq_num = prepare_fmu("/home/fbrandt3/arbeit/NonLinearSystemNeuralNetworkFMU.jl/examples/IEEE14/data/sims/simpleLoop_1000/simpleLoop.interface.fmu",
+                                                            "/home/fbrandt3/arbeit/NonLinearSystemNeuralNetworkFMU.jl/examples/IEEE14/data/sims/simpleLoop_1000/profilingInfo.bson")
+
+
+function prepare_x(x, row_vr, fmu)
+  """
+  calls SetReal for a model input 
+  is called before the forward pass
+  (should work for batchsize>1)
+  """
   # batchsize = size(x)[2]
   # for i in 1:batchsize
   #   FMIImport.fmi2SetReal(fmu, row_vr, x[1:end,i])
@@ -93,6 +114,12 @@ end
 
 
 function loss(y_hat, fmu, eq_num)
+  """
+  y_hat is model output
+  evaluates residual of system eq_num at y_hat
+  if y_hat is close to a solution, residual is close to 0
+  actual loss is the norm of the residual
+  """
   y_hat_rec = StatsBase.reconstruct(train_out_transform, y_hat)
   _, res_out = NonLinearSystemNeuralNetworkFMU.fmiEvaluateRes(fmu, eq_num, Float64.(y_hat_rec))
   # p = 0
@@ -105,11 +132,12 @@ end
 
 # rrule for loss(x,y)
 function ChainRulesCore.rrule(::typeof(loss), x, fmu, eq_num)
-  # x is model output, y is target
+  """
+  reverse rule for loss function
+  needs the jacobian of the system eq_num evaluated at x (x is model output)
+  uses that formula: https://math.stackexchange.com/questions/291318/derivative-of-the-2-norm-of-a-multivariate-function
+  """
   l, res_out = loss(x, fmu, eq_num) # res_out: residual output, what shape is that?
-
-  # maybe like this: status, res = NonLinearSystemNeuralNetworkFMU.fmiEvaluateJacobian(fmu, eq_num, Float64.(x))?
-  # RECONSTRUCT
   status, jac = NonLinearSystemNeuralNetworkFMU.fmiEvaluateJacobian(comp, eq_num, vr, Float64.(vec(x)))
   mat_dim = trunc(Int,sqrt(length(jac)))
   jac = reshape(jac, (mat_dim,mat_dim))
@@ -120,27 +148,17 @@ function ChainRulesCore.rrule(::typeof(loss), x, fmu, eq_num)
   # x̄ (110,) so wie model output
 
   function loss_pullback(l̄)
-
-    # print(l̄[1])
-    # print(size(res_out[2]))
-    # print(size(jac * res_out[2]))
-    # print(size(l̄[1] * ((jac * res_out[2]) / l)))
+    l_tangent = l̄[1] # upstream gradient
     f̄ = NoTangent()
-    # https://math.stackexchange.com/questions/291318/derivative-of-the-2-norm-of-a-multivariate-function
-    x̄ = l̄[1] * ((jac' * res_out) / l) # <-------------- ACTUAL derivative, result should be of shape (110,)
+    x̄ = l_tangent * ((jac' * res_out) / l) # <-------------- ACTUAL derivative, result should be of shape (110,)
     # res_out[2] (110,) jac' (110,110) jac'*res_out[2] (110,) x̄ (110,)
     fmū = NoTangent()
     eq_num̄ = NoTangent()
-    #print(size(x̄), size(jac'), size(res_out[2]))
     return (f̄, x̄, fmū, eq_num̄)
   end
 
   return l, loss_pullback
 end
-#-------------------------------
-
-
-
 
 
 fileName = "/home/fbrandt3/arbeit/NonLinearSystemNeuralNetworkFMU.jl/examples/IEEE14/data/sims/simpleLoop_1000/data/eq_14.csv"
@@ -149,7 +167,6 @@ nOutputs = 1
 
 # prepare train and test data
 (train_in, train_out, test_in, test_out) = readData(fileName, nInputs)
-
 
 
 # scale data between [0,1]
@@ -186,8 +203,8 @@ test_loss_vector = []
 
 function compute_test_loss(model, test_in)
   m = 0
-  for i in 1:size(test_in,2)
-      prepare_x(test_in[:,i], row_vr, row_vr_y, fmu)
+  for i in axes(test_in,2)
+      prepare_x(test_in[:,i], row_value_reference, fmu)
       m += loss(model(test_in[:,i]), fmu, eq_num)[2][1]^2
   end
   return m / size(test_in,2)
@@ -198,7 +215,7 @@ end
 epoch_range = 1:10
 for epoch in epoch_range
     for (x, y) in dataloader
-        prepare_x(x, row_vr, row_vr_y, fmu)
+        prepare_x(x, row_value_reference, fmu)
         lv, grads = Flux.withgradient(model) do m  
           prediction = m(x)
           # different losses
@@ -248,3 +265,15 @@ Flux.mse(model(test_in), test_out)
 # mse nach 100 epochs mit mse loss: 0.06
 # mse nach 100 epochs mit residual loss: 0.59
 # mse nach 100 epochs mit combined loss: 0.33
+
+
+
+#TODO:
+# think about ways to cluster output data if not one dimensional
+# -> make it two dimensional, try it out
+# -> https://stackoverflow.com/questions/11513484/1d-number-array-clustering
+
+# think about different losses or other ways to use the residual/jacobian
+# -> regularization
+
+print("fjfjfjfjf")
