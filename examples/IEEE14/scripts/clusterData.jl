@@ -1,18 +1,4 @@
-using DrWatson
-@quickactivate "IEEE14"
-
-using NonLinearSystemNeuralNetworkFMU
-using ChainRulesCore
-using Zygote
-using BSON
-using Flux
-using LinearAlgebra
-using FMI
-using FMIImport
-
-using Statistics
 using Plots
-using Metrics
 
 import DataFrames
 import CSV
@@ -42,9 +28,13 @@ function readData(filename::String, nInputs::Integer; ratio=0.8, shuffle::Bool=t
 end
 
 
-fileName = "/home/fbrandt3/arbeit/NonLinearSystemNeuralNetworkFMU.jl/examples/IEEE14/data/sims/IEEE_14_Buses_1000/data/eq_1403.csv"
-nInputs = 16
-nOutputs = 110
+# fileName = "/home/fbrandt3/arbeit/NonLinearSystemNeuralNetworkFMU.jl/examples/IEEE14/data/sims/IEEE_14_Buses_1000/data/eq_1403.csv"
+# nInputs = 16
+# nOutputs = 110
+
+fileName = "/home/fbrandt3/arbeit/NonLinearSystemNeuralNetworkFMU.jl/examples/IEEE14/data/sims/simpleLoop_1000/data/eq_14.csv"
+nInputs = 2
+nOutputs = 1
 
 # prepare train and test data
 (train_in, train_out, test_in, test_out) = readData(fileName, nInputs)
@@ -53,8 +43,17 @@ function vectorofvector_to_matrix(vov)
     return mapreduce(permutedims, vcat, vov)
 end
 
+b = -0.5
+function compute_x_from_y(s, r, y)
+  return (r*s+b)-y
+end
+
+
 train_in = vectorofvector_to_matrix(train_in)
 train_out = vectorofvector_to_matrix(train_out)
+
+x = compute_x_from_y.(train_in[:,1], train_in[:,2], train_out[:,1])
+train_out = hcat(x, train_out)
 
 train_in_t = transpose(train_in)
 train_out_t = transpose(train_out)
@@ -80,7 +79,7 @@ print(max_score)
 print(max_score_num_cluster)
 
 
-R = Clustering.kmeans(train_out_t, 2; maxiter=200)
+R = Clustering.kmeans(train_out_t, max_score_num_cluster; maxiter=200)
 
 function get_cluster_indices(cluster_assignments::Vector{Int})
     # Create a dictionary to store indices for each cluster
@@ -106,12 +105,25 @@ result = get_cluster_indices(R.assignments)
 println(result)
 
 
-function extract_clusters(data::Matrix{Float32}, cluster_indices::Vector{Vector{Int64}}, cluster_index::Int64)
+function extract_cluster(data, cluster_indices::Vector{Vector{Int64}}, cluster_index::Int64)
     # data is in the form (d, n)
     # d - feature dimension
     # n - number of datapoints
     # cluster_indices: index of clusters
     # cluster_index: index of cluster to get
-    return data[:,cluster_indices[cluster_index]]
+    return data[cluster_indices[cluster_index], :]
 end
 
+
+result[2]
+
+train_in
+
+in_cluster = extract_cluster(train_in, result, 1)
+out_cluster1 = extract_cluster(train_out, result, 1)
+out_cluster2 = extract_cluster(train_out, result, 2)
+
+out_cluster
+
+scatter(out_cluster1[:,1],out_cluster1[:,2])
+scatter!(out_cluster2[:,1],out_cluster2[:,2])
