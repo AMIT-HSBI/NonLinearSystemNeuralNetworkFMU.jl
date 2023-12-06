@@ -23,6 +23,8 @@ import StatsBase
 import FMICore
 using Libdl
 
+include("clusterData.jl")
+
 
 function readData(filename::String, nInputs::Integer; ratio=0.9, shuffle::Bool=true)
     df = DataFrames.select(CSV.read(filename, DataFrames.DataFrame; ntasks=1), InvertedIndices.Not([:Trace]))
@@ -169,15 +171,35 @@ nOutputs = 1
 (train_in, train_out, test_in, test_out) = readData(fileName, nInputs)
 
 
+x = compute_x_from_y.(train_in[1,:], train_in[2,:], train_out[1,:])
+train_out = hcat(x, train_out')'
+
+x = compute_x_from_y.(test_in[1,:], test_in[2,:], test_out[1,:])
+test_out = hcat(x, test_out')'
+
+
+cluster_indices, num_clusters = cluster_data(train_out)
+
+cluster_index = 1
+train_in = extract_cluster(train_in, cluster_indices, cluster_index)
+train_out = extract_cluster(train_out, cluster_indices, cluster_index)
+
+train_out = train_out[2,:]
+
+test_in = extract_cluster(test_in, cluster_indices, cluster_index)
+test_out = extract_cluster(test_out, cluster_indices, cluster_index)
+
+test_out = test_out[2,:]
+
 # scale data between [0,1]
 train_in_transform = StatsBase.fit(StatsBase.UnitRangeTransform, train_in, dims=2)
-train_out_transform = StatsBase.fit(StatsBase.UnitRangeTransform, train_out, dims=2)
+train_out_transform = StatsBase.fit(StatsBase.UnitRangeTransform, train_out, dims=1)
 
 train_in = StatsBase.transform(train_in_transform, train_in)
 train_out = StatsBase.transform(train_out_transform, train_out)
 
 test_in_transform = StatsBase.fit(StatsBase.UnitRangeTransform, test_in, dims=2)
-test_out_transform = StatsBase.fit(StatsBase.UnitRangeTransform, test_out, dims=2)
+test_out_transform = StatsBase.fit(StatsBase.UnitRangeTransform, test_out, dims=1)
 
 test_in = StatsBase.transform(train_in_transform, test_in)
 test_out = StatsBase.transform(train_out_transform, test_out)
@@ -188,17 +210,16 @@ dataloader = Flux.DataLoader((train_in, train_out), batchsize=1, shuffle=true)
 
 # specify network architecture
 # maybe add normalization layer at Start
-model = Flux.Chain(Flux.Dense(nInputs, 64, tanh),
-                    Flux.Dense(64, 64, tanh),
-                    Flux.Dense(64, 64, tanh),
-                    Flux.Dense(64, 64, tanh),
-                    Flux.Dense(64, nOutputs))
+hidden_width = 100
+model = Flux.Chain(
+  Flux.Dense(nInputs, hidden_width, sigmoid),
+  Flux.Dense(hidden_width, nOutputs)
+)
 
 ps = Flux.params(model)
-opt = Flux.Adam(1e-4)
+opt = Flux.Adam(1e-3)
 opt_state = Flux.setup(opt, model)
 
-loss_vector = []
 test_loss_vector = []
 
 function compute_test_loss(model, test_in)
@@ -212,18 +233,18 @@ end
 
 
 # problem: geht nur mit batchsize = 1
-epoch_range = 1:10
+num_epochs = 10000
+epoch_range = 1:num_epochs
 for epoch in epoch_range
     for (x, y) in dataloader
         prepare_x(x, row_value_reference, fmu)
         lv, grads = Flux.withgradient(model) do m  
           prediction = m(x)
           # different losses
-          #1.0 * Flux.mse(prediction, y) + 1.0 * loss(prediction, y, fmu, eq_num)
+          #1.0 * Flux.mse(prediction, y) + 1.0 * loss(prediction, fmu, eq_num)
           #Flux.mse(prediction, y)
           loss(prediction, fmu, eq_num)
         end
-        push!(loss_vector, lv)  # logging, outside gradient context
         Flux.update!(opt_state, model, grads[1])
     end
     push!(test_loss_vector, compute_test_loss(model, test_in))
@@ -275,5 +296,8 @@ Flux.mse(model(test_in), test_out)
 
 # think about different losses or other ways to use the residual/jacobian
 # -> regularization
+
+# when should you cluster?
+# -> cluster then split or split then cluster?
 
 print("fjfjfjfjf")
