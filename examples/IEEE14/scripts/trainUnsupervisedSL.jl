@@ -114,6 +114,11 @@ function compute_x_from_y(s, r, y)
   return (r*s+b)-y
 end
 
+function compute_residual(y, fmu, eq_num)
+  _,res = NonLinearSystemNeuralNetworkFMU.fmiEvaluateRes(fmu, eq_num, Float64.(y))
+  return res
+end
+
 
 function loss(y_hat, fmu, eq_num)
   """
@@ -180,16 +185,19 @@ test_out = hcat(x, test_out')'
 
 cluster_indices, num_clusters = cluster_data(train_out)
 
-cluster_index = 1
+cluster_index = 2
 train_in = extract_cluster(train_in, cluster_indices, cluster_index)
 train_out = extract_cluster(train_out, cluster_indices, cluster_index)
 
 train_out = train_out[2,:]
 
-test_in = extract_cluster(test_in, cluster_indices, cluster_index)
-test_out = extract_cluster(test_out, cluster_indices, cluster_index)
+cluster_indices_test, num_clusters_test = cluster_data(test_out)
+cluster_index_test = 2
+test_in = extract_cluster(test_in, cluster_indices_test, cluster_index_test)
+test_out = extract_cluster(test_out, cluster_indices_test, cluster_index_test)
 
 test_out = test_out[2,:]
+
 
 # scale data between [0,1]
 train_in_transform = StatsBase.fit(StatsBase.UnitRangeTransform, train_in, dims=2)
@@ -233,7 +241,7 @@ end
 
 
 # problem: geht nur mit batchsize = 1
-num_epochs = 10000
+num_epochs = 9000
 epoch_range = 1:num_epochs
 for epoch in epoch_range
     for (x, y) in dataloader
