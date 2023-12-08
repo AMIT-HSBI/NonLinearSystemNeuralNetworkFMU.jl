@@ -34,14 +34,14 @@ CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 PlottingMakieExt = "CairoMakie"
 
 [compat]
-CairoMakie = "v0.10"
+CairoMakie = "0.10"
 Cbc = "1.0.3"
 DataFrames = "0.19.4, 0.20, 0.21, 0.22, 1"
 FMI = "0.12"
 FMIImport = "0.15"
 Requires = "1"
 julia = "1.9"
-OMJulia = ">=0.2.2"
+OMJulia = "0.3.1"
 
 [extra]
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"

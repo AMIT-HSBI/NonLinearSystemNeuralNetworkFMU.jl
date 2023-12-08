@@ -45,7 +45,7 @@ jobs:
         shell: pwsh
 
       # Setup OpenModelica for OMJulia.jl
-      - uses: AnHeuermann/setup-openmodelica@v0.4
+      - uses: AnHeuermann/setup-openmodelica@v0.7
         with:
           version: 'nightly'
       - run: |
