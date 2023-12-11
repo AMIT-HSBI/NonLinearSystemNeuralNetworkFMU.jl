@@ -196,7 +196,6 @@ function ChainRulesCore.rrule(::typeof(loss), x, fmu, eq_num, transform)
         push!(x̄, x̄_i)
       end
       x̄ = reshape(hcat(x̄...), size(x̄[1])[1], size(x̄)[1])
-      print(x̄)
     else
       x̄ = l_tangent * ((jac' * res_out) / l) # <-------------- ACTUAL derivative, result should be of shape (110,)
     end
@@ -292,12 +291,9 @@ opt_state = Flux.setup(opt, model)
 test_loss_vector = []
 
 function compute_test_loss(model, test_in)
-  m = 0
-  for i in axes(test_in,2)
-      prepare_x(test_in[:,i], row_value_reference, fmu, test_in_transform)
-      m += loss(model(test_in[:,i]), fmu, eq_num, test_out_transform)[2][1]^2
-  end
-  return m / size(test_in,2)
+  prepare_x(test_in, row_value_reference, fmu, test_in_transform)
+  l,_ = loss(model(test_in),fmu, eq_num, test_out_transform)
+  return l
 end
 
 
