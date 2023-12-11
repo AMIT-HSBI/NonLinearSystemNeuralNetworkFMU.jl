@@ -127,11 +127,9 @@ function main(modelName::String,
     eqIndex = prof.eqInfo.id
     inputVars = prof.usingVars
     outputVars = prof.iterationVariables
-    minBoundary = prof.boundary.min
-    maxBoundary = prof.boundary.max
 
     fileName = abspath(joinpath(omOptions.workingDir, "data", "eq_$(prof.eqInfo.id).csv"))
-    csvFile = generateTrainingData(fmu_interface, tempDir, fileName, eqIndex, inputVars, minBoundary, maxBoundary, outputVars; options = dataGenOptions)
+    csvFile = generateTrainingData(fmu_interface, tempDir, fileName, eqIndex, inputVars, prof.boundary, outputVars; options = dataGenOptions)
     push!(csvFiles, csvFile)
   end
   if omOptions.clean

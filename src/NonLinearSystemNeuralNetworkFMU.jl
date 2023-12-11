@@ -42,6 +42,7 @@ end
 
 include("types.jl")
 export EqInfo
+export MinMaxBoundaryValues
 export ProfilingInfo
 export OMOptions
 export DataGenOptions
