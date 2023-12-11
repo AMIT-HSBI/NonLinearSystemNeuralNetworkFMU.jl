@@ -168,20 +168,19 @@ function ChainRulesCore.rrule(::typeof(loss), x, fmu, eq_num, transform)
   """
   l, res_out = loss(x, fmu, eq_num, transform) # res_out: residual output, what shape is that?
   batchsize = size(x)[2]
-  print(batchsize)
   if batchsize>1
     jacobians = []
     for i in 1:batchsize
       x_i = x[1:end,i]
-      x_i_rec = StatsBase.reconstruct(transform, x_i)
-      _, jac = NonLinearSystemNeuralNetworkFMU.fmiEvaluateJacobian(comp, eq_num, vr, Float64.(x_i_rec))
+      #x_i_rec = StatsBase.reconstruct(transform, x_i)
+      _, jac = NonLinearSystemNeuralNetworkFMU.fmiEvaluateJacobian(comp, eq_num, vr, Float64.(x_i))
       mat_dim = trunc(Int,sqrt(length(jac)))
       jac = reshape(jac, (mat_dim,mat_dim))
       push!(jacobians, jac)
     end
   else
-    x_rec = StatsBase.reconstruct(train_out_transform, x)
-    _, jac = NonLinearSystemNeuralNetworkFMU.fmiEvaluateJacobian(comp, eq_num, vr, Float64.(x_rec))
+    #x_rec = StatsBase.reconstruct(train_out_transform, x)
+    _, jac = NonLinearSystemNeuralNetworkFMU.fmiEvaluateJacobian(comp, eq_num, vr, Float64.(x[:,1]))
     mat_dim = trunc(Int,sqrt(length(jac)))
     jac = reshape(jac, (mat_dim,mat_dim))
   end
@@ -190,14 +189,21 @@ function ChainRulesCore.rrule(::typeof(loss), x, fmu, eq_num, transform)
     l_tangent = l̄[1] # upstream gradient
     f̄ = NoTangent()
     if batchsize>1
-      x̄ = []
-      for i in 1:batchsize
-        x̄_i = l_tangent * ((jacobians[i]' * res_out[i]) / l) # <-------------- ACTUAL derivative, result should be of shape (110,)
-        push!(x̄, x̄_i)
+      factor = l_tangent/(batchsize*l)
+      #rewrite this to account for mean of residuals
+      x̄ = jacobians[1]' * res_out[1]
+      for i in 2:batchsize
+        x̄ = x̄ + jacobians[i]' * res_out[i]
+        # x̄_i = l_tangent * ((jacobians[i]' * res_out[i]) / l) # <-------------- ACTUAL derivative, result should be of shape (110,)
+        # push!(x̄, x̄_i)
       end
-      x̄ = reshape(hcat(x̄...), size(x̄[1])[1], size(x̄)[1])
+      x̄*=factor
+      x̄ = repeat(x̄, 1, batchsize)
+      #x̄ = reshape(hcat(x̄...), size(x̄[1])[1], size(x̄)[1])
     else
+
       x̄ = l_tangent * ((jac' * res_out) / l) # <-------------- ACTUAL derivative, result should be of shape (110,)
+
     end
     # res_out[2] (110,) jac' (110,110) jac'*res_out[2] (110,) x̄ (110,)
     fmū = NoTangent()
@@ -298,7 +304,7 @@ end
 
 
 # problem: geht nur mit batchsize = 1
-num_epochs = 10
+num_epochs = 1000
 epoch_range = 1:num_epochs
 for epoch in epoch_range
     for (x, y) in dataloader
