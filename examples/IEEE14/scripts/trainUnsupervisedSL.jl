@@ -20,6 +20,7 @@ import InvertedIndices
 import StatsBase
 
 
+using Random
 import FMICore
 using Libdl
 
@@ -49,6 +50,9 @@ function readData(filename::String, nInputs::Integer; ratio=0.9, shuffle::Bool=t
     test_out = mapreduce(permutedims, vcat, test_out)'
     return train_in, train_out, test_in, test_out
 end
+
+
+
 
 
 
@@ -122,11 +126,6 @@ function compute_x_from_y(s, r, y)
   return (r*s+b)-y
 end
 
-function compute_residual(y, fmu, eq_num)
-  _,res = NonLinearSystemNeuralNetworkFMU.fmiEvaluateRes(fmu, eq_num, Float64.(y))
-  return res
-end
-
 #BATCH
 function loss(y_hat, fmu, eq_num, transform)
   # transform is either train_out_transform or test_out_transform
@@ -141,14 +140,14 @@ function loss(y_hat, fmu, eq_num, transform)
     residuals = []
     for i in 1:batchsize
       y_hat_i = y_hat[1:end,i]
-      y_hat_i_rec = StatsBase.reconstruct(transform, y_hat_i)
-      _, res_out = NonLinearSystemNeuralNetworkFMU.fmiEvaluateRes(fmu, eq_num, Float64.(y_hat_i_rec))
+      #y_hat_i_rec = StatsBase.reconstruct(transform, y_hat_i)
+      _, res_out = NonLinearSystemNeuralNetworkFMU.fmiEvaluateRes(fmu, eq_num, Float64.(y_hat_i))
       push!(residuals, res_out)
     end
     return mean(LinearAlgebra.norm.(residuals)), residuals
   else
-    y_hat_rec = StatsBase.reconstruct(transform, y_hat)
-    _, res_out = NonLinearSystemNeuralNetworkFMU.fmiEvaluateRes(fmu, eq_num, Float64.(y_hat_rec))
+    #y_hat_rec = StatsBase.reconstruct(transform, y_hat)
+    _, res_out = NonLinearSystemNeuralNetworkFMU.fmiEvaluateRes(fmu, eq_num, Float64.(y_hat))
     return LinearAlgebra.norm(res_out), res_out
   end
   # p = 0
@@ -167,19 +166,18 @@ function ChainRulesCore.rrule(::typeof(loss), x, fmu, eq_num, transform)
   uses that formula: https://math.stackexchange.com/questions/291318/derivative-of-the-2-norm-of-a-multivariate-function
   """
   l, res_out = loss(x, fmu, eq_num, transform) # res_out: residual output, what shape is that?
+  # evaluate the jacobian for each batch element
   batchsize = size(x)[2]
   if batchsize>1
     jacobians = []
     for i in 1:batchsize
       x_i = x[1:end,i]
-      #x_i_rec = StatsBase.reconstruct(transform, x_i)
       _, jac = NonLinearSystemNeuralNetworkFMU.fmiEvaluateJacobian(comp, eq_num, vr, Float64.(x_i))
       mat_dim = trunc(Int,sqrt(length(jac)))
       jac = reshape(jac, (mat_dim,mat_dim))
       push!(jacobians, jac)
     end
   else
-    #x_rec = StatsBase.reconstruct(train_out_transform, x)
     _, jac = NonLinearSystemNeuralNetworkFMU.fmiEvaluateJacobian(comp, eq_num, vr, Float64.(x[:,1]))
     mat_dim = trunc(Int,sqrt(length(jac)))
     jac = reshape(jac, (mat_dim,mat_dim))
@@ -187,34 +185,28 @@ function ChainRulesCore.rrule(::typeof(loss), x, fmu, eq_num, transform)
 
   function loss_pullback(l̄)
     l_tangent = l̄[1] # upstream gradient
-    f̄ = NoTangent()
+
+    # compute x̄
     if batchsize>1
+      # backprop through mean of norms of batch elements
       factor = l_tangent/(batchsize*l)
-      #rewrite this to account for mean of residuals
       x̄ = jacobians[1]' * res_out[1]
       for i in 2:batchsize
         x̄ = x̄ + jacobians[i]' * res_out[i]
-        # x̄_i = l_tangent * ((jacobians[i]' * res_out[i]) / l) # <-------------- ACTUAL derivative, result should be of shape (110,)
-        # push!(x̄, x̄_i)
       end
       x̄*=factor
       x̄ = repeat(x̄, 1, batchsize)
-      #x̄ = reshape(hcat(x̄...), size(x̄[1])[1], size(x̄)[1])
     else
-
-      x̄ = l_tangent * ((jac' * res_out) / l) # <-------------- ACTUAL derivative, result should be of shape (110,)
-
+      x̄ = l_tangent * ((jac' * res_out) / l)
     end
-    # res_out[2] (110,) jac' (110,110) jac'*res_out[2] (110,) x̄ (110,)
+
+    # all other args have NoTangent
+    f̄ = NoTangent()
     fmū = NoTangent()
     eq_num̄ = NoTangent()
     transform̄ = NoTangent()
     return (f̄, x̄, fmū, eq_num̄, transform̄)
   end
-  #jac = rand(110,110) # jacobian dresidual/dx, still need that, probably of shape (110x16), what shape is that?
-  # IST DIE QUADRATISCH?
-
-  # x̄ (110,) so wie model output
   return l, loss_pullback
 end
 
@@ -226,45 +218,134 @@ nOutputs = 1
 # prepare train and test data
 (train_in, train_out, test_in, test_out) = readData(fileName, nInputs)
 
-CLUSTER = false
-if CLUSTER
-  x = compute_x_from_y.(train_in[1,:], train_in[2,:], train_out[1,:])
-  train_out = hcat(x, train_out')'
+function split_train_test(in_data, out_data, test_ratio=0.2, random_seed=42)
+    Random.seed!(random_seed)
 
-  x = compute_x_from_y.(test_in[1,:], test_in[2,:], test_out[1,:])
-  test_out = hcat(x, test_out')'
+    num_samples = size(in_data, 2)
+    indices = shuffle(1:num_samples)
+
+    # Calculate the number of samples for the test set
+    num_test = round(Int, test_ratio * num_samples)
+
+    # Split the indices into training and testing sets
+    train_indices = indices[1:(num_samples - num_test)]
+    test_indices = indices[(num_samples - num_test + 1):end]
+
+    # Create training and testing sets
+    train_in = in_data[:, train_indices]
+    train_out = out_data[:, train_indices]
+    test_in = in_data[:, test_indices]
+    test_out = out_data[:, test_indices]
+
+    return train_in, train_out, test_in, test_out
+end
+
+using Random
+
+function split_train_test(data_matrix, test_ratio=0.2, random_seed=42)
+    Random.seed!(random_seed)
+
+    num_samples = size(data_matrix, 2)
+    indices = shuffle(1:num_samples)
+
+    # Calculate the number of samples for the test set
+    num_test = round(Int, test_ratio * num_samples)
+
+    # Split the indices into training and testing sets
+    train_indices = indices[1:(num_samples - num_test)]
+    test_indices = indices[(num_samples - num_test + 1):end]
+
+    # Create training and testing sets
+    train_data = data_matrix[:, train_indices]
+    test_data = data_matrix[:, test_indices]
+
+    return train_data, test_data
+end
 
 
-  cluster_indices, num_clusters = cluster_data(train_out)
-
-  cluster_index = 2
-  train_in = extract_cluster(train_in, cluster_indices, cluster_index)
-  train_out = extract_cluster(train_out, cluster_indices, cluster_index)
-
-  train_out = train_out[2,:]
-
-  cluster_indices_test, num_clusters_test = cluster_data(test_out)
-  cluster_index_test = 2
-  test_in = extract_cluster(test_in, cluster_indices_test, cluster_index_test)
-  test_out = extract_cluster(test_out, cluster_indices_test, cluster_index_test)
-
-  test_out = test_out[2,:]
+function extract_using_var_bounds(profilinginfo)
+  pf = profilinginfo[1]
+  num_using_vars = length(pf.usingVars)
+  min_bound = pf.boundary.min
+  max_bound = pf.boundary.max
+  return min_bound, max_bound, num_using_vars
+end
 
 
-  # scale data between [0,1]
+function generate_unsupervised_data(profilinginfo, num_points)
+  min_bound, max_bound, num_uv = extract_using_var_bounds(profilinginfo)
+  data_matrix = zeros(num_uv, num_points)
+
+  for i in 1:num_uv
+    feature_min = min_bound[i]
+    feature_max = max_bound[i]
+    data_matrix[i, :] .= rand(Float32, num_points) * (feature_max - feature_min) .+ feature_min
+  end
+
+  return data_matrix
+end
+
+function scale_data_uniform(train_in, train_out, test_in, test_out)
   train_in_transform = StatsBase.fit(StatsBase.UnitRangeTransform, train_in, dims=2)
-  train_out_transform = StatsBase.fit(StatsBase.UnitRangeTransform, train_out, dims=1)
+  train_out_transform = StatsBase.fit(StatsBase.UnitRangeTransform, train_out, dims=2)
 
   train_in = StatsBase.transform(train_in_transform, train_in)
   train_out = StatsBase.transform(train_out_transform, train_out)
 
   test_in_transform = StatsBase.fit(StatsBase.UnitRangeTransform, test_in, dims=2)
-  test_out_transform = StatsBase.fit(StatsBase.UnitRangeTransform, test_out, dims=1)
+  test_out_transform = StatsBase.fit(StatsBase.UnitRangeTransform, test_out, dims=2)
+
+  test_in = StatsBase.transform(test_in_transform, test_in)
+  test_out = StatsBase.transform(test_out_transform, test_out)
+
+  return train_in, train_out, test_in, test_out, train_in_transform, train_out_transform, test_in_transform, test_out_transform
+end
+
+function scale_data_uniform(train_in, test_in)
+  train_in_transform = StatsBase.fit(StatsBase.UnitRangeTransform, train_in, dims=2)
+  train_in = StatsBase.transform(train_in_transform, train_in)
+
+  test_in_transform = StatsBase.fit(StatsBase.UnitRangeTransform, test_in, dims=2)
+  test_in = StatsBase.transform(test_in_transform, test_in)
+
+  return train_in, test_in, train_in_transform, test_in_transform
+end
+
+
+CLUSTER = nothing
+if CLUSTER == true
+  # concat in and out data
+  in_data = hcat(train_in, test_in)
+  out_data = hcat(train_out, test_out)
+
+  x = compute_x_from_y.(in_data[1,:], in_data[2,:], out_data[1,:])
+  out_data = hcat(x, out_data')'
+  # cluster out data
+  cluster_indices, num_clusters = cluster_data(out_data)
+  # extract cluster
+  cluster_index = 1 #rand(1:num_clusters)
+  in_data = extract_cluster(in_data, cluster_indices, cluster_index)
+  out_data = extract_cluster(out_data, cluster_indices, cluster_index)
+  out_data = out_data[2,:]
+  out_data = reshape(out_data, 1, length(out_data))
+  # split one cluster into train and test
+  train_in, train_out, test_in, test_out = split_train_test(in_data, out_data)
+
+
+  # scale data between [0,1]
+  train_in_transform = StatsBase.fit(StatsBase.UnitRangeTransform, train_in, dims=2)
+  train_out_transform = StatsBase.fit(StatsBase.UnitRangeTransform, train_out, dims=2)
+
+  train_in = StatsBase.transform(train_in_transform, train_in)
+  train_out = StatsBase.transform(train_out_transform, train_out)
+
+  test_in_transform = StatsBase.fit(StatsBase.UnitRangeTransform, test_in, dims=2)
+  test_out_transform = StatsBase.fit(StatsBase.UnitRangeTransform, test_out, dims=2)
 
   test_in = StatsBase.transform(train_in_transform, test_in)
   test_out = StatsBase.transform(train_out_transform, test_out)
 
-else
+elseif CLUSTER == false
   train_in_transform = StatsBase.fit(StatsBase.UnitRangeTransform, train_in, dims=2)
   train_out_transform = StatsBase.fit(StatsBase.UnitRangeTransform, train_out, dims=2)
 
@@ -279,46 +360,58 @@ else
 end
 
 
+
+# train fully unsupervised
+unsupervised_data_matrix = generate_unsupervised_data(profilinginfo, 1000)
+train_data, test_data = split_train_test(unsupervised_data_matrix)
+train_data, test_data, train_data_transform, test_data_transform = scale_data_uniform(train_data, test_data)
+unsupervised_dataloader = Flux.DataLoader(train_data, batchsize=1, shuffle=true)
+
+scatter(train_data[1,:], train_data[2,:])
+scatter!(test_data[1,:], test_data[2,:])
+
 # only batchsize=1!!
-dataloader = Flux.DataLoader((train_in, train_out), batchsize=8, shuffle=true)
+dataloader = Flux.DataLoader((train_in, train_out), batchsize=16, shuffle=true)
 
 # specify network architecture
 # maybe add normalization layer at Start
 hidden_width = 100
 model = Flux.Chain(
-  Flux.Dense(nInputs, hidden_width, sigmoid),
+  Flux.Dense(nInputs, hidden_width, relu),
+  Flux.Dense(hidden_width, hidden_width, relu),
   Flux.Dense(hidden_width, nOutputs)
 )
 
 ps = Flux.params(model)
-opt = Flux.Adam(1e-3)
+opt = Flux.Adam(1e-4)
 opt_state = Flux.setup(opt, model)
 
-test_loss_vector = []
+test_loss_residual = []
+test_loss_mse = []
 
-function compute_test_loss(model, test_in)
-  prepare_x(test_in, row_value_reference, fmu, test_in_transform)
-  l,_ = loss(model(test_in),fmu, eq_num, test_out_transform)
+function comp_test_loss_residual(model, test_in)
+  prepare_x(test_in, row_value_reference, fmu, test_data_transform)
+  l,_ = loss(model(test_in), fmu, eq_num, test_out_transform)
   return l
 end
 
 
-# problem: geht nur mit batchsize = 1
-num_epochs = 1000
+num_epochs = 10
 epoch_range = 1:num_epochs
 for epoch in epoch_range
-    for (x, y) in dataloader
-        prepare_x(x, row_value_reference, fmu, train_in_transform)
+    for x in unsupervised_dataloader
+        prepare_x(x, row_value_reference, fmu, train_data_transform)
         lv, grads = Flux.withgradient(model) do m  
           prediction = m(x)
           # different losses
-          #1.0 * Flux.mse(prediction, y) + 1.0 * loss(prediction, fmu, eq_num)
+          #Flux.mse(prediction, y) + 0.2 * (loss(prediction, fmu, eq_num, train_out_transform)/10)
           #Flux.mse(prediction, y)
           loss(prediction, fmu, eq_num, train_out_transform)
         end
         Flux.update!(opt_state, model, grads[1])
     end
-    push!(test_loss_vector, compute_test_loss(model, test_in))
+    push!(test_loss_residual, comp_test_loss_residual(model, test_data))
+    #push!(test_loss_mse, Flux.mse(model(test_in), test_out))
 end
 
 # plot loss curve
@@ -328,7 +421,8 @@ function plot_curve(curve; kwargs...)
   plot(x, y; kwargs...)
 end
 
-plot_curve(test_loss_vector; title="test loss")
+plot_curve(test_loss_residual; title="test loss residual")
+#plot_curve(test_loss_mse; title="test loss mse")
 
 
 
