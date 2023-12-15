@@ -210,38 +210,24 @@ int scaleResidual(double* jac, double* res, size_t n) {
 }
 
 
-//------------------
-// fmi2Status myfmi2EvaluateJacobian(fmi2Component c, const size_t eqNumber, double* x, double* res)
-// {
-//   // sollte wahrscheinlich getJac aufrufen
-//   //double* jacobian = getJac(c, eqNumber); 
-//   // und dann irgendwie auswerten
-//   return fmi2OK;
-// }
-
-
 fmi2Status myfmi2EvaluateJacobian(fmi2Component c, const size_t eqNumber, double* x, double* jac)
 {
+  printf("in myfmi2EvaluateJacobian aaa");
   ModelInstance *comp = (ModelInstance *)c;
   DATA* data = comp->fmuData;
   threadData_t *threadData = comp->threadData;
-  //sysNumber?
   NONLINEAR_SYSTEM_DATA* nlsSystem = &(data->simulationInfo->nonlinearSystemData[0]);
 
   switch(nlsSystem->nlsMethod)
   {
     case NLS_HOMOTOPY:
-      printf("in case homotopy");
       DATA_HOMOTOPY* solverData = (DATA_HOMOTOPY*) nlsSystem->solverData;
-      printf("solver data fertig");
       int status = getAnalyticalJacobianHomotopy(solverData, jac);
-      printf("jacobi matrix fertig");
+      break;
     default:
       printf("fehler");
       abort();
+      break;
   }
-  // sollte wahrscheinlich getJac aufrufen
-  //double* jacobian = getJac(c, eqNumber); 
-  // und dann irgendwie auswerten
-  
+  return fmi2OK;
 }
