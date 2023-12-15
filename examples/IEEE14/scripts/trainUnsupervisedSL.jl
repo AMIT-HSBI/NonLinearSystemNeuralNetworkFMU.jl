@@ -140,15 +140,15 @@ function loss(y_hat, fmu, eq_num, transform)
     residuals = []
     for i in 1:batchsize
       y_hat_i = y_hat[1:end,i]
-      #y_hat_i_rec = StatsBase.reconstruct(transform, y_hat_i)
-      _, res_out = NonLinearSystemNeuralNetworkFMU.fmiEvaluateRes(fmu, eq_num, Float64.(y_hat_i))
+      y_hat_i_rec = StatsBase.reconstruct(transform, y_hat_i)
+      _, res_out = NonLinearSystemNeuralNetworkFMU.fmiEvaluateRes(fmu, eq_num, Float64.(y_hat_i_rec))
       push!(residuals, res_out)
     end
-    return mean(LinearAlgebra.norm.(residuals)), residuals
+    return mean((1/2).*LinearAlgebra.norm.(residuals).^2), residuals
   else
-    #y_hat_rec = StatsBase.reconstruct(transform, y_hat)
-    _, res_out = NonLinearSystemNeuralNetworkFMU.fmiEvaluateRes(fmu, eq_num, Float64.(y_hat))
-    return LinearAlgebra.norm(res_out), res_out
+    y_hat_rec = StatsBase.reconstruct(transform, y_hat)
+    _, res_out = NonLinearSystemNeuralNetworkFMU.fmiEvaluateRes(fmu, eq_num, Float64.(y_hat_rec))
+    return 1/2*(LinearAlgebra.norm(res_out)^2), res_out
   end
   # p = 0
   # if y_hat_rec[1] < 0
@@ -189,7 +189,7 @@ function ChainRulesCore.rrule(::typeof(loss), x, fmu, eq_num, transform)
     # compute x̄
     if batchsize>1
       # backprop through mean of norms of batch elements
-      factor = l_tangent/(batchsize*l)
+      factor = l_tangent/batchsize
       x̄ = jacobians[1]' * res_out[1]
       for i in 2:batchsize
         x̄ = x̄ + jacobians[i]' * res_out[i]
@@ -197,7 +197,7 @@ function ChainRulesCore.rrule(::typeof(loss), x, fmu, eq_num, transform)
       x̄*=factor
       x̄ = repeat(x̄, 1, batchsize)
     else
-      x̄ = l_tangent * ((jac' * res_out) / l)
+      x̄ = l_tangent * (jac' * res_out)
     end
 
     # all other args have NoTangent
@@ -239,8 +239,6 @@ function split_train_test(in_data, out_data, test_ratio=0.2, random_seed=42)
 
     return train_in, train_out, test_in, test_out
 end
-
-using Random
 
 function split_train_test(data_matrix, test_ratio=0.2, random_seed=42)
     Random.seed!(random_seed)
@@ -312,7 +310,7 @@ function scale_data_uniform(train_in, test_in)
 end
 
 
-CLUSTER = nothing
+CLUSTER = true
 if CLUSTER == true
   # concat in and out data
   in_data = hcat(train_in, test_in)
@@ -362,16 +360,20 @@ end
 
 
 # train fully unsupervised
-unsupervised_data_matrix = generate_unsupervised_data(profilinginfo, 1000)
+unsupervised_data_matrix = generate_unsupervised_data(profilinginfo, 3000)
 train_data, test_data = split_train_test(unsupervised_data_matrix)
 train_data, test_data, train_data_transform, test_data_transform = scale_data_uniform(train_data, test_data)
-unsupervised_dataloader = Flux.DataLoader(train_data, batchsize=1, shuffle=true)
+unsupervised_dataloader = Flux.DataLoader(train_data, batchsize=16, shuffle=true)
 
 scatter(train_data[1,:], train_data[2,:])
 scatter!(test_data[1,:], test_data[2,:])
 
+
+scatter(unsupervised_data_matrix[1,:], unsupervised_data_matrix[2,:])
+
+
 # only batchsize=1!!
-dataloader = Flux.DataLoader((train_in, train_out), batchsize=16, shuffle=true)
+dataloader = Flux.DataLoader((train_in, train_out), batchsize=8, shuffle=true)
 
 # specify network architecture
 # maybe add normalization layer at Start
@@ -386,32 +388,40 @@ ps = Flux.params(model)
 opt = Flux.Adam(1e-4)
 opt_state = Flux.setup(opt, model)
 
-test_loss_residual = []
-test_loss_mse = []
+test_loss_residual_mse = []
+test_loss_mse_mse = []
 
-function comp_test_loss_residual(model, test_in)
-  prepare_x(test_in, row_value_reference, fmu, test_data_transform)
-  l,_ = loss(model(test_in), fmu, eq_num, test_out_transform)
+test_loss_residual_residual = []
+test_loss_mse_residual = []
+
+function comp_test_loss_residual(model, test_in, prepare_x_t, loss_t)
+  prepare_x(test_in, row_value_reference, fmu, prepare_x_t)
+  l,_ = loss(model(test_in), fmu, eq_num, loss_t)
   return l
 end
 
 
-num_epochs = 10
+prepare_x_transform = train_in_transform
+loss_transform = train_out_transform
+
+prepare_x_transform_test = test_in_transform
+loss_transform_test = test_out_transform
+num_epochs = 1000
 epoch_range = 1:num_epochs
 for epoch in epoch_range
-    for x in unsupervised_dataloader
-        prepare_x(x, row_value_reference, fmu, train_data_transform)
+    for (x,y) in dataloader
+        prepare_x(x, row_value_reference, fmu, prepare_x_transform)
         lv, grads = Flux.withgradient(model) do m  
           prediction = m(x)
           # different losses
           #Flux.mse(prediction, y) + 0.2 * (loss(prediction, fmu, eq_num, train_out_transform)/10)
           #Flux.mse(prediction, y)
-          loss(prediction, fmu, eq_num, train_out_transform)
+          loss(prediction, fmu, eq_num, loss_transform)
         end
         Flux.update!(opt_state, model, grads[1])
     end
-    push!(test_loss_residual, comp_test_loss_residual(model, test_data))
-    #push!(test_loss_mse, Flux.mse(model(test_in), test_out))
+    push!(test_loss_residual_residual, comp_test_loss_residual(model, test_in, prepare_x_transform_test, loss_transform_test))
+    push!(test_loss_mse_residual, Flux.mse(model(test_in), test_out))
 end
 
 # plot loss curve
@@ -421,8 +431,8 @@ function plot_curve(curve; kwargs...)
   plot(x, y; kwargs...)
 end
 
-plot_curve(test_loss_residual; title="test loss residual")
-#plot_curve(test_loss_mse; title="test loss mse")
+plot_curve(test_loss_residual_residual; title="test loss residual mse")
+plot_curve(test_loss_mse_residual; title="test loss mse mse")
 
 
 
@@ -433,11 +443,12 @@ p = model(test_in)
 scatter!(compute_x_from_y.(test_in[1,:],test_in[2,:],vec(p)), vec(p))
 
 
+# scatter(compute_x_from_y.(train_in[1,:],train_in[2,:],vec(train_out)), vec(train_out))
+# scatter!(compute_x_from_y.(test_in[1,:],test_in[2,:],vec(test_out)), vec(test_out))
+
 
 # supervised works in batchsize>1
-# residual doesnt need batchsize=1 in dataloader and
-
-
+# residual doesnt, needs batchsize=1 in dataloader
 
 
 Flux.mse(model(train_in), train_out)
@@ -462,7 +473,20 @@ Flux.mse(model(test_in), test_out)
 # think about different losses or other ways to use the residual/jacobian
 # -> regularization
 
-# when should you cluster?
-# -> cluster then split or split then cluster?
 
-print("fjfjfjfjf")
+
+
+# in_data = hcat(train_in, test_in)
+# out_data = hcat(train_out, test_out)
+
+# x = compute_x_from_y.(in_data[1,:], in_data[2,:], out_data[1,:])
+# out_data = hcat(x, out_data')'
+# # cluster out data
+# cluster_indices, num_clusters = cluster_data(out_data)
+# # extract cluster
+# cluster_index = 2 #rand(1:num_clusters)
+# in_2 = extract_cluster(in_data, cluster_indices, cluster_index)
+# out_2 = extract_cluster(out_data, cluster_indices, cluster_index)
+
+# scatter(out_1[1,:], out_1[2,:])
+# scatter!(out_2[1,:], out_2[2,:])
