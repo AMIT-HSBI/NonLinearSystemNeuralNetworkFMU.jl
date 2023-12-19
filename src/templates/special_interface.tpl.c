@@ -210,13 +210,12 @@ int scaleResidual(double* jac, double* res, size_t n) {
 }
 
 
-fmi2Status myfmi2EvaluateJacobian(fmi2Component c, const size_t eqNumber, double* x, double* jac)
+fmi2Status myfmi2EvaluateJacobian(fmi2Component c, const size_t sysNumber, double* x, double* jac)
 {
-  printf("in myfmi2EvaluateJacobian aaa");
   ModelInstance *comp = (ModelInstance *)c;
   DATA* data = comp->fmuData;
   threadData_t *threadData = comp->threadData;
-  NONLINEAR_SYSTEM_DATA* nlsSystem = &(data->simulationInfo->nonlinearSystemData[0]);
+  NONLINEAR_SYSTEM_DATA* nlsSystem = &(data->simulationInfo->nonlinearSystemData[sysNumber]);
 
   switch(nlsSystem->nlsMethod)
   {
