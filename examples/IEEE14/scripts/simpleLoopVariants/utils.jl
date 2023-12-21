@@ -22,6 +22,89 @@ function readData(filename::String, nInputs::Integer; ratio=0.9, shuffle::Bool=t
     return train_in, train_out, test_in, test_out
 end
 
+
+function scale_data_uniform(train_in, train_out, test_in, test_out)
+    train_in_transform = StatsBase.fit(StatsBase.UnitRangeTransform, train_in, dims=2)
+    train_out_transform = StatsBase.fit(StatsBase.UnitRangeTransform, train_out, dims=2)
+  
+    train_in = StatsBase.transform(train_in_transform, train_in)
+    train_out = StatsBase.transform(train_out_transform, train_out)
+  
+    test_in_transform = StatsBase.fit(StatsBase.UnitRangeTransform, test_in, dims=2)
+    test_out_transform = StatsBase.fit(StatsBase.UnitRangeTransform, test_out, dims=2)
+  
+    test_in = StatsBase.transform(test_in_transform, test_in)
+    test_out = StatsBase.transform(test_out_transform, test_out)
+  
+    return train_in, train_out, test_in, test_out, train_in_transform, train_out_transform, test_in_transform, test_out_transform
+end
+
+function vectorofvector_to_matrix(vov)
+    return mapreduce(permutedims, vcat, vov)
+end
+
+function get_cluster_indices(cluster_assignments::Vector{Int})
+    # Create a dictionary to store indices for each cluster
+    cluster_indices_dict = Dict{Int, Vector{Int}}()
+
+    for (i, cluster) in enumerate(cluster_assignments)
+        if haskey(cluster_indices_dict, cluster)
+            push!(cluster_indices_dict[cluster], i)
+        else
+            cluster_indices_dict[cluster] = [i]
+        end
+    end
+
+    # Convert the dictionary to a list of indices for each cluster
+    cluster_indices_list = [cluster_indices_dict[i] for i in 1:maximum(cluster_assignments)]
+
+    return cluster_indices_list
+end
+
+function extract_cluster(data, cluster_indices::Vector{Vector{Int64}}, cluster_index::Int64)
+    # data is in the form (d, n)
+    # d - feature dimension
+    # n - number of datapoints
+    # cluster_indices: index of clusters
+    # cluster_index: index of cluster to get
+    return data[:, cluster_indices[cluster_index]]
+end
+
+function cluster_data(train_out)
+    # train_out is a Matrix of shape n_targetsXn_samples
+    train_out_c = copy(train_out)
+    dt = StatsBase.fit(StatsBase.ZScoreTransform, train_out_c, dims=1) # normalise along columns
+    train_out_c = StatsBase.transform(dt, train_out_c)
+
+
+    max_score = 0
+    max_score_num_cluster = 1
+    max_cluster = 20
+    distances = Distances.pairwise(Distances.SqEuclidean(), train_out_c)
+    for i = 2:max_cluster
+        R = Clustering.kmeans(train_out_c, i; maxiter=200)
+        score = mean(Clustering.silhouettes(R, distances))
+        if score > max_score
+            max_score = score
+            max_score_num_cluster = i
+        end
+    end
+
+    R = Clustering.kmeans(train_out_c, max_score_num_cluster; maxiter=200)
+    cluster_indices = get_cluster_indices(R.assignments)
+    return cluster_indices, max_score_num_cluster
+end
+
+function scale_data_uniform(train_in, test_in)
+    train_in_transform = StatsBase.fit(StatsBase.UnitRangeTransform, train_in, dims=2)
+    train_in = StatsBase.transform(train_in_transform, train_in)
+  
+    test_in_transform = StatsBase.fit(StatsBase.UnitRangeTransform, test_in, dims=2)
+    test_in = StatsBase.transform(test_in_transform, test_in)
+  
+    return train_in, test_in, train_in_transform, test_in_transform
+  end
+
 function parse_modelfile(modelfile_path, eq_num)
   conc_string = "equation index: " * string(eq_num)
   nonlin_string = "indexNonlinear: "
