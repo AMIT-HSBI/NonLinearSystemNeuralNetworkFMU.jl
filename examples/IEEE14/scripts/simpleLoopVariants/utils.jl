@@ -1,3 +1,9 @@
+import StatsBase
+import Clustering
+import Distances
+
+
+
 function readData(filename::String, nInputs::Integer; ratio=0.9, shuffle::Bool=true)
     df = DataFrames.select(CSV.read(filename, DataFrames.DataFrame; ntasks=1), InvertedIndices.Not([:Trace]))
     m = Matrix{Float32}(df)
@@ -156,8 +162,8 @@ function prepare_fmu(fmu_path, prof_info_path, model_path)
   
     row_value_reference = FMI.fmiStringToValueReference(fmu.modelDescription, profilinginfo[1].usingVars)
   
-    return comp, fmu, profilinginfo, vr, row_value_reference, sys_num
-end
+    return comp, fmu, profilinginfo, vr, row_value_reference, eq_num, sys_num
+  end
 
 
 function prepare_x(x, row_vr, fmu, transform)
@@ -193,13 +199,41 @@ end
 
 
 # plot x and y
-function plot_xy(model, in_data, out_data)
-    scatter(compute_x_from_y.(in_data[1,:],in_data[2,:],vec(out_data)), vec(out_data))
+function plot_xy(model, in_data, out_data; kwargs...)
     prediction = model(in_data)
-    scatter!(compute_x_from_y.(in_data[1,:],in_data[2,:],vec(prediction)), vec(prediction))
+    scatter!(compute_x_from_y.(in_data[1,:],in_data[2,:],vec(prediction)), vec(prediction); kwargs...)
 end
+
 
 function plot_loss_history(loss_history; kwargs...)
     x = 1:length(loss_history)
     plot(x, loss_history; kwargs...)
   end
+
+function plot_loss_history!(loss_history; kwargs...)
+    x = 1:length(loss_history)
+    plot!(x, loss_history; kwargs...)
+end
+
+
+function split_train_test(in_data, out_data, test_ratio=0.2, random_seed=42)
+    Random.seed!(random_seed)
+
+    num_samples = size(in_data, 2)
+    indices = shuffle(1:num_samples)
+
+    # Calculate the number of samples for the test set
+    num_test = round(Int, test_ratio * num_samples)
+
+    # Split the indices into training and testing sets
+    train_indices = indices[1:(num_samples - num_test)]
+    test_indices = indices[(num_samples - num_test + 1):end]
+
+    # Create training and testing sets
+    train_in = in_data[:, train_indices]
+    train_out = out_data[:, train_indices]
+    test_in = in_data[:, test_indices]
+    test_out = out_data[:, test_indices]
+
+    return train_in, train_out, test_in, test_out
+end

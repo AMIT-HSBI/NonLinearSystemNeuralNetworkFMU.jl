@@ -83,12 +83,13 @@ function loss(y_hat, fmu, eq_num, sys_num, transform)
     return l, loss_pullback
   end
 
-function trainModelSemisupervised(model, optimizer, train_in, test_in, train_in_transform, test_in_transform, train_out_transform,  test_out_transform; train_out=nothing, test_out=nothing, epochs=100)
+function trainModelSemisupervised(model, optimizer, train_in, test_in, train_in_transform, test_in_transform, train_out_transform,  test_out_transform, eq_num, sys_num, row_value_reference, fmu; train_out=nothing, test_out=nothing, epochs=100)
     # if out data is nothing i dont record supervised loss
     # else i do
     ps = Flux.params(model)
     opt_state = Flux.setup(optimizer, model)
     test_loss_history = []
+    training_time = 0
 
     for epoch in 1:epochs
       for (x,y) in dataloader
