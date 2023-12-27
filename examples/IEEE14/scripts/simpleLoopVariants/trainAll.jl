@@ -126,7 +126,7 @@ ylabel!("MSE")
 
 
 # plot xy results
-#TODO: think about the correct scaling of data
+# only the model should get scaled values and predict sclaed values, but all else should be unscaled
 scatter(compute_x_from_y.(test_in[1,:],test_in[2,:],vec(test_out)), vec(test_out), label="groundtruth")
 plot_xy(supervised_model, test_in, test_out; label="supervised")
 plot_xy(unsupervised_model, test_in, test_out; label="unsupervised")
