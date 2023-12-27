@@ -109,7 +109,7 @@ function scale_data_uniform(train_in, test_in)
     test_in = StatsBase.transform(test_in_transform, test_in)
   
     return train_in, test_in, train_in_transform, test_in_transform
-  end
+end
 
 function parse_modelfile(modelfile_path, eq_num)
   conc_string = "equation index: " * string(eq_num)
@@ -163,7 +163,7 @@ function prepare_fmu(fmu_path, prof_info_path, model_path)
     row_value_reference = FMI.fmiStringToValueReference(fmu.modelDescription, profilinginfo[1].usingVars)
   
     return comp, fmu, profilinginfo, vr, row_value_reference, eq_num, sys_num
-  end
+end
 
 
 function prepare_x(x, row_vr, fmu, transform)
@@ -210,6 +210,7 @@ function plot_loss_history(loss_history; kwargs...)
     plot(x, loss_history; kwargs...)
   end
 
+  
 function plot_loss_history!(loss_history; kwargs...)
     x = 1:length(loss_history)
     plot!(x, loss_history; kwargs...)

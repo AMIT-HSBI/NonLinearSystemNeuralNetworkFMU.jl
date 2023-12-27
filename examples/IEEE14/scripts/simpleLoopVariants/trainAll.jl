@@ -97,7 +97,7 @@ ylabel!("y")
 
 
 
-# 2. some AMBIGOUS dataset and train all methods for performance
+# 2. some AMBIGOUS dataset and train all methods for performance (no clustering)
 # prepare train and test data
 (train_in, train_out, test_in, test_out) = readData(fileName, nInputs)
 train_in, train_out, test_in, test_out, train_in_t, train_out_t, test_in_t, test_out_t = scale_data_uniform(train_in, train_out, test_in, test_out)
@@ -135,11 +135,85 @@ title!("XY plot for unclustered dataset")
 xlabel!("x x=(r*s+b)-y")
 ylabel!("y prediction")
 
-
 # 3. compare training time between all methods when using fully unsupervised training and fully supervised training
 
-# 4. ideas and testing to improve model performance (lr decay, regularization, prelu, dropout, batch norm)
+hidden_width = 100
+model = Flux.Chain(
+  Flux.Dense(nInputs, hidden_width, relu),
+  Flux.Dense(hidden_width, hidden_width, relu),
+  Flux.Dense(hidden_width, nOutputs)
+)
+opt = Flux.Adam(1e-4)
 
+# two pipelines:
+# 1. fully unsupervised
+# 1.1. generate unsupervised data (or have a time how long it takes)
+gen_unsupervised_data_time = 0
+# 1.2. prepare unsupervised data
+# 1.3. train for [10,100,1000] epochs and plot training time and final test mse
+full_unsupervised_test_loss_hist = []
+full_unsupervised_train_time_hist = []
+for n_epochs in [10,100,1000]
+  unsupervised_model, unsupervised_test_loss_hist, unsupervised_time = trainModelUnsupervised(
+    deepcopy(model), deepcopy(opt), train_in, test_in, train_in_t, test_in_t, train_out_t, test_out_t, eq_num, sys_num, row_value_reference, fmu; 
+    test_out=test_out, epochs=n_epochs
+    )
+    push!(full_unsupervised_test_loss_hist, unsupervised_test_loss_hist[end])
+    push!(full_unsupervised_train_time_hist, unsupervised_time)
+end
+
+# 2. fully supervised
+# 2.1. generate supervised data (or have a time how long it takes)
+gen_supervised_data_time = 0
+# 2.2. prepare supervised data (no clustering)
+# 2.3. train for [10,100,1000] epochs and plot training time and final test mse
+full_supervised_test_loss_hist = []
+full_supervised_train_time_hist = []
+for n_epochs in [10,100,1000]
+  supervised_model, supervised_test_loss_hist, supervised_time = trainModelSupervised(
+    deepcopy(model), deepcopy(opt), dataloader, test_in, test_out;epochs=n_epochs
+    )
+    push!(full_supervised_test_loss_hist, supervised_test_loss_hist[end])
+    push!(full_supervised_train_time_hist, supervised_time)
+end
+
+# plot the test loss at the end of each run for both approaches
+plot_loss_history(full_unsupervised_test_loss_hist; label="unsupervised")
+plot_loss_history!(full_supervised_test_loss_hist; label="supervised")
+title!("final MSE for different approaches")
+xlabel!("Number of Epochs")
+ylabel!("MSE")
+
+
+# plot the training time at the end of each run for both approaches
+plot_loss_history(full_unsupervised_train_time_hist; label="unsupervised")
+plot_loss_history!(full_supervised_train_time_hist; label="supervised")
+title!("training time for different approaches")
+xlabel!("Number of Epochs")
+ylabel!("training time/s")
+
+
+
+# 4. ideas and testing to improve model performance (lr decay, regularization, prelu, dropout, batch norm)
+opt = Optimiser(Flux.Adam(1e-4), ExpDecay(1.0))
+
+struct prelu{Float64}
+  alpha::Float64
+  function prelu(alpha_init::Float64 = 0.25)
+      new{Float64}(alpha_init)
+  end
+end
+
+function (a::prelu)(x::AbstractArray)
+  pos = Flux.relu(x)
+  neg = -a.alpha * Flux.relu(-x)
+  return pos + neg
+end
+
+Flux.@functor prelu
+
+m = Chain(Dense(ones(3,2)), Dropout(0.4))
+m = Chain(Dense(1000 => 1000, selu), AlphaDropout(0.2))
 
 #TODO
 # track residual loss
