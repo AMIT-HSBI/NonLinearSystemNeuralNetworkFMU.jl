@@ -86,8 +86,8 @@ ylabel!("MSE")
 
 # plot xy results
 #TODO: think about the correct scaling of data
-scatter(compute_x_from_y.(test_in[1,:],test_in[2,:],vec(test_out)), vec(test_out), label="groundtruth")
-plot_xy(supervised_model, test_in, test_out; label="supervised")
+scatter(compute_x_from_y.(test_in[1,:],test_in[2,:],vec(test_out)), vec(test_out), label="groundtruth") # reconstruct
+plot_xy(supervised_model, test_in, test_out; label="supervised") # reconstruct inside plot xy
 plot_xy(unsupervised_model, test_in, test_out; label="unsupervised")
 plot_xy(semisupervised_model, test_in, test_out; label="semi-supervised")
 title!("XY plot for clustered dataset")
@@ -195,6 +195,7 @@ ylabel!("training time/s")
 
 
 # 4. ideas and testing to improve model performance (lr decay, regularization, prelu, dropout, batch norm)
+# maybe do this on IEEE14 data
 opt = Optimiser(Flux.Adam(1e-4), ExpDecay(1.0))
 
 struct prelu{Float64}
@@ -212,9 +213,12 @@ end
 
 Flux.@functor prelu
 
-m = Chain(Dense(ones(3,2)), Dropout(0.4))
-m = Chain(Dense(1000 => 1000, selu), AlphaDropout(0.2))
+# some others to try: swish, selu, rrelu, gelu, leakyrelu
+
+m = Chain(Dense(3, 2), Dropout(0.4))
+m = Chain(Dense(1000, 1000, selu), AlphaDropout(0.2))
+
+
 
 #TODO
 # track residual loss
-# plot training time
