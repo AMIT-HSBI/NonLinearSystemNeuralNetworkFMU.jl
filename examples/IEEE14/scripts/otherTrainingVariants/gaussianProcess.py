@@ -14,6 +14,9 @@ from sklearn.multioutput import MultiOutputRegressor
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF
 
+from skl2onnx import convert_sklearn
+from skl2onnx.common.data_types import DoubleTensorType
+
 
 
 # read input/output data and reference solution
@@ -26,16 +29,37 @@ out = data.iloc[:, 16:-1]
 inp_columns = inp.columns
 out_columns = out.columns
 
+num_inputs = 16
+num_outputs = 110
+
 # convert input and output data to numpy arrays
 inp_np = inp.to_numpy()
 out_np = out.to_numpy()
-
 
 # standard scaling the data before clustering is important
 out_np_standard_scaler = StandardScaler()
 transformed_out_np = out_np_standard_scaler.fit_transform(out_np)
 # eps = 10. is a pretty good choice
 label_indices, cluster_labels = cluster(transformed_out_np, min_samples=5, eps=5.)
+  
+# transform input and output data using min-max scaling between (0,1)
+x_scaler = MinMaxScaler(feature_range=(0,1))
+y_scaler = MinMaxScaler(feature_range=(0,1))
+
+# cluster_ind = 0 for best results
+cluster_ind = 0
+
+# only use data from one cluster for training
+X_1403 = inp_np[label_indices[cluster_ind]]
+y_1403 = out_np[label_indices[cluster_ind]]
+
+X_train_1403, X_test_1403, y_train_1403, y_test_1403 = train_test_split(X_1403, y_1403, test_size=0.1, shuffle=True)
+
+X_train_1403_scaled = x_scaler.fit_transform(X_train_1403)
+X_test_1403_scaled = x_scaler.transform(X_test_1403)
+
+y_train_1403_scaled = y_scaler.fit_transform(y_train_1403)
+y_test_1403_scaled = y_scaler.transform(y_test_1403)
 
 
 pca = PCA(n_components=2)
@@ -52,45 +76,30 @@ else:
 plt.legend()
 plt.show()
 
-  
-# transform input and output data using min-max scaling between (0,1)
-x_scaler = MinMaxScaler(feature_range=(0,1))
-y_scaler = MinMaxScaler(feature_range=(0,1))
-
-# cluster_ind = 0 for best results
-cluster_ind = 0
-
-# only use data from one cluster for training
-X_1403 = inp_np[label_indices[cluster_ind]]
-y_1403 = out_np[label_indices[cluster_ind]]
-
-X_train_1403, X_test_1403, y_train_1403, y_test_1403 = train_test_split(X_1403, y_1403, test_size=0.1, shuffle=True)
-
-X_train_1403_scaled = X_train_1403
-X_test_1403_scaled = X_test_1403
-X_train_1403_scaled = x_scaler.fit_transform(X_train_1403)
-X_test_1403_scaled = x_scaler.transform(X_test_1403)
-
-y_train_1403_scaled = y_scaler.fit_transform(y_train_1403)
-y_test_1403_scaled = y_scaler.transform(y_test_1403)
-
 
 noise_variance = 0.9
 lengthscale = 1.0
 
 t0 = time.time()
-
 kernel = noise_variance * RBF(lengthscale)
 #gpr = GaussianProcessRegressor(kernel=kernel, normalize_y=True, random_state=0)
 gpr = MultiOutputRegressor(GaussianProcessRegressor(kernel=kernel, normalize_y=True, random_state=0))
-
 gpr.fit(X_train_1403_scaled, y_train_1403_scaled)
-print(f'test mae', mean_absolute_error(y_test_1403_scaled, gpr.predict(X_test_1403_scaled)))
-print(f'test mse', mean_squared_error(y_test_1403_scaled, gpr.predict(X_test_1403_scaled)))
+t1 = time.time()  
 
-t1 = time.time()
+print(f"Total fitting time: {t1-t0}")
+print(f"MSE on Test Set after fitting: {mean_squared_error(y_test_1403_scaled, gpr.predict(X_test_1403_scaled))}")
 
-print('total fitting time', t1-t0)
+
+model_onnx = convert_sklearn(
+    gpr,
+    initial_types=[("X_train_1403_scaled", DoubleTensorType([None, num_inputs]))],
+    target_opset={"": 12, "ai.onnx.ml": 2},
+)
+
+with open("mp_gp.onnx", "wb") as f:
+    f.write(model_onnx.SerializeToString())
+    
 
 plot_against_reference(gpr, ref_sol, inp_columns, out_columns, randrange(50), x_scaler, y_scaler)
 
@@ -98,9 +107,6 @@ plot_against_reference(gpr, ref_sol, inp_columns, out_columns, randrange(50), x_
 
 
 #TODO:
-# onnx export
-# plot clustering result
-# plot against reference solution
 # comment the code
 # change clustering to KMeans
     
