@@ -30,7 +30,7 @@ start_schedule = num_epochs//2
 batch_size = 32
 initial_learning_rate = 0.001
 
-t0 = time.time()
+
 hidden_units = [n_hidden_units]*n_hidden_layers
 n_hidden_layers = len(hidden_units)
 fnn_model = keras.Sequential()
@@ -53,6 +53,7 @@ def scheduler(epoch, lr):
     return lr * tf.math.exp(-0.01)
 lrs_callback = tf.keras.callbacks.LearningRateScheduler(scheduler)
 
+t0 = time.time()
 history = fnn_model.fit(
     X_train,
     y_train,
@@ -129,3 +130,8 @@ tuner = keras_tuner.BayesianOptimization(
 tuner.search(X_train, y_train, epochs=15, validation_data=(X_test, y_test))
 best_model = tuner.get_best_models()[0]
   
+  
+#TODO:
+# showcase other approaches from Drive
+# train IEEE14 with resiudal approach
+# maybe Reservoir Computing
