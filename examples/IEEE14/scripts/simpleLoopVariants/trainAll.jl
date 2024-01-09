@@ -86,10 +86,12 @@ ylabel!("MSE")
 
 # plot xy results
 #TODO: think about the correct scaling of data
-scatter(compute_x_from_y.(test_in[1,:],test_in[2,:],vec(test_out)), vec(test_out), label="groundtruth") # reconstruct
-plot_xy(supervised_model, test_in, test_out; label="supervised") # reconstruct inside plot xy
-plot_xy(unsupervised_model, test_in, test_out; label="unsupervised")
-plot_xy(semisupervised_model, test_in, test_out; label="semi-supervised")
+test_in_rec = StatsBase.reconstruct(test_in_t, test_in)
+test_out_rec = StatsBase.reconstruct(test_out_t, test_out)
+scatter(compute_x_from_y.(test_in_rec[1,:],test_in_rec[2,:],vec(test_out_rec)), vec(test_out_rec), label="groundtruth") # reconstruct
+plot_xy(supervised_model, test_in, test_out, test_in_t, test_out_t; label="supervised") # reconstruct inside plot xy
+plot_xy(unsupervised_model, test_in, test_out, test_in_t, test_out_t; label="unsupervised")
+plot_xy(semisupervised_model, test_in, test_out, test_in_t, test_out_t; label="semi-supervised")
 title!("XY plot for clustered dataset")
 xlabel!("x")
 ylabel!("y")
@@ -127,13 +129,18 @@ ylabel!("MSE")
 
 # plot xy results
 # only the model should get scaled values and predict sclaed values, but all else should be unscaled
-scatter(compute_x_from_y.(test_in[1,:],test_in[2,:],vec(test_out)), vec(test_out), label="groundtruth")
-plot_xy(supervised_model, test_in, test_out; label="supervised")
-plot_xy(unsupervised_model, test_in, test_out; label="unsupervised")
-plot_xy(semisupervised_model, test_in, test_out; label="semi-supervised")
+test_in_rec = StatsBase.reconstruct(test_in_t, test_in)
+test_out_rec = StatsBase.reconstruct(test_out_t, test_out)
+scatter(compute_x_from_y.(test_in_rec[1,:],test_in_rec[2,:],vec(test_out_rec)), vec(test_out_rec), label="groundtruth")
+plot_xy(supervised_model, test_in, test_out, test_in_t, test_out_t; label="supervised") # reconstruct inside plot xy
+plot_xy(unsupervised_model, test_in, test_out, test_in_t, test_out_t; label="unsupervised")
+plot_xy(semisupervised_model, test_in, test_out, test_in_t, test_out_t; label="semi-supervised")
 title!("XY plot for unclustered dataset")
 xlabel!("x x=(r*s+b)-y")
 ylabel!("y prediction")
+
+
+
 
 # 3. compare training time between all methods when using fully unsupervised training and fully supervised training
 
@@ -146,19 +153,22 @@ model = Flux.Chain(
 opt = Flux.Adam(1e-4)
 
 # two pipelines:
+epoch_range = [10,100,1000]
 # 1. fully unsupervised
 # 1.1. generate unsupervised data (or have a time how long it takes)
 gen_unsupervised_data_time = 0
 # 1.2. prepare unsupervised data
 # 1.3. train for [10,100,1000] epochs and plot training time and final test mse
 full_unsupervised_test_loss_hist = []
+full_res_unsupervised_test_loss_hist = []
 full_unsupervised_train_time_hist = []
-for n_epochs in [10,100,1000]
-  unsupervised_model, unsupervised_test_loss_hist, unsupervised_time = trainModelUnsupervised(
+for n_epochs in epoch_range
+  unsupervised_model, unsupervised_test_loss_hist, res_unsupervised_test_loss_hist,  unsupervised_time = trainModelUnsupervised(
     deepcopy(model), deepcopy(opt), train_in, test_in, train_in_t, test_in_t, train_out_t, test_out_t, eq_num, sys_num, row_value_reference, fmu; 
     test_out=test_out, epochs=n_epochs
     )
     push!(full_unsupervised_test_loss_hist, unsupervised_test_loss_hist[end])
+    push!(full_res_unsupervised_test_loss_hist, res_unsupervised_test_loss_hist[end]) # training time is biased, use split up tech.
     push!(full_unsupervised_train_time_hist, unsupervised_time)
 end
 
@@ -169,7 +179,7 @@ gen_supervised_data_time = 0
 # 2.3. train for [10,100,1000] epochs and plot training time and final test mse
 full_supervised_test_loss_hist = []
 full_supervised_train_time_hist = []
-for n_epochs in [10,100,1000]
+for n_epochs in epoch_range
   supervised_model, supervised_test_loss_hist, supervised_time = trainModelSupervised(
     deepcopy(model), deepcopy(opt), dataloader, test_in, test_out;epochs=n_epochs
     )
@@ -178,21 +188,22 @@ for n_epochs in [10,100,1000]
 end
 
 # plot the test loss at the end of each run for both approaches
-plot_loss_history(full_unsupervised_test_loss_hist; label="unsupervised")
-plot_loss_history!(full_supervised_test_loss_hist; label="supervised")
+plot_loss_history(full_unsupervised_test_loss_hist, epoch_range; label="unsupervised", marker = :circle)
+plot_loss_history!(full_res_unsupervised_test_loss_hist, epoch_range; label="unsupervised_res", marker = :circle)
+plot_loss_history!(full_supervised_test_loss_hist, epoch_range; label="supervised", marker = :circle)
 title!("final MSE for different approaches")
 xlabel!("Number of Epochs")
 ylabel!("MSE")
 
 
 # plot the training time at the end of each run for both approaches
-plot_loss_history(full_unsupervised_train_time_hist; label="unsupervised")
-plot_loss_history!(full_supervised_train_time_hist; label="supervised")
+plot_loss_history(full_unsupervised_train_time_hist, epoch_range; label="unsupervised", marker = :circle)
+plot_loss_history!(full_supervised_train_time_hist, epoch_range; label="supervised", marker = :circle)
 title!("training time for different approaches")
 xlabel!("Number of Epochs")
 ylabel!("training time/s")
 
-
+#TODO: fix the training time portion
 
 # 4. ideas and testing to improve model performance (lr decay, regularization, prelu, dropout, batch norm)
 # maybe do this on IEEE14 data

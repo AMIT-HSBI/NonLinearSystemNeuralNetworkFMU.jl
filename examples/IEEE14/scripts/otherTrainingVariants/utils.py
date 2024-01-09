@@ -22,15 +22,15 @@ def plot_against_reference(model, ref_sol, inp_vars, out_vars, ind, x_scaler, y_
   print('mae', mean_absolute_error(out_ref_sol, ref_sol_pred_unscaled))
   print('mse', mean_squared_error(out_ref_sol, ref_sol_pred_unscaled))
   
-  figure, axis = plt.subplots(2, 2)
-  axis[0,0] = plt.plot(ref_sol_pred_unscaled, label="ref_solution")
-  axis[0,0] = plt.plot(out_ref_sol, label="prediction")
+  fig, axs = plt.subplots(3, 1)
+  axs[0].plot(ref_sol_pred_unscaled, label="ref_solution")
+  axs[0].plot(out_ref_sol, label="prediction")
   
-  axis[1,0] = plt.plot(ref_sol_pred_unscaled, label="ref_solution")
-  axis[1,0] = plt.set_title("ref_solution")
+  axs[1].plot(ref_sol_pred_unscaled, label="prediction")
+  #axis[1,0] = plt.suptitle("ref_solution")
   
-  axis[0,1] = plt.plot(out_ref_sol, label="prediction")
-  axis[0,1] = plt.set_title("prediction")
+  axs[2].plot(out_ref_sol, label="ref_solution")
+  #axis[0,1] = plt.suptitle("prediction")
 
   plt.legend()
   plt.show()

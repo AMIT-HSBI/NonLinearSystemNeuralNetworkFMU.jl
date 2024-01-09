@@ -199,20 +199,26 @@ end
 
 
 # plot x and y
-function plot_xy(model, in_data, out_data; kwargs...)
+function plot_xy(model, in_data, out_data, in_t, out_t; kwargs...)
     prediction = model(in_data)
-    scatter!(compute_x_from_y.(in_data[1,:],in_data[2,:],vec(prediction)), vec(prediction); kwargs...)
+    in_data_rec = StatsBase.reconstruct(in_t, in_data)
+    prediction_rec = StatsBase.reconstruct(out_t, prediction)
+    scatter!(compute_x_from_y.(in_data_rec[1,:],in_data_rec[2,:],vec(prediction_rec)), vec(prediction_rec); kwargs...)
 end
 
 
-function plot_loss_history(loss_history; kwargs...)
-    x = 1:length(loss_history)
+function plot_loss_history(loss_history, x=nothing; kwargs...)
+    if isnothing(x)
+        x = 1:length(loss_history)
+    end    
     plot(x, loss_history; kwargs...)
   end
 
   
-function plot_loss_history!(loss_history; kwargs...)
-    x = 1:length(loss_history)
+function plot_loss_history!(loss_history, x=nothing; kwargs...)
+    if isnothing(x)
+        x = 1:length(loss_history)
+    end  
     plot!(x, loss_history; kwargs...)
 end
 

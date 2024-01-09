@@ -89,8 +89,8 @@ function trainModelSemisupervised(model, optimizer, train_in, test_in, train_in_
     ps = Flux.params(model)
     opt_state = Flux.setup(optimizer, model)
     test_loss_history = []
-    training_time = 0
 
+    t0 = time()
     for epoch in 1:epochs
       for (x,y) in dataloader
           prepare_x(x, row_value_reference, fmu, train_in_transform)
@@ -102,5 +102,8 @@ function trainModelSemisupervised(model, optimizer, train_in, test_in, train_in_
       end
       push!(test_loss_history, Flux.mse(model(test_in), test_out))
     end
+    t1 = time()
+    training_time = t1 - t0
+
     return model, test_loss_history, training_time
 end

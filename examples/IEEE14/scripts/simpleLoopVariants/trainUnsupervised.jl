@@ -90,9 +90,12 @@ function trainModelUnsupervised(model, optimizer, train_in, test_in, train_in_tr
     ps = Flux.params(model)
     opt_state = Flux.setup(optimizer, model)
     test_loss_history = []
+    res_test_loss_history = []
     training_time = 0
 
     for epoch in 1:epochs
+      # training
+      t0 = time()
       for (x,y) in dataloader
           prepare_x(x, row_value_reference, fmu, train_in_transform)
           lv, grads = Flux.withgradient(model) do m  
@@ -101,7 +104,15 @@ function trainModelUnsupervised(model, optimizer, train_in, test_in, train_in_tr
           end
           Flux.update!(opt_state, model, grads[1])
       end
+      t1 = time()
+      training_time += t1 - t0
+
+      # test loss
       push!(test_loss_history, Flux.mse(model(test_in), test_out))
+      prepare_x(test_in, row_value_reference, fmu, train_in_transform)
+      l,_ = loss(model(test_in), fmu, eq_num, sys_num, train_out_transform)
+      push!(res_test_loss_history, l)
     end
-    return model, test_loss_history, training_time
+
+    return model, test_loss_history, res_test_loss_history, training_time
 end

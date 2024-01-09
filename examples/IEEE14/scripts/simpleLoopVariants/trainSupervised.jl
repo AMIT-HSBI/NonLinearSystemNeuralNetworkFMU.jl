@@ -7,6 +7,7 @@ function trainModelSupervised(model, optimizer, train_dataloader, test_in, test_
     training_time = 0
     
     for epoch in 1:epochs
+        t0 = time()
         for (x, y) in train_dataloader
             lv, grads = Flux.withgradient(model) do m  
                 prediction = m(x)
@@ -14,6 +15,9 @@ function trainModelSupervised(model, optimizer, train_dataloader, test_in, test_
             end
             Flux.update!(opt_state, model, grads[1])
         end
+        t1 = time()
+        training_time += t1 - t0
+
         push!(test_loss_history, Flux.mse(model(test_in), test_out))
     end
     return model, test_loss_history, training_time
