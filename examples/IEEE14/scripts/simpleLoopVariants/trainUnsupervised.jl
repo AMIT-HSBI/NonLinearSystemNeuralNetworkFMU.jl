@@ -84,7 +84,7 @@ function ChainRulesCore.rrule(::typeof(loss), x, fmu, eq_num, sys_num, transform
 end
 
 
-function trainModelUnsupervised(model, optimizer, train_in, test_in, train_in_transform, test_in_transform, train_out_transform,  test_out_transform, eq_num, sys_num, row_value_reference, fmu; train_out=nothing, test_out=nothing, epochs=100)
+function trainModelUnsupervised(model, optimizer, train_dataloader, test_in, test_out, train_in_transform, test_in_transform, train_out_transform,  test_out_transform, eq_num, sys_num, row_value_reference, fmu; epochs=100)
     # if out data is nothing i dont record supervised loss
     # else i do
     ps = Flux.params(model)
@@ -96,7 +96,7 @@ function trainModelUnsupervised(model, optimizer, train_in, test_in, train_in_tr
     for epoch in 1:epochs
       # training
       t0 = time()
-      for (x,y) in dataloader
+      for (x,y) in train_dataloader
           prepare_x(x, row_value_reference, fmu, train_in_transform)
           lv, grads = Flux.withgradient(model) do m  
             prediction = m(x)
@@ -109,8 +109,8 @@ function trainModelUnsupervised(model, optimizer, train_in, test_in, train_in_tr
 
       # test loss
       push!(test_loss_history, Flux.mse(model(test_in), test_out))
-      prepare_x(test_in, row_value_reference, fmu, train_in_transform)
-      l,_ = loss(model(test_in), fmu, eq_num, sys_num, train_out_transform)
+      prepare_x(test_in, row_value_reference, fmu, test_in_transform)
+      l,_ = loss(model(test_in), fmu, eq_num, sys_num, test_out_transform)
       push!(res_test_loss_history, l)
     end
 

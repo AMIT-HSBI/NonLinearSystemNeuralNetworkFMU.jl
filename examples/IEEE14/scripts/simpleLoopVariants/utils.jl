@@ -1,7 +1,7 @@
 import StatsBase
 import Clustering
 import Distances
-
+using FMIImport
 
 
 function readData(filename::String, nInputs::Integer; ratio=0.9, shuffle::Bool=true)
@@ -39,8 +39,8 @@ function scale_data_uniform(train_in, train_out, test_in, test_out)
     test_in_transform = StatsBase.fit(StatsBase.UnitRangeTransform, test_in, dims=2)
     test_out_transform = StatsBase.fit(StatsBase.UnitRangeTransform, test_out, dims=2)
   
-    test_in = StatsBase.transform(test_in_transform, test_in)
-    test_out = StatsBase.transform(test_out_transform, test_out)
+    test_in = StatsBase.transform(train_in_transform, test_in)
+    test_out = StatsBase.transform(train_out_transform, test_out)
   
     return train_in, train_out, test_in, test_out, train_in_transform, train_out_transform, test_in_transform, test_out_transform
 end
@@ -177,11 +177,11 @@ function prepare_x(x, row_vr, fmu, transform)
         for i in 1:batchsize
         x_i = x[1:end,i]
         x_i_rec = StatsBase.reconstruct(transform, x_i)
-        FMIImport.fmi2SetReal(fmu, row_vr, x_i_rec)
+        FMIImport.fmi2SetReal(fmu, row_vr, Float64.(x_i_rec))
         end
     else
         x_rec = StatsBase.reconstruct(transform, x)
-        FMIImport.fmi2SetReal(fmu, row_vr, vec(x_rec))
+        FMIImport.fmi2SetReal(fmu, row_vr, Float64.(vec(x_rec)))
     end
     #   if time !== nothing
     #     FMIImport.fmi2SetTime(fmu, x[1])

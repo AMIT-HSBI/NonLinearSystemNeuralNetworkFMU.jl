@@ -70,9 +70,9 @@ model = Flux.Chain(
 )
 opt = Flux.Adam(1e-4)
 
-supervised_model, supervised_test_loss_hist, supervised_time = trainModelSupervised(deepcopy(model), deepcopy(opt), dataloader, test_in, test_out;epochs=1000)
-unsupervised_model, unsupervised_test_loss_hist, unsupervised_time = trainModelUnsupervised(deepcopy(model), deepcopy(opt), train_in, test_in, train_in_t, test_in_t, train_out_t, test_out_t, eq_num, sys_num, row_value_reference, fmu; test_out=test_out, epochs=1000)
-semisupervised_model, semisupervised_test_loss_hist, semisupervised_time = trainModelSemisupervised(deepcopy(model), deepcopy(opt), train_in, test_in, train_in_t, test_in_t, train_out_t, test_out_t, eq_num, sys_num, row_value_reference, fmu; test_out=test_out, epochs=1000)
+supervised_model, supervised_test_loss_hist, res_sup, supervised_time = trainModelSupervised(deepcopy(model), deepcopy(opt), dataloader, test_in, test_out, train_in_t, test_in_t, train_out_t, test_out_t, eq_num, sys_num, deepcopy(row_value_reference), deepcopy(fmu); epochs=100)
+unsupervised_model, unsupervised_test_loss_hist, res_unsup, unsupervised_time = trainModelUnsupervised(deepcopy(model), deepcopy(opt), dataloader, test_in, test_out, train_in_t, test_in_t, train_out_t, test_out_t, eq_num, sys_num, deepcopy(row_value_reference), deepcopy(fmu); epochs=100)
+semisupervised_model, semisupervised_test_loss_hist, semisupervised_time = trainModelSemisupervised(deepcopy(model), deepcopy(opt), train_in, test_in, train_in_t, test_in_t, train_out_t, test_out_t, eq_num, sys_num, row_value_reference, fmu; test_out=test_out, epochs=100)
 
 
 # plot mse loss results
@@ -84,8 +84,11 @@ xlabel!("Number of Epochs")
 ylabel!("MSE")
 
 
+plot_loss_history(res_sup; label="supervised")
+plot_loss_history!(res_unsup; label="unsupervised")
+
+
 # plot xy results
-#TODO: think about the correct scaling of data
 test_in_rec = StatsBase.reconstruct(test_in_t, test_in)
 test_out_rec = StatsBase.reconstruct(test_out_t, test_out)
 scatter(compute_x_from_y.(test_in_rec[1,:],test_in_rec[2,:],vec(test_out_rec)), vec(test_out_rec), label="groundtruth") # reconstruct
@@ -93,10 +96,8 @@ plot_xy(supervised_model, test_in, test_out, test_in_t, test_out_t; label="super
 plot_xy(unsupervised_model, test_in, test_out, test_in_t, test_out_t; label="unsupervised")
 plot_xy(semisupervised_model, test_in, test_out, test_in_t, test_out_t; label="semi-supervised")
 title!("XY plot for clustered dataset")
-xlabel!("x")
-ylabel!("y")
-
-
+xlabel!("x (x=r*s+b-y)")
+ylabel!("y prediction")
 
 
 # 2. some AMBIGOUS dataset and train all methods for performance (no clustering)
@@ -113,8 +114,8 @@ model = Flux.Chain(
 )
 opt = Flux.Adam(1e-4)
 
-supervised_model, supervised_test_loss_hist, supervised_time = trainModelSupervised(deepcopy(model), deepcopy(opt), dataloader, test_in, test_out;epochs=1000)
-unsupervised_model, unsupervised_test_loss_hist, unsupervised_time = trainModelUnsupervised(deepcopy(model), deepcopy(opt), train_in, test_in, train_in_t, test_in_t, train_out_t, test_out_t, eq_num, sys_num, row_value_reference, fmu; test_out=test_out, epochs=1000)
+supervised_model, supervised_test_loss_hist, _, supervised_time = trainModelSupervised(deepcopy(model), deepcopy(opt), dataloader, test_in, test_out, train_in_t, test_in_t, train_out_t, test_out_t, eq_num, sys_num, row_value_reference, fmu; epochs=1000)
+unsupervised_model, unsupervised_test_loss_hist, _, unsupervised_time = trainModelUnsupervised(deepcopy(model), deepcopy(opt), dataloader, test_in, test_out, train_in_t, test_in_t, train_out_t, test_out_t, eq_num, sys_num, row_value_reference, fmu; epochs=1000)
 semisupervised_model, semisupervised_test_loss_hist, semisupervised_time = trainModelSemisupervised(deepcopy(model), deepcopy(opt), train_in, test_in, train_in_t, test_in_t, train_out_t, test_out_t, eq_num, sys_num, row_value_reference, fmu; test_out=test_out, epochs=1000)
 
 
@@ -136,13 +137,13 @@ plot_xy(supervised_model, test_in, test_out, test_in_t, test_out_t; label="super
 plot_xy(unsupervised_model, test_in, test_out, test_in_t, test_out_t; label="unsupervised")
 plot_xy(semisupervised_model, test_in, test_out, test_in_t, test_out_t; label="semi-supervised")
 title!("XY plot for unclustered dataset")
-xlabel!("x x=(r*s+b)-y")
+xlabel!("x (x=r*s+b-y)")
 ylabel!("y prediction")
 
 
 
 
-# 3. compare training time between all methods when using fully unsupervised training and fully supervised training
+# 3. compare training time between all methods when using fully unsupervised training and fully supervised training (no clustering)
 
 hidden_width = 100
 model = Flux.Chain(
@@ -164,8 +165,7 @@ full_res_unsupervised_test_loss_hist = []
 full_unsupervised_train_time_hist = []
 for n_epochs in epoch_range
   unsupervised_model, unsupervised_test_loss_hist, res_unsupervised_test_loss_hist,  unsupervised_time = trainModelUnsupervised(
-    deepcopy(model), deepcopy(opt), train_in, test_in, train_in_t, test_in_t, train_out_t, test_out_t, eq_num, sys_num, row_value_reference, fmu; 
-    test_out=test_out, epochs=n_epochs
+    deepcopy(model), deepcopy(opt), dataloader, test_in, test_out, train_in_t, test_in_t, train_out_t, test_out_t, eq_num, sys_num, row_value_reference, fmu; epochs=n_epochs
     )
     push!(full_unsupervised_test_loss_hist, unsupervised_test_loss_hist[end])
     push!(full_res_unsupervised_test_loss_hist, res_unsupervised_test_loss_hist[end]) # training time is biased, use split up tech.
@@ -178,22 +178,29 @@ gen_supervised_data_time = 0
 # 2.2. prepare supervised data (no clustering)
 # 2.3. train for [10,100,1000] epochs and plot training time and final test mse
 full_supervised_test_loss_hist = []
+full_res_supervised_test_loss_hist = []
 full_supervised_train_time_hist = []
 for n_epochs in epoch_range
-  supervised_model, supervised_test_loss_hist, supervised_time = trainModelSupervised(
-    deepcopy(model), deepcopy(opt), dataloader, test_in, test_out;epochs=n_epochs
+  supervised_model, supervised_test_loss_hist, res_supervised_test_loss_hist, supervised_time = trainModelSupervised(
+    deepcopy(model), deepcopy(opt), dataloader, test_in, test_out, train_in_t, test_in_t, train_out_t, test_out_t, eq_num, sys_num, row_value_reference, fmu;epochs=n_epochs
     )
     push!(full_supervised_test_loss_hist, supervised_test_loss_hist[end])
+    push!(full_res_supervised_test_loss_hist, res_supervised_test_loss_hist[end])
     push!(full_supervised_train_time_hist, supervised_time)
 end
 
 # plot the test loss at the end of each run for both approaches
 plot_loss_history(full_unsupervised_test_loss_hist, epoch_range; label="unsupervised", marker = :circle)
-plot_loss_history!(full_res_unsupervised_test_loss_hist, epoch_range; label="unsupervised_res", marker = :circle)
 plot_loss_history!(full_supervised_test_loss_hist, epoch_range; label="supervised", marker = :circle)
 title!("final MSE for different approaches")
 xlabel!("Number of Epochs")
 ylabel!("MSE")
+
+plot_loss_history(full_res_unsupervised_test_loss_hist, epoch_range; label="unsupervised_res", marker = :circle)
+plot_loss_history!(full_res_supervised_test_loss_hist, epoch_range; label="supervised_res", marker = :circle)
+title!("final Residual for different approaches")
+xlabel!("Number of Epochs")
+ylabel!("Residual")
 
 
 # plot the training time at the end of each run for both approaches
