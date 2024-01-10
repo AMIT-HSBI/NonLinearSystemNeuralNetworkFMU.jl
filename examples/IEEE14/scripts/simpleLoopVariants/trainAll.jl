@@ -66,6 +66,7 @@ hidden_width = 100
 model = Flux.Chain(
   Flux.Dense(nInputs, hidden_width, relu),
   Flux.Dense(hidden_width, hidden_width, relu),
+  Flux.Dense(hidden_width, hidden_width, relu),
   Flux.Dense(hidden_width, nOutputs)
 )
 opt = Flux.Adam(1e-4)
@@ -86,6 +87,9 @@ ylabel!("MSE")
 
 plot_loss_history(res_sup; label="supervised")
 plot_loss_history!(res_unsup; label="unsupervised")
+title!("Residual for clustered dataset")
+xlabel!("Number of Epochs")
+ylabel!("Residual")
 
 
 # plot xy results
@@ -114,8 +118,8 @@ model = Flux.Chain(
 )
 opt = Flux.Adam(1e-4)
 
-supervised_model, supervised_test_loss_hist, _, supervised_time = trainModelSupervised(deepcopy(model), deepcopy(opt), dataloader, test_in, test_out, train_in_t, test_in_t, train_out_t, test_out_t, eq_num, sys_num, row_value_reference, fmu; epochs=1000)
-unsupervised_model, unsupervised_test_loss_hist, _, unsupervised_time = trainModelUnsupervised(deepcopy(model), deepcopy(opt), dataloader, test_in, test_out, train_in_t, test_in_t, train_out_t, test_out_t, eq_num, sys_num, row_value_reference, fmu; epochs=1000)
+supervised_model, supervised_test_loss_hist, res_sup, supervised_time = trainModelSupervised(deepcopy(model), deepcopy(opt), dataloader, test_in, test_out, train_in_t, test_in_t, train_out_t, test_out_t, eq_num, sys_num, row_value_reference, fmu; epochs=1000)
+unsupervised_model, unsupervised_test_loss_hist, res_unsup, unsupervised_time = trainModelUnsupervised(deepcopy(model), deepcopy(opt), dataloader, test_in, test_out, train_in_t, test_in_t, train_out_t, test_out_t, eq_num, sys_num, row_value_reference, fmu; epochs=1000)
 semisupervised_model, semisupervised_test_loss_hist, semisupervised_time = trainModelSemisupervised(deepcopy(model), deepcopy(opt), train_in, test_in, train_in_t, test_in_t, train_out_t, test_out_t, eq_num, sys_num, row_value_reference, fmu; test_out=test_out, epochs=1000)
 
 
@@ -126,6 +130,12 @@ plot_loss_history!(semisupervised_test_loss_hist; label="semi-supervised")
 title!("MSE for unclustered dataset")
 xlabel!("Number of Epochs")
 ylabel!("MSE")
+
+plot_loss_history(res_sup; label="supervised")
+plot_loss_history!(res_unsup; label="unsupervised")
+title!("Residual for unclustered dataset")
+xlabel!("Number of Epochs")
+ylabel!("Residual")
 
 
 # plot xy results
@@ -144,6 +154,9 @@ ylabel!("y prediction")
 
 
 # 3. compare training time between all methods when using fully unsupervised training and fully supervised training (no clustering)
+(train_in, train_out, test_in, test_out) = readData(fileName, nInputs)
+train_in, train_out, test_in, test_out, train_in_t, train_out_t, test_in_t, test_out_t = scale_data_uniform(train_in, train_out, test_in, test_out)
+dataloader = Flux.DataLoader((train_in, train_out), batchsize=8, shuffle=true)
 
 hidden_width = 100
 model = Flux.Chain(
@@ -168,7 +181,7 @@ for n_epochs in epoch_range
     deepcopy(model), deepcopy(opt), dataloader, test_in, test_out, train_in_t, test_in_t, train_out_t, test_out_t, eq_num, sys_num, row_value_reference, fmu; epochs=n_epochs
     )
     push!(full_unsupervised_test_loss_hist, unsupervised_test_loss_hist[end])
-    push!(full_res_unsupervised_test_loss_hist, res_unsupervised_test_loss_hist[end]) # training time is biased, use split up tech.
+    push!(full_res_unsupervised_test_loss_hist, res_unsupervised_test_loss_hist[end])
     push!(full_unsupervised_train_time_hist, unsupervised_time)
 end
 
@@ -210,7 +223,39 @@ title!("training time for different approaches")
 xlabel!("Number of Epochs")
 ylabel!("training time/s")
 
-#TODO: fix the training time portion
+# 4. unsupervised batchsize comparison 1 vs. 8
+(train_in, train_out, test_in, test_out) = readData(fileName, nInputs)
+train_in, train_out, test_in, test_out, train_in_t, train_out_t, test_in_t, test_out_t = scale_data_uniform(train_in, train_out, test_in, test_out)
+dataloader_1 = Flux.DataLoader((train_in, train_out), batchsize=1, shuffle=true)
+dataloader_8 = Flux.DataLoader((train_in, train_out), batchsize=8, shuffle=true)
+
+hidden_width = 100
+model = Flux.Chain(
+  Flux.Dense(nInputs, hidden_width, relu),
+  Flux.Dense(hidden_width, hidden_width, relu),
+  Flux.Dense(hidden_width, nOutputs)
+)
+opt = Flux.Adam(1e-4)
+
+unsupervised_model_1, unsupervised_test_loss_hist_1, res_unsupervised_test_loss_hist_1,  unsupervised_time_1 = trainModelUnsupervised(
+    deepcopy(model), deepcopy(opt), dataloader_1, test_in, test_out, train_in_t, test_in_t, train_out_t, test_out_t, eq_num, sys_num, row_value_reference, fmu; epochs=1000
+    )
+
+unsupervised_model_8, unsupervised_test_loss_hist_8, res_unsupervised_test_loss_hist_8,  unsupervised_time_8 = trainModelUnsupervised(
+  deepcopy(model), deepcopy(opt), dataloader_8, test_in, test_out, train_in_t, test_in_t, train_out_t, test_out_t, eq_num, sys_num, row_value_reference, fmu; epochs=1000
+  )
+
+
+test_in_rec = StatsBase.reconstruct(test_in_t, test_in)
+test_out_rec = StatsBase.reconstruct(test_out_t, test_out)
+scatter(compute_x_from_y.(test_in_rec[1,:],test_in_rec[2,:],vec(test_out_rec)), vec(test_out_rec), label="groundtruth")
+plot_xy(unsupervised_model_1, test_in, test_out, test_in_t, test_out_t; label="unsupervised_1")
+plot_xy(unsupervised_model_8, test_in, test_out, test_in_t, test_out_t; label="unsupervised_8")
+title!("XY plot for unclustered dataset")
+xlabel!("x (x=r*s+b-y)")
+ylabel!("y prediction")
+
+
 
 # 4. ideas and testing to improve model performance (lr decay, regularization, prelu, dropout, batch norm)
 # maybe do this on IEEE14 data
