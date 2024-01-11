@@ -154,15 +154,14 @@ function prepare_fmu(fmu_path, prof_info_path, model_path)
   
     profilinginfo = getProfilingInfo(prof_info_path)
   
-    vr = FMI.fmiStringToValueReference(fmu, profilinginfo[1].iterationVariables)
-  
+    inp_value_reference = FMI.fmiStringToValueReference(fmu.modelDescription, profilinginfo[1].usingVars)
+    out_value_reference = FMI.fmiStringToValueReference(fmu.modelDescription, profilinginfo[1].iterationVariables)
+    
     eq_num = profilinginfo[1].eqInfo.id
     sys_num = parse_modelfile(model_path, eq_num)
   
   
-    row_value_reference = FMI.fmiStringToValueReference(fmu.modelDescription, profilinginfo[1].usingVars)
-  
-    return comp, fmu, profilinginfo, vr, row_value_reference, eq_num, sys_num
+    return comp, fmu, profilinginfo, out_value_reference, inp_value_reference, eq_num, sys_num
 end
 
 
