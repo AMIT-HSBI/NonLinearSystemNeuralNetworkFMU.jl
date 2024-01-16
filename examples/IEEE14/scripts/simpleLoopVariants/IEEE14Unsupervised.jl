@@ -144,12 +144,13 @@ mm = Flux.Chain(
   Flux.Dense(30, 110)
 )
 
-opt = Flux.Optimiser(Flux.Adam(1e-4), ExpDecay())
+op_chain = Flux.Optimisers.OptimiserChain(ExpDecay(), Flux.Adam(1e-4))
+opt = Flux.Optimisers.setup(op_chain, mm)
 
 for (x, y) in dataloader
   lv, grads = Flux.withgradient(mm) do m  
     prediction = m(x)
     loss(prediction, fmu, eq_num, sys_num, train_out_t)
   end
-  Flux.Optimise.update!(opt, mm, grads)
+  Flux.Optimisers.update(opt, mm, grads[1])
 end
