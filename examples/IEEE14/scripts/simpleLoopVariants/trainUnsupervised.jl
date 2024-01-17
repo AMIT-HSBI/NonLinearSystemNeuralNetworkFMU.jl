@@ -88,7 +88,7 @@ function trainModelUnsupervised(model, optimizer, train_dataloader, test_in, tes
     # if out data is nothing i dont record supervised loss
     # else i do
     ps = Flux.params(model)
-    #opt_state = Flux.setup(optimizer, model)
+    opt_state = Flux.setup(optimizer, model)
     test_loss_history = []
     res_test_loss_history = []
     training_time = 0
@@ -102,7 +102,7 @@ function trainModelUnsupervised(model, optimizer, train_dataloader, test_in, tes
             prediction = m(x)
             loss(prediction, fmu, eq_num, sys_num, train_out_transform)
           end
-          Flux.Optimiser.update!(optimizer, Flux.params(model), grads[1])
+          Flux.update!(opt_state, model, grads[1])
       end
       t1 = time()
       training_time += t1 - t0

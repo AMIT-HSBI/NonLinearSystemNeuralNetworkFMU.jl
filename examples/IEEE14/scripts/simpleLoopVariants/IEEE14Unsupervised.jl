@@ -43,20 +43,25 @@ comp, fmu, profilinginfo, vr, row_value_reference, eq_num, sys_num = prepare_fmu
 (train_in, train_out, test_in, test_out) = readData(fileName, nInputs)
 
 
-# # concat in and out data
-# in_data = hcat(train_in, test_in)
-# out_data = hcat(train_out, test_out)
+CLUSTER = true
+if CLUSTER
+  # concat in and out data
+  in_data = hcat(train_in, test_in)
+  out_data = hcat(train_out, test_out)
 
-# # cluster out data
-# cluster_indices, num_clusters = cluster_data(out_data)
-# # extract cluster
-# cluster_index = 1 #rand(1:num_clusters)
-# in_data = extract_cluster(in_data, cluster_indices, cluster_index)
-# out_data = extract_cluster(out_data, cluster_indices, cluster_index)
+  # cluster out data
+  cluster_indices, num_clusters = cluster_data(out_data)
+  # extract cluster
+  cluster_index = 1 #rand(1:num_clusters)
+  in_data = extract_cluster(in_data, cluster_indices, cluster_index)
+  out_data = extract_cluster(out_data, cluster_indices, cluster_index)
+else
+  # take time out, probably earlier
+  in_data = hcat(train_in, test_in)
+  out_data = hcat(train_out, test_out)
+end
 
-# take time out, probably earlier
-in_data = hcat(train_in, test_in)
-out_data = hcat(train_out, test_out)
+# i dont know
 in_data = in_data[2:end,:]
 rvr = []
 for i in 2:16
@@ -71,22 +76,8 @@ train_in, train_out, test_in, test_out, train_in_t, train_out_t, test_in_t, test
 dataloader = Flux.DataLoader((train_in, train_out), batchsize=32, shuffle=true)
 
 
-struct prelu{Float64}
-  alpha::Float64
-  function prelu(alpha_init::Float64 = 0.25)
-      new{Float64}(alpha_init)
-  end
-end
 
-function (a::prelu)(x::AbstractArray)
-  pos = Flux.relu(x)
-  neg = -a.alpha * Flux.relu(-x)
-  return pos + neg
-end
-
-Flux.@functor prelu
-
-hidden_width = 150
+hidden_width = 100
 model = Flux.Chain(
   Flux.Dense(nInputs-1, hidden_width, relu),
   Flux.Dense(hidden_width, hidden_width, relu),
@@ -94,8 +85,8 @@ model = Flux.Chain(
   Flux.Dense(hidden_width, hidden_width, relu),
   Flux.Dense(hidden_width, nOutputs)
 )
-#opt = Flux.Adam(1e-4)
-opt = Flux.Optimise.Optimiser(Flux.Adam(1e-4), ExpDecay())
+opt = Flux.Adam(1e-4)
+#opt = Flux.Optimise.Optimiser(Flux.Adam(1e-4), ExpDecay())
 #state = Optimisers.setup(Optimisers.Adam(), model)
 
 
@@ -127,8 +118,21 @@ supervised_model, supervised_test_loss_hist, res_sup, supervised_time = trainMod
                                                                                               deepcopy(rvr), 
                                                                                               deepcopy(fmu); epochs=1000)
 
-                                              
+                                          
 
+using MultivariateStats
+
+M1 = fit(PCA, test_out; maxoutdim=3)
+O1 = predict(M1, test_out)
+scatter(O1[1,:],O1[2,:],O1[3,:])
+
+pred = unsupervised_model(test_in)
+O2 = predict(M1, pred)
+scatter!(O2[1,:],O2[2,:],O2[3,:])
+
+pred1 = supervised_model(test_in)
+O3 = predict(M1, pred1)
+scatter!(O3[1,:],O3[2,:],O3[3,:])
 
 plot_loss_history(unsupervised_test_loss_hist)
 plot_loss_history(supervised_test_loss_hist)
