@@ -170,7 +170,7 @@ opt = Flux.Adam(1e-4)
 epoch_range = [10,100,1000]
 # 1. fully unsupervised
 # 1.1. generate unsupervised data (or have a time how long it takes)
-gen_unsupervised_data_time = 0
+gen_unsupervised_data_time = 0.05 # seconds for 1000 datapoints
 # 1.2. prepare unsupervised data
 # 1.3. train for [10,100,1000] epochs and plot training time and final test mse
 full_unsupervised_test_loss_hist = []
@@ -187,7 +187,7 @@ end
 
 # 2. fully supervised
 # 2.1. generate supervised data (or have a time how long it takes)
-gen_supervised_data_time = 0
+gen_supervised_data_time = 25 # seconds for 1000 datapoints
 # 2.2. prepare supervised data (no clustering)
 # 2.3. train for [10,100,1000] epochs and plot training time and final test mse
 full_supervised_test_loss_hist = []
