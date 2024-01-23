@@ -23,10 +23,12 @@ import StatsBase
 using Random
 import FMICore
 using Libdl
+using MultivariateStats
 
 include("utils.jl")
 include("trainUnsupervised.jl")
 include("trainSupervised.jl")
+include("trainSemiSupervised.jl")
 
 # prepare the data for multiple experiments
 fileName = "/home/fbrandt3/arbeit/NonLinearSystemNeuralNetworkFMU.jl/examples/IEEE14/data/sims/IEEE_14_Buses_1500/data/eq_1403.csv"
@@ -61,8 +63,9 @@ else
   out_data = hcat(train_out, test_out)
 end
 
-# i dont know
-in_data = in_data[2:end,:]
+# Warning: No variable named 'time' found.
+in_data = in_data[2:end,:] # take time variable out of in data
+# and out of the row_value_reference
 rvr = []
 for i in 2:16
     push!(rvr, row_value_reference[i])
@@ -73,7 +76,7 @@ rvr = Int64.(rvr)
 # split one cluster into train and test
 train_in, train_out, test_in, test_out = split_train_test(in_data, out_data)
 train_in, train_out, test_in, test_out, train_in_t, train_out_t, test_in_t, test_out_t = scale_data_uniform(train_in, train_out, test_in, test_out)
-dataloader = Flux.DataLoader((train_in, train_out), batchsize=32, shuffle=true)
+dataloader = Flux.DataLoader((train_in, train_out), batchsize=8, shuffle=true)
 
 
 
@@ -118,43 +121,79 @@ supervised_model, supervised_test_loss_hist, res_sup, supervised_time = trainMod
                                                                                               deepcopy(rvr), 
                                                                                               deepcopy(fmu); epochs=1000)
 
+semisupervised_model, semisupervised_test_loss_hist, semisupervised_time = trainModelSemisupervised(deepcopy(model), 
+                                                                                              deepcopy(opt), 
+                                                                                              dataloader, 
+                                                                                              test_in, 
+                                                                                              test_out, 
+                                                                                              train_in_t, 
+                                                                                              test_in_t, 
+                                                                                              train_out_t, 
+                                                                                              test_out_t, 
+                                                                                              eq_num, 
+                                                                                              sys_num, 
+                                                                                              deepcopy(rvr), 
+                                                                                              deepcopy(fmu); epochs=1000)
+
                                           
 
-using MultivariateStats
-
+# pca of test out data to 3 dimensions
 M1 = fit(PCA, test_out; maxoutdim=3)
 O1 = predict(M1, test_out)
-scatter(O1[1,:],O1[2,:],O1[3,:])
+scatter(O1[1,:],O1[2,:],O1[3,:], label="groundtruth")
 
-pred = unsupervised_model(test_in)
-O2 = predict(M1, pred)
-scatter!(O2[1,:],O2[2,:],O2[3,:])
+# pca of unsupervised test prediction to 3 dimensions
+pred2 = unsupervised_model(test_in)
+O2 = predict(M1, pred2)
+scatter!(O2[1,:],O2[2,:],O2[3,:], label="unsupervised")
 
-pred1 = supervised_model(test_in)
-O3 = predict(M1, pred1)
-scatter!(O3[1,:],O3[2,:],O3[3,:])
-
-plot_loss_history(unsupervised_test_loss_hist)
-plot_loss_history(supervised_test_loss_hist)
-
-plot_loss_history(res_unsup)
-plot_loss_history(res_sup)
+# pca of supervised test prediction to 3 dimensions
+pred3 = supervised_model(test_in)
+O3 = predict(M1, pred3)
+scatter!(O3[1,:],O3[2,:],O3[3,:], label="supervised")
 
 
+pred4 = semisupervised_model(test_in)
+O4 = predict(M1, pred4)
+scatter!(O4[1,:],O4[2,:],O4[3,:], label="semi-supervised")
 
-mm = Flux.Chain(
-  Flux.Dense(15, 30, relu),
-  Flux.Dense(30, 30, relu),
-  Flux.Dense(30, 110)
-)
 
-op_chain = Flux.Optimisers.OptimiserChain(ExpDecay(), Flux.Adam(1e-4))
-opt = Flux.Optimisers.setup(op_chain, mm)
+plot_loss_history(unsupervised_test_loss_hist; label="unsupervised")
+plot_loss_history!(supervised_test_loss_hist; label="supervised")
+plot_loss_history!(semisupervised_test_loss_hist; label="semi-supervised")
+title!("MSE test loss")
+xlabel!("Number of Epochs")
+ylabel!("MSE")
 
-for (x, y) in dataloader
-  lv, grads = Flux.withgradient(mm) do m  
-    prediction = m(x)
-    loss(prediction, fmu, eq_num, sys_num, train_out_t)
-  end
-  Flux.Optimisers.update(opt, mm, grads[1])
-end
+
+plot_loss_history(res_unsup; label="unsupervised")
+plot_loss_history!(res_sup; label="supervised")
+title!("Residual test loss")
+xlabel!("Number of Epochs")
+ylabel!("Residual")
+
+
+# ⟹ unsupervised doesnt work at all in high dimensions, maybe too many solutions to converge to
+# ⟹ the reasons could be: model not powerful enough, training too short (no!)
+# ⟹ semi-supervised works pretty good, but maybe because its basically supervised
+
+
+
+
+
+# mm = Flux.Chain(
+#   Flux.Dense(15, 30, relu),
+#   Flux.Dense(30, 30, relu),
+#   Flux.Dense(30, 110)
+# )
+
+# op_chain = Flux.Optimisers.OptimiserChain(ExpDecay(), Flux.Adam(1e-4))
+# opt = Flux.Optimisers.setup(op_chain, mm)
+
+# for (x, y) in dataloader
+#   lv, grads = Flux.withgradient(mm) do m  
+#     prediction = m(x)
+#     loss(prediction, fmu, eq_num, sys_num, train_out_t)
+#   end
+#   Flux.Optimisers.update(opt, mm, grads[1])
+# end
