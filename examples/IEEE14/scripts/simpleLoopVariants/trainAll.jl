@@ -320,8 +320,3 @@ Flux.@functor prelu
 
 m = Chain(Dense(3, 2), Dropout(0.4))
 m = Chain(Dense(1000, 1000, selu), AlphaDropout(0.2))
-
-
-
-#TODO
-# track residual loss

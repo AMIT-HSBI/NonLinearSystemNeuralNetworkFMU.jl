@@ -84,25 +84,41 @@ function loss(y_hat, fmu, eq_num, sys_num, transform)
   end
 
 
-function trainModelSemisupervised(model, optimizer, train_dataloader, test_in, test_out, train_in_transform, test_in_transform, train_out_transform,  test_out_transform, eq_num, sys_num, row_value_reference, fmu; epochs=100, h1=1.0, h2=0.2)
+function trainTwoStep(model, optimizer, train_dataloader, test_in, test_out, train_in_transform, test_in_transform, train_out_transform,  test_out_transform, eq_num, sys_num, row_value_reference, fmu; epochs=100)
   #https://physicsbaseddeeplearning.org/physicalloss.html
-    opt_state = Flux.setup(optimizer, model)
+    opt_state = Flux.Optimisers.setup(optimizer, model)
     test_loss_history = []
+    half = Int(epochs/2)
+    training_time = 0
 
-    t0 = time()
-    for epoch in 1:epochs
+    for epoch in 1:half
+        # supervised
+        for (x,y) in train_dataloader
+            prepare_x(x, row_value_reference, fmu, train_in_transform)
+            lv, grads = Flux.withgradient(model) do m  
+              prediction = m(x)
+              loss(prediction, fmu, eq_num, sys_num, train_out_transform)
+            end
+            Flux.update!(opt_state, model, grads[1])
+        end
+        push!(test_loss_history, Flux.mse(model(test_in), test_out))
+    end
+    # freeze everything but last layer?
+    Flux.Optimisers.freeze!(opt_state.layers[1:end-1])
+
+
+
+    for epoch in half:epochs
       for (x,y) in train_dataloader
           prepare_x(x, row_value_reference, fmu, train_in_transform)
           lv, grads = Flux.withgradient(model) do m  
             prediction = m(x)
-            h1 * Flux.mse(prediction, y) + h2 * (loss(prediction, fmu, eq_num, sys_num, train_out_transform))
+            Flux.mse(prediction, y)
           end
           Flux.update!(opt_state, model, grads[1])
       end
       push!(test_loss_history, Flux.mse(model(test_in), test_out))
     end
-    t1 = time()
-    training_time = t1 - t0
 
     return model, test_loss_history, training_time
 end
