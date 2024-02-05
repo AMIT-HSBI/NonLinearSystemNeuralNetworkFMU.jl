@@ -27,7 +27,7 @@ function ChainRulesCore.rrule(::typeof(loss), x, fmu, eq_num, sys_num, transform
 
     function loss_pullback(l̄)
         l_tangent = l̄[1] # upstream gradient
-        factor = l_tangent/bs
+        factor = l_tangent/bs # factor should probably be just: factor=l_tangent!!!!
 
         x̄ = Array{Float64}(undef, res_dim, bs)
         # compute x̄
