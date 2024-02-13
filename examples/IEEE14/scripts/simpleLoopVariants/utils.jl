@@ -1,7 +1,62 @@
 import StatsBase
 import Clustering
 import Distances
+import DataFrames
+import InvertedIndices
+import CSV
+import FMI
+import Random
 using FMIImport
+import ChainRulesCore
+
+
+function loss(y_hat, fmu, eq_num, sys_num, transform)
+    bs = size(y_hat)[2] # batchsize
+    residuals = Array{Vector{Float64}}(undef, bs)
+    for j in 1:bs
+        yj_hat = StatsBase.reconstruct(transform, y_hat[:,j])
+        _, res = NonLinearSystemNeuralNetworkFMU.fmiEvaluateRes(fmu, eq_num, Float64.(yj_hat))
+        residuals[j] = res
+    end
+    return 1/(2*bs)*sum(norm.(residuals).^2), residuals
+end
+  
+function ChainRulesCore.rrule(::typeof(loss), x, fmu, eq_num, sys_num, transform)
+    l, res = loss(x, fmu, eq_num, sys_num, transform)
+    # evaluate the jacobian for each batch element
+    bs = size(x)[2] # batchsize
+    res_dim = length(res[1])
+    jac_dim = res_dim
+
+    jacobians = Array{Matrix{Float64}}(undef, bs)
+    for j in 1:bs
+        xj = StatsBase.reconstruct(transform, x[:,j])
+        _, jac = NonLinearSystemNeuralNetworkFMU.fmiEvaluateJacobian(comp, sys_num, vr, Float64.(xj))
+        jacobians[j] = reshape(jac, (jac_dim,jac_dim))
+    end
+
+    function loss_pullback(l̄)
+        factor = l̄./bs
+
+        x̄ = Array{Float64}(undef, res_dim, bs)
+        # compute x̄
+        for j in 1:bs
+            x̄[:,j] = transpose(jacobians[j]) * res[j]
+        end
+        x̄ = if transform.dims == 1 x̄ .* (1 ./ transform.scale)' elseif transform.dims == 2 x̄ .* (1 ./ transform.scale) end
+        x̄ .*= factor
+
+        # all other args have NoTangent
+        f̄ = ChainRulesCore.NoTangent()
+        fmū = ChainRulesCore.NoTangent()
+        eq_num̄ = ChainRulesCore.NoTangent()
+        sys_num̄ = ChainRulesCore.NoTangent()
+        transform̄ = ChainRulesCore.NoTangent()
+        return (f̄, x̄, fmū, eq_num̄, sys_num̄, transform̄)
+    end
+
+    return l, loss_pullback
+end
 
 
 function readData(filename::String, nInputs::Integer; ratio=0.9, shuffle::Bool=true)
@@ -174,9 +229,9 @@ function prepare_x(x, row_vr, fmu, transform)
     batchsize = size(x)[2]
     if batchsize>1
         for i in 1:batchsize
-        x_i = x[1:end,i]
-        x_i_rec = StatsBase.reconstruct(transform, x_i)
-        FMIImport.fmi2SetReal(fmu, row_vr, Float64.(x_i_rec))
+            x_i = x[1:end,i]
+            x_i_rec = StatsBase.reconstruct(transform, x_i)
+            FMIImport.fmi2SetReal(fmu, row_vr, Float64.(x_i_rec))
         end
     else
         x_rec = StatsBase.reconstruct(transform, x)
@@ -226,7 +281,7 @@ function split_train_test(in_data, out_data, test_ratio=0.2, random_seed=42)
     Random.seed!(random_seed)
 
     num_samples = size(in_data, 2)
-    indices = shuffle(1:num_samples)
+    indices = Random.shuffle(1:num_samples)
 
     # Calculate the number of samples for the test set
     num_test = round(Int, test_ratio * num_samples)
