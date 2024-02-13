@@ -1,45 +1,44 @@
 using NonLinearSystemNeuralNetworkFMU
-
 import Flux
 import Zygote
 import StatsBase
 import ChainRulesCore
 using LinearAlgebra
 
-x = rand(4,3)
-function f(x, transf)
-    return StatsBase.reconstruct(transf, x)
-end
+# x = rand(4,3)
+# function f(x, transf)
+#     return StatsBase.reconstruct(transf, x)
+# end
 
-dt = StatsBase.fit(StatsBase.UnitRangeTransform, x, dims=2)
+# dt = StatsBase.fit(StatsBase.UnitRangeTransform, x, dims=2)
 
-xx = StatsBase.transform(dt, x)
-f(xx, dt)
-
-
-# rrule for reconstruct
-function ChainRulesCore.rrule(::typeof(f), x, transf)
-    y = f(x, transf)
-    function f_pullback(ȳ)
-        f̄ = ChainRulesCore.NoTangent()
-        x̄ = if transf.dims == 1 ȳ .* (1 ./ transf.scale)' elseif transf.dims == 2 ȳ .* (1 ./ transf.scale) end
-        transf̄ = ChainRulesCore.NoTangent()
-        return f̄, x̄, transf̄
-    end
-    return y, f_pullback
-end
+# xx = StatsBase.transform(dt, x)
+# f(xx, dt)
 
 
-y, back = ChainRulesCore.rrule(f, x, dt)
+# # rrule for reconstruct
+# function ChainRulesCore.rrule(::typeof(f), x, transf)
+#     y = f(x, transf)
+#     function f_pullback(ȳ)
+#         f̄ = ChainRulesCore.NoTangent()
+#         x̄ = if transf.dims == 1 ȳ .* (1 ./ transf.scale)' elseif transf.dims == 2 ȳ .* (1 ./ transf.scale) end
+#         transf̄ = ChainRulesCore.NoTangent()
+#         return f̄, x̄, transf̄
+#     end
+#     return y, f_pullback
+# end
 
-_, x_bar, _ = back(ones(size(x)))
-x_bar
-x
+
+# y, back = ChainRulesCore.rrule(f, x, dt)
+
+# _, x_bar, _ = back(ones(size(x)))
+# x_bar
+# x
 
 
-dx = zeros(size(x))
-dx[1,1] = 1e-6
-(f(xx + dx, dt) - f(xx, dt)) / 1e-6
+# dx = zeros(size(x))
+# dx[1,1] = 1e-6
+# (f(xx + dx, dt) - f(xx, dt)) / 1e-6
 
 
 function loss(y_hat, fmu, eq_num, sys_num, transform)
@@ -50,44 +49,7 @@ function loss(y_hat, fmu, eq_num, sys_num, transform)
         _, res = NonLinearSystemNeuralNetworkFMU.fmiEvaluateRes(fmu, eq_num, Float64.(yj_hat))
         residuals[j] = res
     end
-    return 1/(2*bs)*sum(norm.(residuals).^2), if bs>1 residuals else residuals[1] end
-end
-  
-function ChainRulesCore.rrule(::typeof(loss), x, fmu, eq_num, sys_num, transform)
-    l, res = loss(x, fmu, eq_num, sys_num, transform)
-    # evaluate the jacobian for each batch element
-    bs = size(x)[2] # batchsize
-    res_dim = if bs>1 length(res[1]) else length(res) end
-    jac_dim = res_dim
-
-    jacobians = Array{Matrix{Float64}}(undef, bs)
-    for j in 1:bs
-        xj = StatsBase.reconstruct(transform, x[:,j])
-        _, jac = NonLinearSystemNeuralNetworkFMU.fmiEvaluateJacobian(comp, sys_num, vr, Float64.(xj))
-        jacobians[j] = reshape(jac, (jac_dim,jac_dim))
-    end
-
-    function loss_pullback(l̄)
-        factor = l̄./bs
-
-        x̄ = Array{Float64}(undef, res_dim, bs)
-        # compute x̄
-        for j in 1:bs
-            x̄[:,j] = transpose(jacobians[j]) * res[j]
-        end
-        x̄ = if transform.dims == 1 x̄ .* (1 ./ transform.scale)' elseif transform.dims == 2 x̄ .* (1 ./ transform.scale) end
-        x̄ .*= factor
-
-        # all other args have NoTangent
-        f̄ = ChainRulesCore.NoTangent()
-        fmū = ChainRulesCore.NoTangent()
-        eq_num̄ = ChainRulesCore.NoTangent()
-        sys_num̄ = ChainRulesCore.NoTangent()
-        transform̄ = ChainRulesCore.NoTangent()
-        return (f̄, x̄, fmū, eq_num̄, sys_num̄, transform̄)
-    end
-
-    return l, loss_pullback
+    return 1/(2*bs)*sum(norm.(residuals).^2), residuals
 end
 
 
@@ -107,13 +69,99 @@ dataloader = Flux.DataLoader((train_in, train_out), batchsize=8, shuffle=true)
 
 x, y = first(dataloader)
 
+function ChainRulesCore.rrule(::typeof(loss), x, fmu, eq_num, sys_num, transform, finitediff)
+    l, res = loss(x, fmu, eq_num, sys_num, transform)
+    # evaluate the jacobian for each batch element
+    bs = size(x)[2] # batchsize
+    res_dim = length(res[1])
+
+    if finitediff == false
+        jac_dim = res_dim
+
+        jacobians = Array{Matrix{Float64}}(undef, bs)
+        for j in 1:bs
+            xj = StatsBase.reconstruct(transform, x[:,j])
+            _, jac = NonLinearSystemNeuralNetworkFMU.fmiEvaluateJacobian(comp, sys_num, vr, Float64.(xj))
+            jacobians[j] = reshape(jac, (jac_dim,jac_dim))
+        end
+
+        function loss_pullback_analytical(l̄)
+            println("analytical")
+            factor = l̄./bs
+
+            x̄ = Array{Float64}(undef, res_dim, bs)
+            # compute x̄
+            for j in 1:bs
+                x̄[:,j] = transpose(jacobians[j]) * res[j]
+            end
+            x̄ = if transform.dims == 1 x̄ .* (1 ./ transform.scale)' elseif transform.dims == 2 x̄ .* (1 ./ transform.scale) end
+            x̄ .*= factor
+
+            # all other args have NoTangent
+            f̄ = ChainRulesCore.NoTangent()
+            fmū = ChainRulesCore.NoTangent()
+            eq_num̄ = ChainRulesCore.NoTangent()
+            sys_num̄ = ChainRulesCore.NoTangent()
+            transform̄ = ChainRulesCore.NoTangent()
+            return (f̄, x̄, fmū, eq_num̄, sys_num̄, transform̄)
+        end
+        return l, loss_pullback_analytical
+    else
+        function loss_pullback_finitediff(l̄)
+            println("finitediff")
+            factor = l̄
+
+            x̄ = Array{Float64}(undef, res_dim, bs)
+        
+            for i in 1:res_dim
+                for j in 1:bs
+                    dx = zeros((res_dim, bs));
+                    dx[i,j] = 1e-5;
+                    x̄[i,j] = (loss(x + dx, fmu, eq_num, sys_num, train_out_t)[1] - loss(x, fmu, eq_num, sys_num, train_out_t)[1]) / 1e-5
+                end
+            end
+
+            x̄ .*= factor
+
+            # all other args have NoTangent
+            f̄ = ChainRulesCore.NoTangent()
+            fmū = ChainRulesCore.NoTangent()
+            eq_num̄ = ChainRulesCore.NoTangent()
+            sys_num̄ = ChainRulesCore.NoTangent()
+            transform̄ = ChainRulesCore.NoTangent()
+            return (f̄, x̄, fmū, eq_num̄, sys_num̄, transform̄)
+        end
+        return l, loss_pullback_finitediff
+    end
+end
 
 l, res = loss(y, fmu, eq_num, sys_num, train_out_t)
 
-l, back = ChainRulesCore.rrule(loss, y, fmu, eq_num, sys_num, train_out_t)
+l, back_analytical = ChainRulesCore.rrule(loss, y, fmu, eq_num, sys_num, train_out_t)
+
+grad_analytical = back_analytical(ones(size(y)))[2]
+
+l, res = loss(y, fmu, eq_num, sys_num, train_out_t)
+
+l, back_finitediff = ChainRulesCore.rrule(loss, y, fmu, eq_num, sys_num, train_out_t)
+
+grad_finitediff = back_analytical(ones(size(y)))[2]
 
 
-rrlue_der = back(ones(size(y)))[2]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 finitediff_der = zeros(size(y));
@@ -125,6 +173,7 @@ for i in 1:size(y)[1]
     end
 end
 finitediff_der
+
 
 # finite diff and rrule match for batchsize=1 but not for other batchsizes
 
