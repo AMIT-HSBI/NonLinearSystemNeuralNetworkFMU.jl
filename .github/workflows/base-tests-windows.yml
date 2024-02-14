@@ -16,7 +16,7 @@ jobs:
       ORT_DIR: '${{ github.workspace }}/${{ matrix.ort_dir }}'
     strategy:
       matrix:
-        julia-version: ['1.9']
+        julia-version: ['1.10']
         julia-arch: [x64]
         os: [windows-latest]
         include:
@@ -27,11 +27,11 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       # Install CMake version 3.21
       - name: Setup cmake
-        uses: jwlawson/actions-setup-cmake@v1.13
+        uses: jwlawson/actions-setup-cmake@v2
         with:
           cmake-version: '3.21'
       - run: cmake --version
@@ -45,7 +45,7 @@ jobs:
         shell: pwsh
 
       # Setup OpenModelica for OMJulia.jl
-      - uses: AnHeuermann/setup-openmodelica@v0.4
+      - uses: OpenModelica/setup-openmodelica@v1
         with:
           version: 'nightly'
       - run: |

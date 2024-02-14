@@ -16,7 +16,7 @@ jobs:
       ORT_DIR: '${{ github.workspace }}/${{ matrix.ort_dir }}'
     strategy:
       matrix:
-        julia-version: ['1.9']
+        julia-version: ['1.10']
         julia-arch: [x64]
         os: [ubuntu-latest]
         include:
@@ -27,11 +27,11 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       # Install CMake version 3.21
       - name: Setup cmake
-        uses: jwlawson/actions-setup-cmake@v1.13
+        uses: jwlawson/actions-setup-cmake@v2
         with:
           cmake-version: '3.21'
       - run: cmake --version
@@ -44,7 +44,7 @@ jobs:
           rm ${{ matrix.ort_archieve_name }}
 
       # Setup OpenModelica for OMJulia.jl
-      - uses: AnHeuermann/setup-openmodelica@v0.4
+      - uses: OpenModelica/setup-openmodelica@v1
         with:
           version: 'nightly'
           packages: |
@@ -70,7 +70,7 @@ jobs:
         run: julia -e 'using Pkg; Pkg.add(name="Documenter", version="0.27"); Pkg.activate(pwd()); Pkg.instantiate(); include("docs/make.jl")'
       # Upload pdf artifact
       # TODO: Remove when switching back to HTML doc
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: documentation
           path: ${{ github.workspace }}/docs/build/NonLinearSystemNeuralNetworkFMU.jl.pdf
