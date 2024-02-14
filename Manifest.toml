@@ -1686,12 +1686,6 @@ git-tree-sha1 = "5a74ac22a9daef23705f010f72c81d6925b19df8"
 uuid = "ed01d8cd-4d21-5b2a-85b4-cc3bdc58bad4"
 version = "1.5.0"
 
-[[deps.Sobol]]
-deps = ["DelimitedFiles", "Random"]
-git-tree-sha1 = "5a74ac22a9daef23705f010f72c81d6925b19df8"
-uuid = "ed01d8cd-4d21-5b2a-85b4-cc3bdc58bad4"
-version = "1.5.0"
-
 [[deps.Sockets]]
 uuid = "6462fe0b-24de-5631-8697-dd941f90decc"
 
