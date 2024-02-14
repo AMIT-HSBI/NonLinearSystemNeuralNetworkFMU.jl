@@ -239,7 +239,7 @@ function modifyCCode(modelName::String,
   id1 = last(findStrWError("$(modelNameC)_setupDataStruc(DATA *data, threadData_t *threadData)", str))
   id1 = last(findStrWError("data->modelData->nExtObjs", str, id1))
   id1 = last(findStrWError(";$EOL", str, id1))
-  str = str[1:id1] * 
+  str = str[1:id1] *
         """
           if (USE_JULIA){
             tic(&t_global);
@@ -315,6 +315,7 @@ function modifyCMakeLists(path_to_cmakelists::String)
   newStr = ""
   open(path_to_cmakelists, "r") do file
     str = read(file, String)
+    # Add sub directory
     id1 = last(findStrWError("project(\${FMU_NAME}", str))
     id1 = last(findStrWError(")", str, id1))
     newStr = str[1:id1] * EOL *
@@ -325,13 +326,15 @@ function modifyCMakeLists(path_to_cmakelists::String)
              str[id1+1:end]
     str = newStr
 
-    # Link to onnxWrapper
-    id1 = last(findStrWError("# Add include directories", newStr))
-    newStr = str[1:id1-1] * EOL *
+    # Link onnxWrapper
+    id1 = last(findStrWError("add_library(\${FMU_NAME}", newStr))
+    id1 = last(findStrWError(")", newStr, id1))
+    newStr = newStr[1:id1] * EOL *
              """
+             # Link onnxWrapper
              target_link_libraries(\${FMU_NAME} PRIVATE onnxWrapper)
-             """ * EOL *
-             str[id1+1:end]
+             """ *
+             newStr[id1+1:end]
   end
 
   write(path_to_cmakelists, newStr)

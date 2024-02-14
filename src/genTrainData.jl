@@ -183,7 +183,7 @@ end
 
 
 """
-    generateTrainingData(fmuPath, workDir, fname, eqId, inputVars, min, max, outputVars;
+    generateTrainingData(fmuPath, workDir, fname, eqId, inputVars, inputBounds, outputVars;
                          options=DataGenOptions())
 
 Generate training data for given equation of FMU.
@@ -197,8 +197,7 @@ All input-output pairs are saved in CSV file `fname`.
   - `fname::String`:                  File name to save training data to.
   - `eqId::Int64`:                    Index of equation to generate training data for.
   - `inputVars::Array{String}`:       Array with names of input variables.
-  - `minBound::AbstractVector{T}`:    Array with minimum value for each input variable.
-  - `maxBound::AbstractVector{T}`:    Array with maximum value for each input variable.
+  - `inputBounds::MinMaxBoundaryValues{T}`:  Boundary values for input space.
   - `outputVars::Array{String}`:      Array with names of output variables.
 
 # Keywords
@@ -211,8 +210,7 @@ function generateTrainingData(fmuPath::String,
                               fname::String,
                               eqId::Int64,
                               inputVars::Array{String},
-                              minBound::AbstractVector{T},
-                              maxBound::AbstractVector{T},
+                              inputBounds::MinMaxBoundaryValues{T},
                               outputVars::Array{String};
                               options=DataGenOptions()::DataGenOptions) where T <: Number
 
@@ -225,10 +223,10 @@ function generateTrainingData(fmuPath::String,
     @assert length(loc) == 1 "time variable occurs more than once"
     usesTime = true
     loc = first(loc)
-    timeBounds = (minBound[loc], maxBound[loc])
+    timeBounds = (inputBounds.min[loc], inputBounds.max[loc])
     deleteat!(inputVarsCopy, loc)
-    deleteat!(minBound, loc)
-    deleteat!(maxBound, loc)
+    deleteat!(inputBounds.min, loc)
+    deleteat!(inputBounds.max, loc)
   end
 
   # Generate data batch wise
@@ -253,7 +251,7 @@ function generateTrainingData(fmuPath::String,
       if i == parallelBatches
         samples = options.n - nPerBatch*(options.nBatches-1)
       end
-      generateDataBatch(fmu, tempCsvFile, eqId, timeBounds, inputVarsCopy, minBound, maxBound, outputVars, progressMeter; samples, options=options)
+      generateDataBatch(fmu, tempCsvFile, eqId, timeBounds, inputVarsCopy, inputBounds.min, inputBounds.max, outputVars, progressMeter; samples, options=options)
     end
 
     @debug "Unloading FMU"

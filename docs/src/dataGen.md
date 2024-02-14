@@ -66,14 +66,14 @@ generate training data.
 ```@example dataexample
 using CSV
 using DataFrames
-options=DataGenOptions(n=10, nThreads=1)
+options = DataGenOptions(n=10, nThreads=1)
+boundary = MinMaxBoundaryValues([0.0, 0.95], [1.5, 3.15])
 generateTrainingData(interfaceFmu,
                      "tempDir",
                      "simpleLoop_data.csv",
                      14,
                      ["s", "r"],
-                     [0.0, 0.95],
-                     [1.5, 3.15],
+                     boundary,
                      ["y"];
                      options = options)
 df =  DataFrame(CSV.File("simpleLoop_data.csv"))

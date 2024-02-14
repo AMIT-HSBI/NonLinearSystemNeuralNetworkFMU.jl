@@ -101,6 +101,8 @@ struct ProfilingInfo
   innerEquations::Array{Int64}
   "Used (input) variables of non-linear system."
   usingVars::Array{String}
+  "Parameter variables of non-linear system."
+  parameterVars::Array{String}
   "Minimum and maximum boundary values of `usingVars`."
   boundary::MinMaxBoundaryValues{Float64}
 end
@@ -110,6 +112,7 @@ function Base.show(io::IO, ::MIME"text/plain", profilingInfo::ProfilingInfo)
   Printf.@printf(io, "iterationVariables: %s, ", profilingInfo.iterationVariables)
   Printf.@printf(io, "innerEquations: %s, ", profilingInfo.innerEquations)
   Printf.@printf(io, "usingVars: %s, ", profilingInfo.usingVars)
+  Printf.@printf(io, "parameterVars: %s, ", profilingInfo.parameterVars)
   Printf.@printf(io, "boundary: %s)", profilingInfo.boundary)
 end
 

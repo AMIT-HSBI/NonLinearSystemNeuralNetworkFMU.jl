@@ -26,14 +26,17 @@ function runGenDataTest()
   eqIndex = 14
   inputVars = ["s", "r"]
   outputVars = ["y"]
-  min = [0.8, 0.95]
-  max = [1.5, 2.05]
+  inputBoundary = MinMaxBoundaryValues([0.8, 0.95], [1.5, 2.05])
   fileName = joinpath(workDir, "simpleLoop_eq14.csv")
   options = DataGenOptions(method=RandomMethod(), n=1984, nBatches=2, nThreads=1, clean=true)
 
-  generateTrainingData(pathToFMU, workDir, fileName,
-                       eqIndex, inputVars,
-                       min, max, outputVars;
+  generateTrainingData(pathToFMU,
+                       workDir,
+                       fileName,
+                       eqIndex,
+                       inputVars,
+                       inputBoundary,
+                       outputVars;
                        options = options)
 
   @test isfile(fileName)

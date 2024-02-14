@@ -44,6 +44,7 @@ function runIncludeOnnxTests()
         ["y"],
         [11],
         ["s", "r"],
+        [],
         NonLinearSystemNeuralNetworkFMU.MinMaxBoundaryValues([0.0, 0.95], [1.4087228258248679, 3.15]))]
     onnxFiles = [abspath(@__DIR__, "nn", "simpleLoop_eq14.onnx")]
 
