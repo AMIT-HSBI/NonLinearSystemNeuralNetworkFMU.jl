@@ -186,15 +186,16 @@ end
 
 
 """
-    findUsedVars(infoFile, eqIndex; filterParameters = true)::Tuple{Array{String}, Array{String}}
+    findUsedVars(infoFile, eqIndex)::Tuple{Array{String}, Array{String}, Array{String}}
 
 Read `infoFile` and return defined or used variables of equation with index `eqIndex`.
 
 # Returns
   - `definingVars::Array{String}`:  Variables defined by equation with index `eqIndex`.
   - `usingVars::Array{String}`:     Variables used by equation with index `eqIndex`.
+  - `parameterVars::Array{String}`: Parameter variables used by equation with index `eqIndex`.
 """
-function findUsedVars(infoFile, eqIndex::Integer; filterParameters::Bool = true)::Tuple{Array{String}, Array{String}}
+function findUsedVars(infoFile, eqIndex::Integer)::Tuple{Array{String},Array{String},Array{String}}
   equations = infoFile["equations"]
   eq = (equations[eqIndex+1])
   variables = infoFile["variables"]
@@ -212,6 +213,7 @@ function findUsedVars(infoFile, eqIndex::Integer; filterParameters::Bool = true)
   if haskey(eq, "defines")
     definingVars = Array{String}(eq["defines"])
   end
+  parameterVars = String[]
 
   # Remove parameter and external objects used vars
   removeVars = String[]
@@ -219,10 +221,11 @@ function findUsedVars(infoFile, eqIndex::Integer; filterParameters::Bool = true)
   for usedVar in usingVars
     if haskey(variables, usedVar)
       var = variables[usedVar]
-      if filterParameters && var["kind"] == "parameter"
+      if var["kind"] == "parameter"
         push!(removeVars, usedVar)
+        push!(parameterVars, usedVar)
       end
-      if filterParameters && var["kind"] == "constant"
+      if var["kind"] == "constant"
         push!(removeVars, usedVar)
       end
       if var["kind"] == "external object"
@@ -239,17 +242,23 @@ function findUsedVars(infoFile, eqIndex::Integer; filterParameters::Bool = true)
   @debug "Removed $removeVars from usingVars"
   setdiff!(usingVars, removeVars)
 
-  return (definingVars, usingVars)
+  return (definingVars, usingVars, parameterVars)
 end
 
 
 """
-    findDependentVars(jsonFile, eqIndex)::Tuple{Array{String}, Array{Int64}, Array{String}}
+    findDependentVars(jsonFile, eqIndex; filterParameters=true)::Tuple{Array{String}, Array{Int64}, Array{String}, Array{String}}
 
 Read JSON info file `jsonFile` and return iteration, inner and used variables
-`(iterationVariables, innerEquations, usingVars)`.
+`(iterationVariables, innerEquations, usingVars)` for non-linear equation
+system specified by index `eqIndex`.
+
+# Returns
+  - `iterationVariables::Array{String}`:  Array of iteration variables of non-linear equation.
+  - `innerEquations::Array{Int64}`:       Indices of inner equations.
+  - `usingVars::Array{String}`:           Known variables of the non-linear equation system.
 """
-function findDependentVars(jsonFile::String, eqIndex)::Tuple{Array{String}, Array{Int64}, Array{String}}
+function findDependentVars(jsonFile::String, eqIndex)::Tuple{Array{String}, Array{Int64}, Array{String}, Array{String}}
   infoFile = JSON.parsefile(jsonFile)
 
   equations = infoFile["equations"]
@@ -265,14 +274,16 @@ function findDependentVars(jsonFile::String, eqIndex)::Tuple{Array{String}, Arra
 
   usingVars = String[]
   innerVars = String[]
+  paramVars = String[]
 
   for loopeq in loopEquations
     if infoFile["equations"][loopeq+1]["tag"] =="jacobian"
       continue
     end
-    (def, use) = findUsedVars(infoFile, loopeq)
+    (def, use, param) = findUsedVars(infoFile, loopeq)
     append!(usingVars, use)
     append!(innerVars, def)
+    append!(paramVars, param)
     if !isempty(def)
       append!(innerEquations, loopeq)
     end
@@ -293,7 +304,7 @@ function findDependentVars(jsonFile::String, eqIndex)::Tuple{Array{String}, Arra
   # Workaround for Windows until https://github.com/JuliaIO/JSON.jl/issues/347 is fixed.
   GC.gc()
 
-  return (unique(iterationVariables), innerEquations, unique(usingVars))
+  return (unique(iterationVariables), innerEquations, unique(usingVars), unique(paramVars))
 end
 
 
@@ -319,7 +330,7 @@ end
 
 
 """
-    profiling(modelName, moFiles; pathToOmc, workingDir, threshold = 0.03)
+    profiling(modelName, moFiles; pathToOmc, workingDir, threshold = 0.03, filterParameters = true)
 
 Find equations of Modelica model that are slower then threashold.
 
@@ -328,9 +339,9 @@ Find equations of Modelica model that are slower then threashold.
   - `moFiles::Array{String}`:   Path to the *.mo file(s) containing the model.
 
 # Keywords
-  - `options::OMOptions`:       Options for OpenModelica compiler.
-  - `threshold=0.01`:           Slowest equations that need more then `threshold` of total simulation time.
-  - `ignoreInit::Bool=true`:    Ignore equations from initialization system if `true`.
+  - `options::OMOptions`:           Options for OpenModelica compiler.
+  - `threshold=0.01`:               Slowest equations that need more then `threshold` of total simulation time.
+  - `ignoreInit::Bool=true`:        Ignore equations from initialization system if `true`.
 
 # Returns
   - `profilingInfo::Vector{ProfilingInfo}`: Profiling information with non-linear equation systems slower than `threshold`.
@@ -350,8 +361,13 @@ function profiling(modelName::String,
   profilingInfo = Array{ProfilingInfo}(undef, length(slowestEqs))
 
   for (i,slowEq) in enumerate(slowestEqs)
-    (iterationVariables, innerEquations, usingVars) = findDependentVars(infoJsonFile, slowestEqs[i].id)
-    profilingInfo[i] = ProfilingInfo(slowEq, iterationVariables, innerEquations, usingVars, MinMaxBoundaryValues{Float64}(undef, length(usingVars)))
+    (iterationVariables, innerEquations, usingVars, parameterVars) = findDependentVars(infoJsonFile, slowestEqs[i].id)
+    profilingInfo[i] = ProfilingInfo(slowEq,
+                                     iterationVariables,
+                                     innerEquations,
+                                     usingVars,
+                                     parameterVars,
+                                     MinMaxBoundaryValues{Float64}(undef, length(usingVars)))
   end
 
   allUsedVars = Array{String}(unique(vcat([prof.usingVars for prof in profilingInfo]...)))

@@ -150,12 +150,12 @@ end
 
 
 """
-    generateFMU(modelName, moFiles; [pathToOmc], workingDir=pwd(), clean=false)
+    generateFMU(modelName, moFiles; options)
 
 Generate 2.0 Model Exchange FMU for Modelica model using OMJulia.
 
 # Arguments
-  - `modelName::String`:  Name of the Modelica model.
+  - `modelName::String`:        Name of the Modelica model.
   - `moFiles::Array{String}`:   Path to the *.mo file(s) containing the model.
 
 # Keywords
@@ -164,7 +164,7 @@ Generate 2.0 Model Exchange FMU for Modelica model using OMJulia.
 # Returns
   - Path to generated FMU `workingDir/<modelName>.fmu`.
 
-See also [`addEqInterface2FMU`](@ref), [`generateTrainingData`](@ref).
+See also [`OMOptions`](@ref), [`addEqInterface2FMU`](@ref), [`generateTrainingData`](@ref).
 """
 function generateFMU(modelName::String,
                      moFiles::Array{String};

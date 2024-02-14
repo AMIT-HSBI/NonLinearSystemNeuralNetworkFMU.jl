@@ -1,12 +1,12 @@
 name = "NonLinearSystemNeuralNetworkFMU"
 uuid = "cef0780c-fc83-4b94-9c0c-d964a51a3c65"
 authors = ["AnHeuermann <andreas.heuermann@fh-bielefeld.de>"]
-version = "0.5.2"
+version = "0.5.3"
 
 [deps]
 BSON = "fbb218c0-5317-5bc6-957e-2ee96dd4b1f0"
-CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Cbc = "9961bab8-2fa3-5c5a-9d89-47fab24efd76"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
@@ -34,7 +34,7 @@ CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 PlottingMakieExt = "CairoMakie"
 
 [compat]
-CairoMakie = "v0.10"
+CairoMakie = "0.10"
 Cbc = "1.0.3"
 DataFrames = "0.19.4, 0.20, 0.21, 0.22, 1"
 OMJulia = "0.3.1"

@@ -18,7 +18,11 @@
 #
 
 """
-    main(modelName, moFiles; options=OMOptions(workingDir=joinpath(pwd(), modelName)), dataGenOptions=DataGenOptions(method = RandomMethod(), n=1000, nBatches=Threads.nthreads()), reuseArtifacts=false)
+    main(modelName,
+         moFiles;
+         options=OMOptions(workingDir=joinpath(pwd(), modelName)),
+         dataGenOptions=DataGenOptions(method = RandomMethod(), n=1000, nBatches=Threads.nthreads()),
+         reuseArtifacts=false)
 
 Main routine to generate training data from Modelica file(s).
 Generate BSON artifacts and FMUs for each step. Artifacts can be re-used when restarting
@@ -123,11 +127,9 @@ function main(modelName::String,
     eqIndex = prof.eqInfo.id
     inputVars = prof.usingVars
     outputVars = prof.iterationVariables
-    minBoundary = prof.boundary.min
-    maxBoundary = prof.boundary.max
 
     fileName = abspath(joinpath(omOptions.workingDir, "data", "eq_$(prof.eqInfo.id).csv"))
-    csvFile = generateTrainingData(fmu_interface, tempDir, fileName, eqIndex, inputVars, minBoundary, maxBoundary, outputVars; options = dataGenOptions)
+    csvFile = generateTrainingData(fmu_interface, tempDir, fileName, eqIndex, inputVars, prof.boundary, outputVars; options = dataGenOptions)
     push!(csvFiles, csvFile)
   end
   if omOptions.clean
