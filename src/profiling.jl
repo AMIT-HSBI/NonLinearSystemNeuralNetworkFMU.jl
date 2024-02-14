@@ -330,7 +330,7 @@ end
 
 
 """
-    profiling(modelName, moFiles; pathToOmc, workingDir, threshold = 0.03, filterParameters = true)
+    profiling(modelName, moFiles; options, threshold = 0.01, ignoreInit = true)
 
 Find equations of Modelica model that are slower then threashold.
 
