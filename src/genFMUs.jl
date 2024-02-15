@@ -179,11 +179,6 @@ function generateFMU(modelName::String,
     mkpath(workingDir)
   end
 
-  if Sys.iswindows()
-    moFiles = replace.(moFiles, "\\"=> "\\\\")
-    workingDir = replace(workingDir, "\\"=> "\\\\")
-  end
-
   logFilePath = joinpath(workingDir,"callsFMI.log")
   logFile = open(logFilePath, "w")
 
@@ -192,35 +187,24 @@ function generateFMU(modelName::String,
     omc = OMJulia.OMCSession(options.pathToOmc)
   end
   try
-    msg = OMJulia.sendExpression(omc, "getVersion()")
-    write(logFile, msg*"\n")
+    version = OMJulia.API.getVersion(omc)
+    write(logFile, version*"\n")
     for file in moFiles
-      msg = OMJulia.sendExpression(omc, "loadFile(\"$(file)\")")
-      if (msg != true)
-        msg = OMJulia.sendExpression(omc, "getErrorString()")
-        write(logFile, msg*"\n")
-        throw(OpenModelicaError("Failed to load file $(file)!", abspath(logFilePath)))
-      end
+      OMJulia.API.loadFile(omc, file)
     end
-    OMJulia.sendExpression(omc, "cd(\"$(workingDir)\")")
+    OMJulia.API.cd(omc, workingDir)
 
     @debug "setCommandLineOptions"
-    msg = OMJulia.sendExpression(omc, "setCommandLineOptions(\"-d=newInst --fmiFilter=internal --fmuCMakeBuild=true --fmuRuntimeDepends=modelica "*options.commandLineOptions*"\")")
-    write(logFile, string(msg)*"\n")
-    msg = OMJulia.sendExpression(omc, "getErrorString()")
-    write(logFile, msg*"\n")
+    OMJulia.API.setCommandLineOptions(omc, "-d=newInst --fmiFilter=internal --fmuCMakeBuild=true --fmuRuntimeDepends=modelica " * options.commandLineOptions)
 
     @debug "buildFMU"
-    msg = OMJulia.sendExpression(omc, "buildModelFMU($(modelName), version=\"2.0\", fmuType=\"me\", platforms={\"dynamic\"})")
-    write(logFile, msg*"\n")
-    msg = OMJulia.sendExpression(omc, "getErrorString()")
-    write(logFile, msg*"\n")
+    OMJulia.API.buildModelFMU(omc, modelName; version="2.0", fmuType="me", platforms=["dynamic"])
   catch e
     @error "Failed to build FMU for $modelName."
     rethrow(e)
   finally
     close(logFile)
-    OMJulia.sendExpression(omc, "quit()",parsed=false)
+    OMJulia.quit(omc)
   end
 
   if !isfile(joinpath(workingDir, modelName*".fmu"))
