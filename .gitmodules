@@ -1,3 +1,6 @@
 [submodule "examples/NaiveONNX.jl"]
 	path = examples/NaiveONNX.jl
 	url = git@github.com:AnHeuermann/NaiveONNX.jl.git
+[submodule "examples/IEEE14_unsupervized"]
+	path = examples/IEEE14_unsupervized
+	url = git@github.com:AnHeuermann/IEEE14_unsupervized.git

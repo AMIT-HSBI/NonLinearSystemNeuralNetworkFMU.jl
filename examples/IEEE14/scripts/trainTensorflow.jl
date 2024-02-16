@@ -4,7 +4,14 @@ using DrWatson
 using NonLinearSystemNeuralNetworkFMU
 
 ENV["PYTHON"] = "python3"
-ENV["XLA_FLAGS"] = "--xla_gpu_cuda_data_dir=/usr/local/cuda-12.1"
+if ! haskey(ENV, "XLA_FLAGS")
+   @warn "Environemnt variable `XLA_FLAGS` not set"
+   @info """
+   If you get erro libdevice not found you might need to set it.
+   export XLA_FLAGS="--xla_gpu_cuda_data_dir=/usr/local/cuda-12.3"
+   See https://stackoverflow.com/questions/68614547/tensorflow-libdevice-not-found-why-is-it-not-found-in-the-searched-path
+    """
+end
 import Pkg; Pkg.build("PyCall")
 
 N = 1000
@@ -23,4 +30,4 @@ mkpath(workdir)
 
 cmd = `python3 $(srcdir("train.py")) $(eqName) $(workdir) $(nInputs) $(nOutputs) $(csvFile)`
 
-run(Cmd(cmd, env=("XLA_FLAGS" => "--xla_gpu_cuda_data_dir=/usr/local/cuda-11.8",), dir = workdir))
+run(Cmd(cmd, env=("XLA_FLAGS" => ENV["XLA_FLAGS"],), dir = workdir))

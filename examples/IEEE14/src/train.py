@@ -83,10 +83,6 @@ def train(eqName, workdir, nInputs, nOutputs, csvFile):
     layers.Dense(nOutputs)
   ])
 
-  def residual_loss(y_true, y_pred):
-    return tf.norm()
-
-
   model.compile(loss = tf.keras.losses.MeanSquaredError(),
                 optimizer = tf.keras.optimizers.Adam())
 

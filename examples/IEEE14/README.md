@@ -81,11 +81,17 @@ julia> include("scripts/trainFlux.jl")
 ### Train with Tensorflow
 
 Run script [scripts/trainTensorflow.jl](scripts/trainTensorflow.jl) to train an ANN with
-Tensorflow by calling a Python script.
-
-You'll need to update `XLA_FLAGS` in [scripts/trainTensorflow.jl](scripts/trainTensorflow.jl)
-to point to your CUDA directory, e.g. `/usr/local/cuda-12.1`.
+Tensorflow by calling a Python script:
 
 ```julia
 julia> include("scripts/trainTensorflow.jl")
 ```
+
+You might need to set environment variable `XLA_FLAGS` for [scripts/trainTensorflow.jl](scripts/trainTensorflow.jl)
+to point to your CUDA directory:
+
+```bash
+export XLA_FLAGS="--xla_gpu_cuda_data_dir=/usr/local/cuda-12.3"
+```
+
+
