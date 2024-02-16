@@ -1,24 +1,24 @@
 #
-# Copyright (c) 2022 Andreas Heuermann
+# Copyright (c) 2022-2023 Andreas Heuermann
 #
 # This file is part of NonLinearSystemNeuralNetworkFMU.jl.
 #
 # NonLinearSystemNeuralNetworkFMU.jl is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Affero General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # NonLinearSystemNeuralNetworkFMU.jl is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
+# GNU Affero General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Affero General Public License
 # along with NonLinearSystemNeuralNetworkFMU.jl. If not, see <http://www.gnu.org/licenses/>.
 #
 
 """
-    simulateWithProfiling(modelName, pathToMo; [pathToOmc], workingDir=pwd(), outputFormat="mat", clean=false])
+    simulateWithProfiling(modelName, moFiles; options)
 
 Simulate Modelica model with profiling enabled using given omc.
 
@@ -34,9 +34,6 @@ function simulateWithProfiling(modelName::String,
                                options::OMOptions)
 
   workingDir = options.workingDir
-  if Sys.iswindows()
-    workingDir = replace(options.workingDir, "\\"=> "\\\\")
-  end
 
   if !isdir(workingDir)
     mkpath(workingDir)
@@ -53,39 +50,23 @@ function simulateWithProfiling(modelName::String,
     omc = OMJulia.OMCSession(options.pathToOmc)
   end
   try
-    msg = OMJulia.sendExpression(omc, "getVersion()")
-    write(logFile, msg*"\n")
+    version = OMJulia.API.getVersion(omc)
+    write(logFile, version*"\n")
     for file in moFiles
-      msg = OMJulia.sendExpression(omc, "loadFile(\"$(file)\")")
-      if (msg != true)
-        msg = OMJulia.sendExpression(omc, "getErrorString()")
-        write(logFile, msg*"\n")
-        throw(OpenModelicaError("Failed to load file $(file)!", abspath(logFilePath)))
-      end
-      write(logFile, string(msg)*"\n")
-      if !msg
-        throw(SimulationError("Failed to load file $(file)!", modelName, logFilePath))
-      end
-      msg = OMJulia.sendExpression(omc, "getErrorString()")
-      write(logFile, msg*"\n")
+      OMJulia.API.loadFile(omc, file)
     end
-    OMJulia.sendExpression(omc, "cd(\"$(workingDir)\")")
+    OMJulia.API.cd(omc, workingDir)
 
     @debug "setCommandLineOptions"
-    msg = OMJulia.sendExpression(omc, "setCommandLineOptions(\"-d=newInst,infoXmlOperations,backenddaeinfo --profiling=all " * options.commandLineOptions * "\")")
-    write(logFile, string(msg)*"\n")
-    msg = OMJulia.sendExpression(omc, "getErrorString()")
-    write(logFile, msg*"\n")
+    OMJulia.API.setCommandLineOptions(omc, "-d=newInst,infoXmlOperations,backenddaeinfo --profiling=all " * options.commandLineOptions)
 
     @debug "simulate"
     outputFormat = options.outputFormat === Nothing ? "csv" : options.outputFormat
-    msg = OMJulia.sendExpression(omc, "simulate($(modelName), outputFormat=\"$(outputFormat)\", simflags=\"-lv=LOG_STATS -clock=RT -cpu -w\")")
-    write(logFile, msg["messages"]*"\n")
-    msg = OMJulia.sendExpression(omc, "getErrorString()")
-    write(logFile, msg*"\n")
+    simulationResults = OMJulia.API.simulate(omc, modelName, outputFormat=outputFormat, simflags="-lv=LOG_STATS -clock=RT -cpu -w $(options.simFlags)")
+    write(logFile, simulationResults["messages"]*"\n")
   finally
     close(logFile)
-    OMJulia.sendExpression(omc, "quit()", parsed=false)
+    OMJulia.quit(omc)
   end
 
   profJsonFile = abspath(joinpath(workingDir, modelName*"_prof.json"))
@@ -131,7 +112,7 @@ end
 
 
 """
-    findSlowEquations(profJsonFile, infoJsonFile; threshold)
+    findSlowEquations(profJsonFile, infoJsonFile; threshold = 0.03, ignoreInit = true)
 
 Read JSON profiling file and find slowest non-linear loop equatiosn that need more then `threshold` of total simulation time.
 
@@ -150,13 +131,18 @@ function findSlowEquations(profJsonFile::String, infoJsonFile::String; threshold
   equations = infoFile["equations"]
 
   profileFile = JSON.parsefile(profJsonFile)
-  totalTime = profileFile["totalTime"]
+  totalSimulationTime = profileFile["totalTime"]
   profileBlocks = profileFile["profileBlocks"]
+  totalEquationTime = 0
+  for block in profileBlocks
+    totalEquationTime += block["time"]
+  end
   profileBlocks = sort(profileBlocks, by=x->x["time"], rev=true)
 
   block = profileBlocks[1]
-  fraction = block["time"] / totalTime
-  @info "Slowest eq $(block["id"]): ncall: $(block["ncall"]), time: $(block["time"]), maxTime: $(block["maxTime"]), fraction: $(fraction)"
+  fraction = block["time"] / totalEquationTime
+  fraction_overhead = block["time"] / totalSimulationTime
+  @info "Slowest eq $(block["id"]): ncall: $(block["ncall"]), time: $(block["time"]), maxTime: $(block["maxTime"]), fraction without overhead: $(fraction), fraction with overhead: $(fraction_overhead)"
 
   bigger = true
   i = 0
@@ -164,7 +150,7 @@ function findSlowEquations(profJsonFile::String, infoJsonFile::String; threshold
   while(bigger)
     i += 1
     block = profileBlocks[i]
-    fraction = block["time"] / totalTime
+    fraction = block["time"] / totalSimulationTime
     bigger = fraction > threshold
     id = block["id"]
     if bigger && isnonlinearequation(equations[id+1]) && !(ignoreInit && isinitial(equations[id+1]))
@@ -180,15 +166,16 @@ end
 
 
 """
-    findUsedVars(infoFile, eqIndex; filterParameters = true)::Tuple{Array{String}, Array{String}}
+    findUsedVars(infoFile, eqIndex)::Tuple{Array{String}, Array{String}, Array{String}}
 
 Read `infoFile` and return defined or used variables of equation with index `eqIndex`.
 
 # Returns
   - `definingVars::Array{String}`:  Variables defined by equation with index `eqIndex`.
   - `usingVars::Array{String}`:     Variables used by equation with index `eqIndex`.
+  - `parameterVars::Array{String}`: Parameter variables used by equation with index `eqIndex`.
 """
-function findUsedVars(infoFile, eqIndex::Integer; filterParameters::Bool = true)::Tuple{Array{String}, Array{String}}
+function findUsedVars(infoFile, eqIndex::Integer)::Tuple{Array{String},Array{String},Array{String}}
   equations = infoFile["equations"]
   eq = (equations[eqIndex+1])
   variables = infoFile["variables"]
@@ -206,6 +193,7 @@ function findUsedVars(infoFile, eqIndex::Integer; filterParameters::Bool = true)
   if haskey(eq, "defines")
     definingVars = Array{String}(eq["defines"])
   end
+  parameterVars = String[]
 
   # Remove parameter and external objects used vars
   removeVars = String[]
@@ -213,10 +201,11 @@ function findUsedVars(infoFile, eqIndex::Integer; filterParameters::Bool = true)
   for usedVar in usingVars
     if haskey(variables, usedVar)
       var = variables[usedVar]
-      if filterParameters && var["kind"] == "parameter"
+      if var["kind"] == "parameter"
         push!(removeVars, usedVar)
+        push!(parameterVars, usedVar)
       end
-      if filterParameters && var["kind"] == "constant"
+      if var["kind"] == "constant"
         push!(removeVars, usedVar)
       end
       if var["kind"] == "external object"
@@ -233,17 +222,23 @@ function findUsedVars(infoFile, eqIndex::Integer; filterParameters::Bool = true)
   @debug "Removed $removeVars from usingVars"
   setdiff!(usingVars, removeVars)
 
-  return (definingVars, usingVars)
+  return (definingVars, usingVars, parameterVars)
 end
 
 
 """
-    findDependentVars(jsonFile, eqIndex)::Tuple{Array{String}, Array{Int64}, Array{String}}
+    findDependentVars(jsonFile, eqIndex; filterParameters=true)::Tuple{Array{String}, Array{Int64}, Array{String}, Array{String}}
 
 Read JSON info file `jsonFile` and return iteration, inner and used variables
-`(iterationVariables, innerEquations, usingVars)`.
+`(iterationVariables, innerEquations, usingVars)` for non-linear equation
+system specified by index `eqIndex`.
+
+# Returns
+  - `iterationVariables::Array{String}`:  Array of iteration variables of non-linear equation.
+  - `innerEquations::Array{Int64}`:       Indices of inner equations.
+  - `usingVars::Array{String}`:           Known variables of the non-linear equation system.
 """
-function findDependentVars(jsonFile::String, eqIndex)::Tuple{Array{String}, Array{Int64}, Array{String}}
+function findDependentVars(jsonFile::String, eqIndex)::Tuple{Array{String}, Array{Int64}, Array{String}, Array{String}}
   infoFile = JSON.parsefile(jsonFile)
 
   equations = infoFile["equations"]
@@ -259,14 +254,16 @@ function findDependentVars(jsonFile::String, eqIndex)::Tuple{Array{String}, Arra
 
   usingVars = String[]
   innerVars = String[]
+  paramVars = String[]
 
   for loopeq in loopEquations
     if infoFile["equations"][loopeq+1]["tag"] =="jacobian"
       continue
     end
-    (def, use) = findUsedVars(infoFile, loopeq)
+    (def, use, param) = findUsedVars(infoFile, loopeq)
     append!(usingVars, use)
     append!(innerVars, def)
+    append!(paramVars, param)
     if !isempty(def)
       append!(innerEquations, loopeq)
     end
@@ -287,7 +284,7 @@ function findDependentVars(jsonFile::String, eqIndex)::Tuple{Array{String}, Arra
   # Workaround for Windows until https://github.com/JuliaIO/JSON.jl/issues/347 is fixed.
   GC.gc()
 
-  return (unique(iterationVariables), innerEquations, unique(usingVars))
+  return (unique(iterationVariables), innerEquations, unique(usingVars), unique(paramVars))
 end
 
 
@@ -313,7 +310,7 @@ end
 
 
 """
-    profiling(modelName, moFiles; pathToOmc, workingDir, threshold = 0.03)
+    profiling(modelName, moFiles; options, threshold = 0.01, ignoreInit = true)
 
 Find equations of Modelica model that are slower then threashold.
 
@@ -322,9 +319,9 @@ Find equations of Modelica model that are slower then threashold.
   - `moFiles::Array{String}`:   Path to the *.mo file(s) containing the model.
 
 # Keywords
-  - `options::OMOptions`:       Options for OpenModelica compiler.
-  - `threshold=0.01`:           Slowest equations that need more then `threshold` of total simulation time.
-  - `ignoreInit::Bool=true`:    Ignore equations from initialization system if `true`.
+  - `options::OMOptions`:           Options for OpenModelica compiler.
+  - `threshold=0.01`:               Slowest equations that need more then `threshold` of total simulation time.
+  - `ignoreInit::Bool=true`:        Ignore equations from initialization system if `true`.
 
 # Returns
   - `profilingInfo::Vector{ProfilingInfo}`: Profiling information with non-linear equation systems slower than `threshold`.
@@ -344,8 +341,13 @@ function profiling(modelName::String,
   profilingInfo = Array{ProfilingInfo}(undef, length(slowestEqs))
 
   for (i,slowEq) in enumerate(slowestEqs)
-    (iterationVariables, innerEquations, usingVars) = findDependentVars(infoJsonFile, slowestEqs[i].id)
-    profilingInfo[i] = ProfilingInfo(slowEq, iterationVariables, innerEquations, usingVars, MinMaxBoundaryValues{Float64}(undef, length(usingVars)))
+    (iterationVariables, innerEquations, usingVars, parameterVars) = findDependentVars(infoJsonFile, slowestEqs[i].id)
+    profilingInfo[i] = ProfilingInfo(slowEq,
+                                     iterationVariables,
+                                     innerEquations,
+                                     usingVars,
+                                     parameterVars,
+                                     MinMaxBoundaryValues{Float64}(undef, length(usingVars)))
   end
 
   allUsedVars = Array{String}(unique(vcat([prof.usingVars for prof in profilingInfo]...)))
@@ -361,7 +363,7 @@ end
 
 
 """
-    minMaxValuesReSim(vars, modelName, moFiles; pathToOmc="" workingDir=pwd())
+    minMaxValuesReSim(vars, modelName, moFiles; options)
 
 (Re-)simulate Modelica model and find miminum and maximum value each variable has during simulation.
 

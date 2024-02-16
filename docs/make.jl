@@ -1,15 +1,19 @@
 using Documenter, NonLinearSystemNeuralNetworkFMU
 
+ENV["JULIA_DEBUG"]="Documenter"
+
 @info "Make the docs"
 makedocs(
-  sitename="NonLinearSystemNeuralNetworkFMU.jl",
-  format = Documenter.LaTeX(platform = "docker"),   # Workaround because we can't publish HTML to GitHub pages at the moment
-  workdir=joinpath(@__DIR__,".."),
+  sitename = "NonLinearSystemNeuralNetworkFMU.jl",
+  format = Documenter.HTML(edit_link = "main"),
+  workdir = joinpath(@__DIR__,".."),
   pages = [
     "Home" => "index.md",
     "Main" => "main.md",
     "Profiling" => "profiling.md",
-    "Data Generation" => "dataGen.md"
+    "Data Generation" => "dataGen.md",
+    "ONNX Generation" => "train.md",
+    "Integrate ONNX" => "integrateONNX.md"
   ]
 )
 

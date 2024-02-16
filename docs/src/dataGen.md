@@ -11,35 +11,38 @@ the need to simulate the rest of the model.
 ## Functions
 
 ```@docs
+generateTrainingData
+addEqInterface2FMU
 generateFMU
 ```
 
+## Structures
 ```@docs
-addEqInterface2FMU
+DataGenOptions
 ```
 
 ```@docs
-generateTrainingData
+RandomMethod
+RandomWalkMethod
 ```
 
-## Examples
+## [Examples](@id data_gen_example_id)
 
 First we need to create a Model-Exchange 2.0 FMU with OpenModelica.
 
 This can be done directly from OpenModelica or with [`generateFMU`](@ref):
 
 ```@example dataexample
-using NonLinearSystemNeuralNetworkFMU #hide
-omc = string(strip(read(`which omc`, String))) #hide
+using NonLinearSystemNeuralNetworkFMU # hide
+moFiles = ["test/simpleLoop.mo"]
+options = OMOptions(workingDir = "tempDir")
 
 fmu = generateFMU("simpleLoop",
-                  ["test/simpleLoop.mo"];
-                  pathToOmc = omc,
-                  workingDir = "tempDir")
-rm("tempDir", recursive=true, force=true) #hide
+                  moFiles;
+                  options = options)
 ```
 
-Next we need to add non-standard C function
+Next we need to add non-standard FMI function
 
 ```C
 fmi2Status myfmi2EvaluateEq(fmi2Component c, const size_t eqNumber)
@@ -55,22 +58,23 @@ interfaceFmu = addEqInterface2FMU("simpleLoop",
                                   fmu,
                                   [14],
                                   workingDir = "tempDir")
-rm("tempDir", recursive=true, force=true) #hide
 ```
 
-Now we can create evaluate equation `14` for random values and save the outputs to generate training data.
+Now we can create evaluate equation `14` for random values and save the outputs to
+generate training data.
 
 ```@example dataexample
 using CSV
 using DataFrames
+options = DataGenOptions(n=10, nThreads=1)
+boundary = MinMaxBoundaryValues([0.0, 0.95], [1.5, 3.15])
 generateTrainingData(interfaceFmu,
+                     "tempDir",
                      "simpleLoop_data.csv",
                      14,
                      ["s", "r"],
-                     [0.0, 0.95],
-                     [1.5, 3.15],
+                     boundary,
                      ["y"];
-                     N = 10)
-df =  CSV.File("simpleLoop_data.csv")
-rm("simpleLoop_data.csv", force=true) #hide
+                     options = options)
+df =  DataFrame(CSV.File("simpleLoop_data.csv"))
 ```

@@ -15,7 +15,7 @@ PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
 [compat]
-DrWatson = "2.12.1"
+DrWatson = "2.12.7"
 NaiveONNX = "0.2.0"
-NonLinearSystemNeuralNetworkFMU = "0.5.1"
-julia = "1.8.1"
+NonLinearSystemNeuralNetworkFMU = "0.5.2"
+julia = "1.9.0"

@@ -1,19 +1,19 @@
 #
-# Copyright (c) 2022 Andreas Heuermann
+# Copyright (c) 2022-2023 Andreas Heuermann
 #
 # This file is part of NonLinearSystemNeuralNetworkFMU.jl.
 #
 # NonLinearSystemNeuralNetworkFMU.jl is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Affero General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # NonLinearSystemNeuralNetworkFMU.jl is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
+# GNU Affero General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Affero General Public License
 # along with NonLinearSystemNeuralNetworkFMU.jl. If not, see <http://www.gnu.org/licenses/>.
 #
 
@@ -57,6 +57,8 @@ end
     MinMaxBoundaryValues <: Any
 
 Minimum and maximum boundary values of list of variables.
+
+$(DocStringExtensions.TYPEDFIELDS)
 """
 struct MinMaxBoundaryValues{T}
   "Minimum boundary values."
@@ -99,6 +101,8 @@ struct ProfilingInfo
   innerEquations::Array{Int64}
   "Used (input) variables of non-linear system."
   usingVars::Array{String}
+  "Parameter variables of non-linear system."
+  parameterVars::Array{String}
   "Minimum and maximum boundary values of `usingVars`."
   boundary::MinMaxBoundaryValues{Float64}
 end
@@ -108,6 +112,7 @@ function Base.show(io::IO, ::MIME"text/plain", profilingInfo::ProfilingInfo)
   Printf.@printf(io, "iterationVariables: %s, ", profilingInfo.iterationVariables)
   Printf.@printf(io, "innerEquations: %s, ", profilingInfo.innerEquations)
   Printf.@printf(io, "usingVars: %s, ", profilingInfo.usingVars)
+  Printf.@printf(io, "parameterVars: %s, ", profilingInfo.parameterVars)
   Printf.@printf(io, "boundary: %s)", profilingInfo.boundary)
 end
 
@@ -116,6 +121,8 @@ end
     OMOptions <: Any
 
 Settings for profiling and simulating with the OpenModelica Compiler (OMC).
+
+$(DocStringExtensions.TYPEDFIELDS)
 """
 struct OMOptions
   "Path to omc used for simulating the model."
@@ -128,50 +135,78 @@ struct OMOptions
   clean::Bool
   "Additional comannd line options for `setCommandLineOptions`."
   commandLineOptions::String
+  "Additional simulation flags."
+  simFlags::String
 
-  # Constructor
+  """
+      OMOptions(;pathToOmc = "", workingDir = pwd(), outputFormat = "csv", clean = false, commandLineOptions = "", disableCSE = true)
+
+  `OMOptions` constructor.
+  """
   function OMOptions(;pathToOmc::String = "",
-                     workingDir::String = pwd(),
-                     outputFormat::Union{String,Nothing} = "csv",
-                     clean::Bool = false,
-                     commandLineOptions::String = "",
-                     disableCSE = true)
+                    workingDir::String = pwd(),
+                    outputFormat::Union{String,Nothing} = "csv",
+                    clean::Bool = false,
+                    commandLineOptions::String = "",
+                    simFlags::String = "",
+                    disableCSE = true)
 
-    # Try to find omc executable
-    pathToOmc = getomc(pathToOmc)
+  # Try to find omc executable
+  pathToOmc = getomc(pathToOmc)
 
-    # Assert output format
-    if outputFormat != "csv" && outputFormat != "mat" && outputFormat !== nothing
-      error("output format $(outputFormat) not supperted. Has to be \"csv\" or \"mat\".")
-    end
+  # Assert output format
+  if outputFormat != "csv" && outputFormat != "mat" && outputFormat !== nothing
+    error("output format $(outputFormat) not supperted. Has to be \"csv\" or \"mat\".")
+  end
 
-    # Disable CSE variables in loops
-    if disableCSE
-      commandLineOptions *= " --preOptModules-=wrapFunctionCalls --postOptModules-=wrapFunctionCalls"
-    end
+  # Disable CSE variables in loops
+  if disableCSE
+    commandLineOptions *= " --preOptModules-=wrapFunctionCalls --postOptModules-=wrapFunctionCalls"
+  end
 
-    new(pathToOmc, workingDir, outputFormat, clean, commandLineOptions)
+  new(pathToOmc, workingDir, outputFormat, clean, commandLineOptions, simFlags)
   end
 end
 
 abstract type DataGenerationMethod end
 
+"""
+    RandomMethod <: DataGenerationMethod
+
+Random data generation using `rand`.
+"""
 struct RandomMethod <: DataGenerationMethod
 end
 
+"""
+    RandomWalkMethod <: DataGenerationMethod
+
+Randomized brownian-like motion data generation.
+Tries to stay within one solution in case the non-linear system is not unique
+solveable. Uses previous data point to generate close data point with previous
+solution as input to NLS solver.
+
+$(DocStringExtensions.TYPEDFIELDS)
+"""
 struct RandomWalkMethod <: DataGenerationMethod
   "Step size of random walk."
   delta::Float64
+
+  # Constructor
   RandomWalkMethod(;delta=1e-3) = delta <= 0 ? error("Non-positive step size") : new(delta)
 end
 
 """
-  DataGenOptions <: Any
+    DataGenOptions <: Any
 
 Settings for data generation.
+
+$(DocStringExtensions.TYPEDFIELDS)
+
+See als [`RandomMethod`](@ref), [`RandomWalkMethod`](@ref).
 """
 struct DataGenOptions
-  "Method to generate data points."
+  "Method to generate data points. Allowed values: `RandomMethod`, `RandomWalkMethod`"
   method::DataGenerationMethod
   "Number of data points to generate."
   n::Integer
@@ -184,13 +219,17 @@ struct DataGenOptions
   "Clean up temp CSV files"
   clean::Bool
 
-  # Constructor
-  function DataGenOptions(;method=RandomWalkMethod(delta=1e-3)::DataGenerationMethod,
-                          n=1000::Integer,
-                          nBatches=1::Integer,
-                          nThreads=Threads.nthreads()::Integer,
-                          append=false::Bool,
-                          clean=true::Bool)
+  """
+      DataGenOptions(;method=RandomWalkMethod(delta=1e-3), n=1000:, nBatches=, nThreads=Threads.nthreads(), append=false, clean=true)
+
+  Settings for data generation.
+  """
+  function DataGenOptions(;method::DataGenerationMethod=RandomWalkMethod(delta=1e-3),
+                          n::Integer=1000,
+                          nBatches::Integer=1,
+                          nThreads::Integer=Threads.nthreads(),
+                          append::Bool=false,
+                          clean::Bool=true)
     if nThreads <= 0
       error("nThreas=$(nThreads) too low. Use at least one thread.")
     elseif nThreads > Threads.nthreads()
@@ -209,8 +248,7 @@ Program not found in PATH error.
 """
 struct ProgramNotFoundError <: Exception
   program::String
-  locations::Union{Nothing, Array{String}}
-  ProgramNotFoundError(program) = new(program, nothing)
+  locations::Union{Nothing, Vector{String}}
 end
 function Base.showerror(io::IO, e::ProgramNotFoundError)
   println(io, e.program, " not found")

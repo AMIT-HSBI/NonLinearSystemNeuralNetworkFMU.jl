@@ -7,7 +7,6 @@ to make a reproducible scientific project named
 
 Authors: Andreas Heuermann.
 
-
 ## Dependencies
 
 To (locally) reproduce this project, do the following:
@@ -35,6 +34,10 @@ To (locally) reproduce this project, do the following:
       - tensorflow
       - tf2onnx
 
+      ```bash
+      pip3 install -r requirements.txt
+      ```
+
   4. OpenModelica: Tested omc version v1.21.0-dev-288-g01b6764df5-cmake
      with OMSimulator version OMSimulator v2.1.1.post194-g75de4c6-linux-debug.
 
@@ -44,7 +47,7 @@ everything should work out of the box, including correctly finding local paths.
 You may notice that most scripts start with the commands:
 ```julia
 using DrWatson
-@quickactivate "SimpleLoop"
+@quickactivate "IEEE14"
 ```
 which auto-activate the project and enable local path handling from DrWatson.
 
@@ -70,15 +73,18 @@ The resulting training data can be found in
 
 ### Train with Flux
 
-Run script [scripts/trainFlux.jl](scripts/trainFlux.jl]) to train an ANN with Flux.jl.
+Run script [scripts/trainFlux.jl](scripts/trainFlux.jl) to train an ANN with Flux.jl.
 
 ```julia
 julia> include("scripts/trainFlux.jl")
 ```
 ### Train with Tensorflow
 
-Run script [scripts/trainTensorflow.jl](scripts/trainTensorflow.jl]) to train an ANN with
+Run script [scripts/trainTensorflow.jl](scripts/trainTensorflow.jl) to train an ANN with
 Tensorflow by calling a Python script.
+
+You'll need to update `XLA_FLAGS` in [scripts/trainTensorflow.jl](scripts/trainTensorflow.jl)
+to point to your CUDA directory, e.g. `/usr/local/cuda-12.1`.
 
 ```julia
 julia> include("scripts/trainTensorflow.jl")

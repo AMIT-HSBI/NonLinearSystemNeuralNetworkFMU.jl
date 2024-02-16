@@ -1,19 +1,19 @@
 #
-# Copyright (c) 2022 Andreas Heuermann
+# Copyright (c) 2022-2023 Andreas Heuermann
 #
 # This file is part of NonLinearSystemNeuralNetworkFMU.jl.
 #
 # NonLinearSystemNeuralNetworkFMU.jl is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Affero General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # NonLinearSystemNeuralNetworkFMU.jl is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
+# GNU Affero General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Affero General Public License
 # along with NonLinearSystemNeuralNetworkFMU.jl. If not, see <http://www.gnu.org/licenses/>.
 #
 
@@ -24,6 +24,10 @@ using NonLinearSystemNeuralNetworkFMU
 using Test
 
 function runIncludeOnnxTests()
+  if Sys.iswindows()
+    @warn "Automated test for ONNX integration can't succeed on Windows. ORT is incompatbility with MSYS."
+  end
+
   @assert haskey(ENV, "ORT_DIR") "Environamet variable `ORT_DIR` has to be set and point to ONNX Runtime directory for testing."
 
   @testset "Build FMU with ONNX" begin
@@ -40,6 +44,7 @@ function runIncludeOnnxTests()
         ["y"],
         [11],
         ["s", "r"],
+        [],
         NonLinearSystemNeuralNetworkFMU.MinMaxBoundaryValues([0.0, 0.95], [1.4087228258248679, 3.15]))]
     onnxFiles = [abspath(@__DIR__, "nn", "simpleLoop_eq14.onnx")]
 

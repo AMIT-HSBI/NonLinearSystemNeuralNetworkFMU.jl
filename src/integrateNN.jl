@@ -1,19 +1,19 @@
 #
-# Copyright (c) 2022 Andreas Heuermann, Philip Hannebohm
+# Copyright (c) 2022-2023 Andreas Heuermann, Philip Hannebohm
 #
 # This file is part of NonLinearSystemNeuralNetworkFMU.jl.
 #
 # NonLinearSystemNeuralNetworkFMU.jl is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Affero General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # NonLinearSystemNeuralNetworkFMU.jl is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
+# GNU Affero General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Affero General Public License
 # along with NonLinearSystemNeuralNetworkFMU.jl. If not, see <http://www.gnu.org/licenses/>.
 #
 
@@ -217,7 +217,13 @@ end
 """
 Modify C code in fmuTmpDir/sources/modelname.c to use ONNX instead of algebraic loops.
 """
-function modifyCCode(modelName::String, fmuTmpDir::String, modelDescriptionXmlFile::String, equations::Array{ProfilingInfo}, onnxFiles::Array{String}, usePrevSol::Bool)
+function modifyCCode(modelName::String,
+                     fmuTmpDir::String,
+                     modelDescriptionXmlFile::String,
+                     equations::Array{ProfilingInfo},
+                     onnxFiles::Array{String},
+                     usePrevSol::Bool)
+
   cfile = joinpath(fmuTmpDir, "sources", "$(replace(modelName, "."=>"_")).c")
   str = open(cfile, "r") do file
     read(file, String)
@@ -233,7 +239,7 @@ function modifyCCode(modelName::String, fmuTmpDir::String, modelDescriptionXmlFi
   id1 = last(findStrWError("$(modelNameC)_setupDataStruc(DATA *data, threadData_t *threadData)", str))
   id1 = last(findStrWError("data->modelData->nExtObjs", str, id1))
   id1 = last(findStrWError(";$EOL", str, id1))
-  str = str[1:id1] * 
+  str = str[1:id1] *
         """
           if (USE_JULIA){
             tic(&t_global);
@@ -309,18 +315,26 @@ function modifyCMakeLists(path_to_cmakelists::String)
   newStr = ""
   open(path_to_cmakelists, "r") do file
     str = read(file, String)
-    id1 = last(findStrWError("project(\${FMU_NAME})", str))
+    # Add sub directory
+    id1 = last(findStrWError("project(\${FMU_NAME}", str))
+    id1 = last(findStrWError(")", str, id1))
     newStr = str[1:id1] * EOL *
              """
              add_subdirectory(onnxWrapper)
              set(CMAKE_BUILD_TYPE "RelWithDebInfo")
              """ *
              str[id1+1:end]
+    str = newStr
 
-    newStr = replace(newStr,
-                     "target_link_libraries(\${FMU_NAME} PRIVATE m Threads::Threads)"
-                     =>
-                     "target_link_libraries(\${FMU_NAME} PRIVATE m Threads::Threads onnxWrapper)")
+    # Link onnxWrapper
+    id1 = last(findStrWError("add_library(\${FMU_NAME}", newStr))
+    id1 = last(findStrWError(")", newStr, id1))
+    newStr = newStr[1:id1] * EOL *
+             """
+             # Link onnxWrapper
+             target_link_libraries(\${FMU_NAME} PRIVATE onnxWrapper)
+             """ *
+             newStr[id1+1:end]
   end
 
   write(path_to_cmakelists, newStr)
@@ -376,7 +390,7 @@ end
 
 
 """
-    buildWithOnnx(fmu, modelName, equations, onnxFiles; tempDir=modelName*"_onnx")
+    buildWithOnnx(fmu, modelName, equations, onnxFiles; usePrevSol=false, tempDir=modelName*"_onnx")
 
 Include ONNX into FMU and recompile to generate FMU with ONNX surrogates.
 
@@ -387,12 +401,18 @@ Include ONNX into FMU and recompile to generate FMU with ONNX surrogates.
   - `onnxFiles::Array{String}`:           Array of paths to ONNX surrogates.
 
 # Keywords
-  - `tempDir::String=modelName*"_onnx"`:  Working directory
+  - `usePrevSol::Bool`:                   ONNX uses previous solution as additional input.
+  - `tempDir::String`:                    Working directory
 
 # Returns
   - Path to ONNX FMU.
 """
-function buildWithOnnx(fmu::String, modelName::String, equations::Array{ProfilingInfo}, onnxFiles::Array{String}; usePrevSol=false::Bool, tempDir=modelName*"_onnx"::String)
+function buildWithOnnx(fmu::String,
+                       modelName::String,
+                       equations::Array{ProfilingInfo},
+                       onnxFiles::Array{String};
+                       usePrevSol::Bool=false,
+                       tempDir::String=modelName*"_onnx")
   # Unzip FMU into tmp dir
   fmuTmpDir = abspath(joinpath(tempDir,"FMU"))
   rm(fmuTmpDir, force=true, recursive=true)

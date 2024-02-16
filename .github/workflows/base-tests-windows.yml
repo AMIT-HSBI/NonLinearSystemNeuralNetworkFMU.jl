@@ -1,4 +1,4 @@
-name: Windows Tests
+name: CI Windows
 
 on:
   push:
@@ -16,7 +16,7 @@ jobs:
       ORT_DIR: '${{ github.workspace }}/${{ matrix.ort_dir }}'
     strategy:
       matrix:
-        julia-version: ['1.7.3']
+        julia-version: ['1.10']
         julia-arch: [x64]
         os: [windows-latest]
         include:
@@ -24,14 +24,14 @@ jobs:
             ort_url: 'https://github.com/microsoft/onnxruntime/releases/download/v1.12.1/onnxruntime-win-x64-1.12.1.zip'
             ort_archieve_name: 'onnxruntime-win-x64-1.12.1.zip'
             ort_dir: 'onnxruntime-win-x64-1.12.1'
-    timeout-minutes: 30
+    timeout-minutes: 60
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       # Install CMake version 3.21
       - name: Setup cmake
-        uses: jwlawson/actions-setup-cmake@v1.13
+        uses: jwlawson/actions-setup-cmake@v2
         with:
           cmake-version: '3.21'
       - run: cmake --version
@@ -45,17 +45,20 @@ jobs:
         shell: pwsh
 
       # Setup OpenModelica for OMJulia.jl
-      - uses: AnHeuermann/setup-openmodelica@v0.4
+      - uses: OpenModelica/setup-openmodelica@v1
         with:
           version: 'nightly'
       - run: |
           which omc
           omc --version
+          rm "$OPENMODELICAHOME"\\tools\\msys\\mingw64\\bin\\cmake.exe "$OPENMODELICAHOME"\\tools\\msys\\mingw64\\bin\\cmake-gui.exe
+        shell: bash
 
       # Build and test NonLinearSystemNeuralNetworkFMU.jl
       - uses: julia-actions/setup-julia@v1
         with:
           version: ${{ matrix.julia-version }}
           arch: ${{ matrix.julia-arch }}
+      - uses: julia-actions/cache@v1
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1

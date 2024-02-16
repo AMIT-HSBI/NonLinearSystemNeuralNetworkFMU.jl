@@ -1,19 +1,19 @@
 #
-# Copyright (c) 2022 Andreas Heuermann
+# Copyright (c) 2022-2023 Andreas Heuermann
 #
 # This file is part of NonLinearSystemNeuralNetworkFMU.jl.
 #
 # NonLinearSystemNeuralNetworkFMU.jl is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Affero General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # NonLinearSystemNeuralNetworkFMU.jl is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
+# GNU Affero General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Affero General Public License
 # along with NonLinearSystemNeuralNetworkFMU.jl. If not, see <http://www.gnu.org/licenses/>.
 #
 
@@ -40,10 +40,16 @@ Add OPENMODELICAHOME to PATH for Windows to get access to Unix tools from MSYS.
 function omrun(cmd::Cmd; dir=pwd()::String, logFile=stdout, timeout=10*60::Integer)
   env = copy(ENV)
   if Sys.iswindows()
-    path *= ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "mingw64", "bin"))
-    path *= ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "usr", "bin"))
+    path = env["PATH"]
+    if haskey(ENV, "OMDEV_MSYS")
+      path *= ";" * abspath(joinpath(ENV["OMDEV_MSYS"], "ucrt64", "bin"))
+      path *= ";" * abspath(joinpath(ENV["OMDEV_MSYS"], "usr", "bin"))
+    else
+      path *= ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "mingw64", "bin"))
+      path *= ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "usr", "bin"))
+    end
     env["PATH"] = path
-    env["CLICOLOR"] = 0
+    env["CLICOLOR"] = "0"
   end
   @debug "PATH: $(env["PATH"])"
 
@@ -144,12 +150,12 @@ end
 
 
 """
-    generateFMU(modelName, moFiles; [pathToOmc], workingDir=pwd(), clean=false)
+    generateFMU(modelName, moFiles; options)
 
 Generate 2.0 Model Exchange FMU for Modelica model using OMJulia.
 
 # Arguments
-  - `modelName::String`:  Name of the Modelica model.
+  - `modelName::String`:        Name of the Modelica model.
   - `moFiles::Array{String}`:   Path to the *.mo file(s) containing the model.
 
 # Keywords
@@ -158,26 +164,22 @@ Generate 2.0 Model Exchange FMU for Modelica model using OMJulia.
 # Returns
   - Path to generated FMU `workingDir/<modelName>.fmu`.
 
-See also [`addEqInterface2FMU`](@ref), [`generateTrainingData`](@ref).
+See also [`OMOptions`](@ref), [`addEqInterface2FMU`](@ref), [`generateTrainingData`](@ref).
 """
 function generateFMU(modelName::String,
                      moFiles::Array{String};
                      options::OMOptions)
 
   # Create / clean working diretory
-  if !isdir(options.workingDir)
-    mkpath(options.workingDir)
+  workingDir = options.workingDir
+  if !isdir(workingDir)
+    mkpath(workingDir)
   elseif options.clean
-    rm(options.workingDir, force=true, recursive=true)
-    mkpath(options.workingDir)
+    rm(workingDir, force=true, recursive=true)
+    mkpath(workingDir)
   end
 
-  if Sys.iswindows()
-    moFiles::Array{String} = replace.(moFiles::Array{String}, "\\"=> "\\\\")
-    options.workingDir = replace(options.workingDir, "\\"=> "\\\\")
-  end
-
-  logFilePath = joinpath(options.workingDir,"callsFMI.log")
+  logFilePath = joinpath(workingDir,"callsFMI.log")
   logFile = open(logFilePath, "w")
 
   local omc
@@ -185,42 +187,31 @@ function generateFMU(modelName::String,
     omc = OMJulia.OMCSession(options.pathToOmc)
   end
   try
-    msg = OMJulia.sendExpression(omc, "getVersion()")
-    write(logFile, msg*"\n")
+    version = OMJulia.API.getVersion(omc)
+    write(logFile, version*"\n")
     for file in moFiles
-      msg = OMJulia.sendExpression(omc, "loadFile(\"$(file)\")")
-      if (msg != true)
-        msg = OMJulia.sendExpression(omc, "getErrorString()")
-        write(logFile, msg*"\n")
-        throw(OpenModelicaError("Failed to load file $(file)!", abspath(logFilePath)))
-      end
+      OMJulia.API.loadFile(omc, file)
     end
-    OMJulia.sendExpression(omc, "cd(\"$(options.workingDir)\")")
+    OMJulia.API.cd(omc, workingDir)
 
     @debug "setCommandLineOptions"
-    msg = OMJulia.sendExpression(omc, "setCommandLineOptions(\"-d=newInst --fmiFilter=internal --fmuCMakeBuild=true --fmuRuntimeDepends=modelica "*options.commandLineOptions*"\")")
-    write(logFile, string(msg)*"\n")
-    msg = OMJulia.sendExpression(omc, "getErrorString()")
-    write(logFile, msg*"\n")
+    OMJulia.API.setCommandLineOptions(omc, "-d=newInst --fmiFilter=internal --fmuCMakeBuild=true --fmuRuntimeDepends=modelica " * options.commandLineOptions)
 
     @debug "buildFMU"
-    msg = OMJulia.sendExpression(omc, "buildModelFMU($(modelName), version=\"2.0\", fmuType=\"me\", platforms={\"dynamic\"})")
-    write(logFile, msg*"\n")
-    msg = OMJulia.sendExpression(omc, "getErrorString()")
-    write(logFile, msg*"\n")
+    OMJulia.API.buildModelFMU(omc, modelName; version="2.0", fmuType="me", platforms=["dynamic"])
   catch e
     @error "Failed to build FMU for $modelName."
     rethrow(e)
   finally
     close(logFile)
-    OMJulia.sendExpression(omc, "quit()",parsed=false)
+    OMJulia.quit(omc)
   end
 
-  if !isfile(joinpath(options.workingDir, modelName*".fmu"))
+  if !isfile(joinpath(workingDir, modelName*".fmu"))
     throw(OpenModelicaError("Could not generate FMU!", abspath(logFilePath)))
   end
 
-  return joinpath(options.workingDir, modelName*".fmu")
+  return joinpath(workingDir, modelName*".fmu")
 end
 
 
@@ -278,7 +269,7 @@ function compileFMU(fmuRootDir::String, modelname::String, workdir::String)
     pathToFmiHeader = abspath(joinpath(dirname(@__DIR__), "FMI-Standard-2.0.3", "headers"))
     if Sys.iswindows()
       omrun(`cmake -S . -B build_cmake -Wno-dev -G "MSYS Makefiles" -DCMAKE_COLOR_MAKEFILE=OFF`, dir = joinpath(fmuRootDir,"sources"), logFile=logFile)
-      omrun(`make install -Oline -j`, dir = joinpath(fmuRootDir, "sources", "build_cmake"), logFile=logFile)
+      omrun(`mingw32-make install -Oline -j`, dir = joinpath(fmuRootDir, "sources", "build_cmake"), logFile=logFile)
     else
       omrun(`cmake -S . -B build_cmake`, dir = joinpath(fmuRootDir,"sources"), logFile=logFile)
       omrun(`cmake --build build_cmake/ --target install --parallel`, dir = joinpath(fmuRootDir, "sources"), logFile=logFile)

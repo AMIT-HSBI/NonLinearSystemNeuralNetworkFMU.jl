@@ -1,19 +1,19 @@
 #
-# Copyright (c) 2022 Andreas Heuermann, Philip Hannebohm
+# Copyright (c) 2022-2023 Andreas Heuermann, Philip Hannebohm
 #
 # This file is part of NonLinearSystemNeuralNetworkFMU.jl.
 #
 # NonLinearSystemNeuralNetworkFMU.jl is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Affero General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # NonLinearSystemNeuralNetworkFMU.jl is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
+# GNU Affero General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Affero General Public License
 # along with NonLinearSystemNeuralNetworkFMU.jl. If not, see <http://www.gnu.org/licenses/>.
 #
 
@@ -43,6 +43,8 @@ All input-output pairs are saved in `fname`.
 # Keywords
   - `samples::Integer`:                       Number of input-output pairs to generate.
   - `options::DataGenOptions:                 Data generation settings.
+
+See also [`DataGenOptions`](@ref).
 """
 function generateDataBatch(fmu,
                            fname::String,
@@ -181,7 +183,7 @@ end
 
 
 """
-    generateTrainingData(fmuPath, workDir, fname, eqId, inputVars, min, max, outputVars;
+    generateTrainingData(fmuPath, workDir, fname, eqId, inputVars, inputBounds, outputVars;
                          options=DataGenOptions())
 
 Generate training data for given equation of FMU.
@@ -195,22 +197,20 @@ All input-output pairs are saved in CSV file `fname`.
   - `fname::String`:                  File name to save training data to.
   - `eqId::Int64`:                    Index of equation to generate training data for.
   - `inputVars::Array{String}`:       Array with names of input variables.
-  - `minBound::AbstractVector{T}`:    Array with minimum value for each input variable.
-  - `maxBound::AbstractVector{T}`:    Array with maximum value for each input variable.
+  - `inputBounds::MinMaxBoundaryValues{T}`:  Boundary values for input space.
   - `outputVars::Array{String}`:      Array with names of output variables.
 
 # Keywords
   - `options::DataGenOptions`:        Settings for data generation.
 
-See also [`generateFMU`](@ref).
+See also [`generateFMU`](@ref), [`DataGenOptions`](@ref)..
 """
 function generateTrainingData(fmuPath::String,
                               workDir::String,
                               fname::String,
                               eqId::Int64,
                               inputVars::Array{String},
-                              minBound::AbstractVector{T},
-                              maxBound::AbstractVector{T},
+                              inputBounds::MinMaxBoundaryValues{T},
                               outputVars::Array{String};
                               options=DataGenOptions()::DataGenOptions) where T <: Number
 
@@ -223,10 +223,10 @@ function generateTrainingData(fmuPath::String,
     @assert length(loc) == 1 "time variable occurs more than once"
     usesTime = true
     loc = first(loc)
-    timeBounds = (minBound[loc], maxBound[loc])
+    timeBounds = (inputBounds.min[loc], inputBounds.max[loc])
     deleteat!(inputVarsCopy, loc)
-    deleteat!(minBound, loc)
-    deleteat!(maxBound, loc)
+    deleteat!(inputBounds.min, loc)
+    deleteat!(inputBounds.max, loc)
   end
 
   # Generate data batch wise
@@ -251,7 +251,7 @@ function generateTrainingData(fmuPath::String,
       if i == parallelBatches
         samples = options.n - nPerBatch*(options.nBatches-1)
       end
-      generateDataBatch(fmu, tempCsvFile, eqId, timeBounds, inputVarsCopy, minBound, maxBound, outputVars, progressMeter; samples, options=options)
+      generateDataBatch(fmu, tempCsvFile, eqId, timeBounds, inputVarsCopy, inputBounds.min, inputBounds.max, outputVars, progressMeter; samples, options=options)
     end
 
     @debug "Unloading FMU"
