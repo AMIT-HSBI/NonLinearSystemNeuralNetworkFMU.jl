@@ -4,6 +4,7 @@ import Zygote
 import StatsBase
 import ChainRulesCore
 using LinearAlgebra
+using FMIImport
 
 # x = rand(4,3)
 # function f(x, transf)
@@ -92,11 +93,51 @@ dataloader = Flux.DataLoader((train_in, train_out), batchsize=8, shuffle=true)
 
 x, y = first(dataloader)
 
+model = Flux.Chain(
+  Flux.Dense(nInputs, 10, Flux.relu),
+  Flux.Dense(10, 10, Flux.relu),
+  Flux.Dense(10, nOutputs)
+)
+
+ym = model(x)
+
+
+function model_forward(x, model, fmu, eq_num, sys_num, in_transform, out_transform, inp_vr, out_vr)
+    bs = size(x)[2] # batchsize
+    residuals = Array{Vector{Float64}}(undef, bs)
+    for j in 1:bs
+        input = x[:,j]
+
+        #x_rec = StatsBase.reconstruct(in_transform, input)
+        #FMIImport.fmi2SetReal(fmu, inp_vr, Float64.(x_rec))
+
+        y_hat = model(input)
+
+        y_hat_rec = StatsBase.reconstruct(out_transform, y_hat)
+        FMIImport.fmi2SetReal(fmu, out_vr, Float64.(y_hat_rec))
+
+        _, res = NonLinearSystemNeuralNetworkFMU.fmiEvaluateRes(fmu, eq_num, Float64.(y_hat_rec))
+        residuals[j] = res
+    end
+    return 1/bs*sum(1/2*norm.(residuals).^2), residuals
+end
+
+l, _ = model_forward(x, model ,fmu, eq_num, sys_num, train_in_t, train_out_t, row_value_reference, vr)
+
+
+y_hat_rec = StatsBase.reconstruct(train_out_t, y[:,1])
+FMIImport.fmi2SetReal(fmu, vr, Float64.(y_hat_rec))
+_, res = NonLinearSystemNeuralNetworkFMU.fmiEvaluateRes(fmu, eq_num, Float64.(y_hat_rec))
+
+
+
+
 function loss(y_hat, fmu, eq_num, sys_num, transform)
     bs = size(y_hat)[2] # batchsize
     residuals = Array{Vector{Float64}}(undef, bs)
     for j in 1:bs
         yj_hat = StatsBase.reconstruct(transform, y_hat[:,j])
+        FMIImport.fmi2SetReal(fmu, vr, Float64.(yj_hat))
         _, res = NonLinearSystemNeuralNetworkFMU.fmiEvaluateRes(fmu, eq_num, Float64.(yj_hat))
         residuals[j] = res
     end
@@ -113,6 +154,7 @@ function ChainRulesCore.rrule(::typeof(loss), x, fmu, eq_num, sys_num, transform
     jacobians = Array{Matrix{Float64}}(undef, bs)
     for j in 1:bs
         xj = StatsBase.reconstruct(transform, x[:,j])
+        FMIImport.fmi2SetReal(fmu, vr, Float64.(xj))
         _, jac = NonLinearSystemNeuralNetworkFMU.fmiEvaluateJacobian(comp, sys_num, vr, Float64.(xj))
         jacobians[j] = reshape(jac, (jac_dim,jac_dim))
     end
@@ -124,8 +166,6 @@ function ChainRulesCore.rrule(::typeof(loss), x, fmu, eq_num, sys_num, transform
         x̄ = Array{Float64}(undef, res_dim, bs)
         # compute x̄
         for j in 1:bs
-            println(jacobians[j])
-            println(res[j])
             x̄[:,j] = transpose(jacobians[j]) * res[j]
         end
         x̄ = if transform.dims == 1 x̄ .* (1 ./ transform.scale)' elseif transform.dims == 2 x̄ .* (1 ./ transform.scale) end
@@ -161,12 +201,13 @@ end
 grad_findiff
 
 
+g = Zygote.gradient(y_hat -> Flux.mse(y_hat, y), model(x))[1]
 
 
 #TODO: compare unsupervised analytical training with finitediff training using different loss functions which call other rrules
 # to check if finitediff can train with bigger batchsizes
 
-
+g[1]
 
 finitediff_der = zeros(size(y));
 for i in 1:size(y)[1]
