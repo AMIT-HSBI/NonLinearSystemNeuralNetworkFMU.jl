@@ -4,3 +4,6 @@
 [submodule "examples/IEEE14_unsupervized"]
 	path = examples/IEEE14_unsupervized
 	url = git@github.com:AnHeuermann/IEEE14_unsupervized.git
+[submodule "examples/UnsupervisedTraining"]
+	path = examples/UnsupervisedTraining
+	url = git@github.com:AnHeuermann/UnsupervisedTrainingExample.git

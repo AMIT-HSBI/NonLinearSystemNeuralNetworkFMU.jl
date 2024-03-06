@@ -79,7 +79,6 @@ function fmiEvaluateRes(fmu::FMIImport.FMU2, eqNumber::Integer, x::Array{Float64
   return fmiEvaluateRes(fmu.components[1], eqNumber, x)
 end
 
-#BATCH
 function fmiEvaluateRes(comp::FMICore.FMU2Component, eq::Integer, x::Array{Float64})::Tuple{fmi2Status, Array{Float64}}
 
   @assert eq>=0 "Residual index has to be non-negative!"
@@ -105,7 +104,7 @@ end
 Evaluate Jacobian Matrix of given equation system 'eq' at a vector of iteration variables 'x'.
 
 # Arguments
-  - `fmu::FMICore.FMU2`: FMU object containing C void pointer to FMU component.
+  - `fmu::FMIImport.FMU2`: FMU object containing C void pointer to FMU component.
   - `eq::Int`: Equation index specifying equation to evaluate jacobian of.
   - `x::Array{Float64}` Values of iteration variables at which to evaluate the jacobian.
 
@@ -117,14 +116,10 @@ function fmiEvaluateJacobian(fmu::FMIImport.FMU2, eqNumber::Integer, x::Array{Fl
   return fmiEvaluateJacobian(fmu.components[1], eqNumber, x)
 end
 
-
-#BATCH
-function fmiEvaluateJacobian(comp::FMICore.FMU2Component, eq::Integer, vr::Array{FMI.fmi2ValueReference}, x::Array{Float64})::Tuple{fmi2Status, Array{Float64}}
+function fmiEvaluateJacobian(comp::FMICore.FMU2Component, eq::Integer, x::Array{Float64})::Tuple{fmi2Status, Array{Float64}}
   # wahrscheinlich braucht es eine c-Funktion, die nicht nur einen pointer auf die Jacobi-Matrix returned, sondern gleich die Auswertung an der Stelle x
   # diese Funktion muss auch ein Argument res nehmen welches dann die Evaluation enthält.?
   @assert eq>=0 "Residual index has to be non-negative!"
-
-  FMIImport.fmi2SetReal(comp, vr, x)
 
   # this is a pointer to Jacobian matrix in row-major-format or NULL in error case.
   fmiEvaluateJacobian = Libdl.dlsym(comp.fmu.libHandle, :myfmi2EvaluateJacobian)
@@ -139,4 +134,3 @@ function fmiEvaluateJacobian(comp::FMICore.FMU2Component, eq::Integer, vr::Array
                  comp.compAddr, eqCtype, x, jac)
   return status, jac
 end
-
