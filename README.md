@@ -111,7 +111,7 @@ for more information.
 
 ## LICENSE
 
-Copyright (c) 2022-2023 Andreas Heuermann, Philip Hannebohm
+Copyright (c) 2022-2024 Andreas Heuermann, Philip Hannebohm
 
 NonLinearSystemNeuralNetworkFMU.jl is licensed under the GNU Affero General Public License
 version 3 (GNU AGPL v3), see [LICENSE.md](./LICENSE.md).

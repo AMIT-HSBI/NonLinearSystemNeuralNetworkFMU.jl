@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2023 Andreas Heuermann, Philip Hannebohm
+# Copyright (c) 2022-2024 Andreas Heuermann, Philip Hannebohm
 #
 # This file is part of NonLinearSystemNeuralNetworkFMU.jl.
 #
@@ -17,13 +17,40 @@
 # along with NonLinearSystemNeuralNetworkFMU.jl. If not, see <http://www.gnu.org/licenses/>.
 #
 
+"""
+Mapping between a variable name and its value reference.
+"""
 struct Mapping
   name::String
   valueReference::String
-  #type::String
 end
 
-function ortDataCode(equations::Array{ProfilingInfo}, modelName::String, onnxNames::Array{String}, usePrevSol::Bool)
+"""
+    ortDataCode(equations, modelName, onnxNames; usePrevSol, maxRelError=1e-4)
+
+Generates C code for initializing and deinitializing global ORT (Open Neural
+Network Exchange Runtime) structs, as well as defining residual function
+prototypes.
+
+# Arguments:
+  - `equations::Array{ProfilingInfo}`:  Array of ProfilingInfo objects
+                                        representing equations.
+  - `modelName::String`:                Name of the model.
+  - `onnxNames::Array{String}`:         Array of ONNX model file names.
+
+# Keyword Arguments
+  - `usePrevSol::Bool`:     Flag indicating whether to use previous solution.
+  - `maxRelError::Float64`: Maximum relative error (default: 1e-4).
+
+# Returns:
+  - `String`: Generated C code.
+"""
+function ortDataCode(equations::Array{ProfilingInfo},
+                     modelName::String,
+                     onnxNames::Array{String};
+                     usePrevSol::Bool,
+                     maxRelError::Float64 = 1e-4)::String
+
   resPrototypes = ""
   ortstructs = ""
   initCalls = ""
@@ -44,7 +71,6 @@ function ortDataCode(equations::Array{ProfilingInfo}, modelName::String, onnxNam
       minBoundCArray *= repeat(", DBL_MIN", length(eq.iterationVariables))
       maxBoundCArray *= repeat(", DBL_MAX", length(eq.iterationVariables))
     end
-    # TODO: Get input and output names
     ortstructs *= "struct OrtWrapperData* ortData_eq_$(eq.eqInfo.id);"
     initCalls *= """
         snprintf(onnxPath, 2048, "%s/%s", data->modelData->resourcesDir, \"$(onnxName)\");
@@ -75,7 +101,7 @@ function ortDataCode(equations::Array{ProfilingInfo}, modelName::String, onnxNam
     int USE_JULIA = 1;
     int LOG_RES = 1;
     int MEASURE_TIMES = 1;
-    double MAX_REL_ERROR = 1e-4;
+    double MAX_REL_ERROR = $(maxRelError);
     int ORT_NTHREADS = 0;
 
     /* Global ORT structs */
@@ -111,6 +137,19 @@ function ortDataCode(equations::Array{ProfilingInfo}, modelName::String, onnxNam
   return code
 end
 
+"""
+    getValueReferences(modelDescriptionXML)
+
+Parses an XML model description file and returns a dictionary mapping variable
+names to their value references.
+
+# Arguments:
+- `modelDescriptionXML::String`: Path to the model description XML file.
+
+# Returns:
+- `Dict{String, Mapping}`: Dictionary mapping variable names to their value
+                           references.
+"""
 function getValueReferences(modelDescriptionXML::String)::Dict{String, Mapping}
   xml = open(modelDescriptionXML) do file
     XMLDict.parse_xml(read(file, String))
@@ -127,7 +166,22 @@ function getValueReferences(modelDescriptionXML::String)::Dict{String, Mapping}
   return dict
 end
 
-function getVarCString(varName::String, variables::Dict{String, Mapping})
+"""
+    getVarCString(varName, variables)
+
+Generates a C string representation for accessing a variable in the simulation
+data structure.
+
+# Arguments:
+- `varName::String`:                  Name of the variable.
+- `variables::Dict{String, Mapping}`: Dictionary mapping variable names to their
+                                      value references.
+
+# Returns:
+- `String`: C string representation for accessing the variable in the simulation
+  data structure.
+"""
+function getVarCString(varName::String, variables::Dict{String, Mapping})::String
   if varName == "time"
     str = "data->localData[0]->timeValue /* time */"
   else
@@ -137,7 +191,30 @@ function getVarCString(varName::String, variables::Dict{String, Mapping})
   return str
 end
 
-function generateNNCall(modelname::String, modelDescriptionXmlFile::String, equationToReplace::ProfilingInfo, sysNumber::Int64, usePrevSol::Bool)
+"""
+    generateNNCall(modelname, modelDescriptionXmlFile, equationToReplace, sysNumber, usePrevSol)
+
+Generates C code for calling a neural network model and handling its inputs and
+outputs within a simulation environment.
+
+# Arguments:
+  - `modelname::String`:                Name of the model.
+  - `modelDescriptionXmlFile::String`:  Path to the model description XML file.
+  - `equationToReplace::ProfilingInfo`: Information about the equation to
+                                        replace.
+  - `sysNumber::Int64`:                 System number.
+  - `usePrevSol::Bool`:                 Flag indicating whether to use previous
+                                        solutions.
+
+# Returns:
+  - `String`: Generated C code.
+"""
+function generateNNCall(modelname::String,
+                        modelDescriptionXmlFile::String,
+                        equationToReplace::ProfilingInfo,
+                        sysNumber::Int64,
+                        usePrevSol::Bool)::String
+
   variablesDict = getValueReferences(modelDescriptionXmlFile)
 
   inputs = equationToReplace.usingVars
@@ -215,14 +292,33 @@ function generateNNCall(modelname::String, modelDescriptionXmlFile::String, equa
 end
 
 """
-Modify C code in fmuTmpDir/sources/modelname.c to use ONNX instead of algebraic loops.
+    modifyCCode(modelName, fmuTmpDir, modelDescriptionXmlFile, equations, onnxFiles; usePrevSol, maxRelError)
+
+Modifies C code for integrating neural network models into a simulation
+environment by adding initialization and deinitialization of ORT data, replacing
+nonlinear system solving calls with neural network evaluations, and adding time
+measurements.
+
+# Arguments:
+  - `modelName::String`:                Name of the model.
+  - `fmuTmpDir::String`:                Temporary directory for storing modified
+                                        C code.
+  - `modelDescriptionXmlFile::String`:  Path to the model description XML file.
+  - `equations::Array{ProfilingInfo}`:  Array of ProfilingInfo objects
+                                        representing equations.
+  - `onnxFiles::Array{String}`:         Array of ONNX model file names.
+
+# Keyword Arguments:
+  - `usePrevSol::Bool`: Flag indicating whether to use previous solutions.
+  - `maxRelError::Float64`: Maximum relative error.
 """
 function modifyCCode(modelName::String,
                      fmuTmpDir::String,
                      modelDescriptionXmlFile::String,
                      equations::Array{ProfilingInfo},
-                     onnxFiles::Array{String},
-                     usePrevSol::Bool)
+                     onnxFiles::Array{String};
+                     usePrevSol::Bool,
+                     maxRelError::Float64)
 
   cfile = joinpath(fmuTmpDir, "sources", "$(replace(modelName, "."=>"_")).c")
   str = open(cfile, "r") do file
@@ -233,7 +329,7 @@ function modifyCCode(modelName::String,
 
   # Add init/ deinint ortData
   id1 = first(findStrWError("/* dummy VARINFO and FILEINFO */", str)) - 2
-  initCode = ortDataCode(equations, modelName, onnxFiles, usePrevSol)
+  initCode = ortDataCode(equations, modelName, onnxFiles; usePrevSol=usePrevSol, maxRelError=maxRelError)
   str = str[1:id1] * initCode * str[id1+1:end]
 
   id1 = last(findStrWError("$(modelNameC)_setupDataStruc(DATA *data, threadData_t *threadData)", str))
@@ -311,6 +407,15 @@ function modifyCCode(modelName::String,
   write(cfile_fmu2_modelinterface, str)
 end
 
+"""
+    modifyCMakeLists(path_to_cmakelists)
+
+Modifies the CMakeLists.txt file to add subdirectory for onnxWrapper and link
+the onnxWrapper library.
+
+# Arguments:
+  - `path_to_cmakelists::String`: Path to the CMakeLists.txt file.
+"""
 function modifyCMakeLists(path_to_cmakelists::String)
   newStr = ""
   open(path_to_cmakelists, "r") do file
@@ -360,6 +465,15 @@ function getFmuBinDir()
   end
 end
 
+"""
+    copyOnnxWrapperLib(fmuRootDir)
+
+Copies the necessary files for onnxWrapper library to the specified FMU root
+directory.
+
+# Arguments:
+  - `fmuRootDir::String`: Path to the FMU root directory.
+"""
 function copyOnnxWrapperLib(fmuRootDir::String)
   # Copy onnxWrapper sources
   onnxWrapperDir = joinpath(fmuRootDir, "sources", "onnxWrapper")
@@ -379,7 +493,16 @@ function copyOnnxWrapperLib(fmuRootDir::String)
   end
 end
 
+"""
+    copyOnnxFiles(fmuRootDir, onnxFiles)
 
+Copies ONNX model files to the resources directory in the specified FMU root
+directory.
+
+# Arguments:
+  - `fmuRootDir::String`:       Path to the FMU root directory.
+  - `onnxFiles::Array{String}`: Array of ONNX model file paths.
+"""
 function copyOnnxFiles(fmuRootDir::String, onnxFiles::Array{String})
   resourcesDir = joinpath(fmuRootDir, "resources")
   @assert isdir(resourcesDir)
@@ -387,7 +510,6 @@ function copyOnnxFiles(fmuRootDir::String, onnxFiles::Array{String})
     cp(file, joinpath(resourcesDir, basename(file)))
   end
 end
-
 
 """
     buildWithOnnx(fmu, modelName, equations, onnxFiles; usePrevSol=false, tempDir=modelName*"_onnx")
@@ -400,9 +522,10 @@ Include ONNX into FMU and recompile to generate FMU with ONNX surrogates.
   - `equations::Array{ProfilingInfo}`:    Profiling info for all equations to replace.
   - `onnxFiles::Array{String}`:           Array of paths to ONNX surrogates.
 
-# Keywords
+# Keyword Arguments
   - `usePrevSol::Bool`:                   ONNX uses previous solution as additional input.
-  - `tempDir::String`:                    Working directory
+  - `maxRelError::Float64`:               Maximum allowed relative error of ANN (default: 1e-4).
+  - `tempDir::String`:                    Working directory.
 
 # Returns
   - Path to ONNX FMU.
@@ -411,8 +534,10 @@ function buildWithOnnx(fmu::String,
                        modelName::String,
                        equations::Array{ProfilingInfo},
                        onnxFiles::Array{String};
-                       usePrevSol::Bool=false,
-                       tempDir::String=modelName*"_onnx")
+                       usePrevSol::Bool = false,
+                       maxRelError::Float64 = 1e-4,
+                       tempDir::String = modelName*"_onnx")
+
   # Unzip FMU into tmp dir
   fmuTmpDir = abspath(joinpath(tempDir,"FMU"))
   rm(fmuTmpDir, force=true, recursive=true)
@@ -424,7 +549,7 @@ function buildWithOnnx(fmu::String,
   copyOnnxWrapperLib(fmuTmpDir)
   modifyCMakeLists(path_to_cmakelists)
   copyOnnxFiles(fmuTmpDir, onnxFiles)
-  modifyCCode(modelName, fmuTmpDir, modelDescriptionXmlFile, equations, onnxFiles, usePrevSol)
+  modifyCCode(modelName, fmuTmpDir, modelDescriptionXmlFile, equations, onnxFiles; usePrevSol=usePrevSol, maxRelError=maxRelError)
   compileFMU(fmuTmpDir, modelName*".onnx", tempDir)
 
   return joinpath(tempDir, "$(modelName).onnx.fmu")
