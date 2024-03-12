@@ -149,37 +149,27 @@ fmi2Status myfmi2EvaluateRes(fmi2Component c, const size_t eqNumber, double* x, 
 }
 
 /**
- * @brief Get Jacobian of non-linear equation system.
+ * @brief Get pointer to Jacobian of non-linear equation system.
  *
  * @param c             Pointer to FMU component.
  * @param sysNumber     Number of non-linear system.
- * @return jac          Return pointer to Jacobian matrix in row-major-format or NULL in error case.
+ * @return jac          Return pointer to Jacobian matrix in row-major-format or
+ *                      NULL in error case.
  */
 double* getJac(DATA* data, const size_t sysNumber) {
-  // maybe pass double* x, double* res additionally
   double* jac;
   NONLINEAR_SYSTEM_DATA* nlsSystem = &(data->simulationInfo->nonlinearSystemData[sysNumber]);
 
   switch (nlsSystem->nlsMethod)
   {
-  //case NLS_HYBRID:
-  //  DATA_HYBRD* solverData = (DATA_HYBRD*) nlsSystem->solverData;
-  //  jac = solverData->fjac;
-  //  break;
-  //case NLS_NEWTON:
-  //  DATA_NEWTON* solverData = (DATA_NEWTON*) nlsSystem->solverData;
-  //  jac = solverData->fjac;
-  //  break;
   case NLS_HOMOTOPY:
-    // here evaluate jac at x and set it equal to res and return res
+    // Get pointer from DATA_HOMOTOPY struct
     return getHomotopyJacobian(nlsSystem);
   default:
     printf("Unknown NLS method  %d in myfmi2GetJac\n", (int)nlsSystem->nlsMethod);
     return NULL;
   }
 }
-
-
 
 /**
  * @brief Scale residual vector.
@@ -209,7 +199,20 @@ int scaleResidual(double* jac, double* res, size_t n) {
   return isRegular;
 }
 
-
+/**
+ * @brief Evaluate Jacobian for a given nonlinear system.
+ *
+ * This function evaluates the Jacobian matrix for a given nonlinear system.
+ * The Jacobian matrix is computed based on the method specified in the system's
+ * configuration. Currently, only the homotopy method is supported.
+ *
+ * @param c             Pointer to FMU component.
+ * @param sysNumber     Number of non-linear system.
+ * @param x             Iteration variables of non-linear system.
+ * @param jac           Pointer to allocated memory of size length(x)^2.
+ *                      On exit values of Jacobian matrix in row-major-format
+ * @return fmi2Status
+ */
 fmi2Status myfmi2EvaluateJacobian(fmi2Component c, const size_t sysNumber, double* x, double* jac)
 {
   ModelInstance *comp = (ModelInstance *)c;
@@ -224,9 +227,8 @@ fmi2Status myfmi2EvaluateJacobian(fmi2Component c, const size_t sysNumber, doubl
       int status = getAnalyticalJacobianHomotopy(solverData, jac);
       break;
     default:
-      printf("fehler");
-      abort();
-      break;
+      printf("Unknown NLS method  %d in myfmi2GetJac\n", (int)nlsSystem->nlsMethod);
+      return fmi2Fatal;
   }
   return fmi2OK;
 }
