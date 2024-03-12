@@ -28,6 +28,7 @@ extern "C" {
 
 FMI2_Export fmi2Status myfmi2EvaluateEq(fmi2Component c, const size_t eqNumber);
 fmi2Status myfmi2EvaluateRes(fmi2Component c, const size_t eqNumber, double* x, double* res);
+fmi2Status myfmi2EvaluateJacobian(fmi2Component c, const size_t eqNumber, double* x, double* res);
 double* getJac(DATA* data, const size_t sysNumber);
 int scaleResidual(double* jac, double* res, size_t n);
 
