@@ -72,7 +72,7 @@ for given equation number.
   - `x::Array{Float64}` Values of iteration variables at which to evaluate the residuals.
 
 # Returns
-  - Status of Libdl.ccall for `:myfmi2EvaluateEq`.
+  - Status of Libdl.ccall for `:myfmi2EvaluateRes`.
   - Array of residual values.
 """
 function fmiEvaluateRes(fmu::FMIImport.FMU2, eqNumber::Integer, x::Array{Float64})::Tuple{fmi2Status, Array{Float64}}
@@ -95,4 +95,42 @@ function fmiEvaluateRes(comp::FMICore.FMU2Component, eq::Integer, x::Array{Float
                  comp.compAddr, eqCtype, x, res)
 
   return status, res
+end
+
+
+"""
+    fmiEvaluateJacobian(fmu, eqNumber, x)
+
+Evaluate Jacobian Matrix of given equation system 'eq' at a vector of iteration
+variables 'x'.
+
+# Arguments
+  - `fmu::FMIImport.FMU2`: FMU object containing C void pointer to FMU component.
+  - `eqNumber::Int`: Equation index specifying equation to evaluate jacobian of.
+  - `x::Array{Float64}` Values of iteration variables at which to evaluate the
+    jacobian.
+
+# Returns
+  - Status of Libdl.ccall for `:myfmi2EvaluateJacobian`.
+  - jacobian of eq at x.
+"""
+function fmiEvaluateJacobian(fmu::FMIImport.FMU2, eqNumber::Integer, x::Array{Float64})::Tuple{fmi2Status, Array{Float64}}
+  return fmiEvaluateJacobian(fmu.components[1], eqNumber, x)
+end
+
+function fmiEvaluateJacobian(comp::FMICore.FMU2Component, eqNumber::Integer, x::Array{Float64})::Tuple{fmi2Status, Array{Float64}}
+  @assert eqNumber>=0 "Residual index has to be non-negative!"
+
+  # this is a pointer to Jacobian matrix in row-major-format or NULL in error case.
+  fmiEvaluateJacobian = Libdl.dlsym(comp.fmu.libHandle, :myfmi2EvaluateJacobian)
+
+  jac = Array{Float64}(undef, length(x)*length(x))
+
+  eqCtype = Csize_t(eqNumber)
+
+  status = ccall(fmiEvaluateJacobian,
+                 Cuint,
+                 (Ptr{Nothing}, Csize_t, Ptr{Cdouble}, Ptr{Cdouble}),
+                 comp.compAddr, eqCtype, x, jac)
+  return status, jac
 end
