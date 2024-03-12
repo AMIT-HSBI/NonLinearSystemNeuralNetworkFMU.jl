@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2023 Andreas Heuermann, Philip Hannebohm
+# Copyright (c) 2022-2024 Andreas Heuermann, Philip Hannebohm
 #
 # This file is part of NonLinearSystemNeuralNetworkFMU.jl.
 #
