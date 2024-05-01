@@ -55,7 +55,7 @@ jobs:
         shell: bash
 
       # Build and test NonLinearSystemNeuralNetworkFMU.jl
-      - uses: julia-actions/setup-julia@v1
+      - uses: julia-actions/setup-julia@v2
         with:
           version: ${{ matrix.julia-version }}
           arch: ${{ matrix.julia-arch }}
