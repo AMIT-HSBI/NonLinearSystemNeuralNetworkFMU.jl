@@ -58,7 +58,7 @@ jobs:
           arch: ${{ matrix.julia-arch }}
 
       - name: Cache Julia
-        uses: julia-actions/cache@v1
+        uses: julia-actions/cache@v2
 
       - name: Install dependencies
         run: julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.develop(PackageSpec(path=joinpath(pwd(), "examples", "NaiveONNX.jl"))); Pkg.instantiate()'
