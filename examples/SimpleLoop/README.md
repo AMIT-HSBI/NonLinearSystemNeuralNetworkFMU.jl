@@ -15,15 +15,24 @@ at
 
 ## Dependencies
 
+> [!WARNING]
+> Only tested on Ubuntu. It is very unlikely that these scripts will work on
+> Windows and impossible on MacOS.
+
+> [!NOTE]
+> The dependencies are a nightmare. While this could work with later versions of
+> dependent packages most likely it's easier to install the exact versions
+> specified in [Manifest.toml](./Manifest.toml).
+
 To (locally) reproduce this project, do the following:
 
   1. Make sure you have local Julia package
-    [NaiveONNX](https://github.com/AnHeuermann/NaiveONNX.jl) in [../NaiveONNX.jl](../NaiveONNX.jl).
-    If not update your git submodule with
+     [NaiveONNX](https://github.com/AnHeuermann/NaiveONNX.jl) in [../NaiveONNX.jl](../NaiveONNX.jl).
+     If not update your git submodule with
 
-    ```bash
-    $ git submodule update --force --init --recursive
-    ```
+     ```bash
+     $ git submodule update --force --init --recursive
+     ```
 
   2. Open a Julia console and run:
 

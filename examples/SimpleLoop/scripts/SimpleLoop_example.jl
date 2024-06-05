@@ -23,24 +23,30 @@ Run example for given number of data points N.
   2. Train ANN on filtered data set.
   3. Include ONNX into FMU
 """
-function runExamples(N)
-  workingDir = datadir("sims", modelName*"_$N")
+function runExamples(n)
+  workingDir = datadir("sims", modelName*"_$n")
   rm(workingDir, force=true, recursive=true)
-  options = NonLinearSystemNeuralNetworkFMU.OMOptions(workingDir=workingDir)
+  omOptions = NonLinearSystemNeuralNetworkFMU.OMOptions(workingDir=workingDir)
+  dataGenOptions = NonLinearSystemNeuralNetworkFMU.DataGenOptions(method=RandomMethod(), n=n)
 
-  (csvFiles, fmu, profilingInfo) = NonLinearSystemNeuralNetworkFMU.main(modelName, moFiles; options=options, reuseArtifacts=false, N=N)
+  (csvFiles, fmu, profilingInfo) = NonLinearSystemNeuralNetworkFMU.main(
+    modelName,
+    moFiles;
+    omOptions=omOptions,
+    dataGenOptions=dataGenOptions,
+    reuseArtifacts=false)
   mkpath(datadir("sims", "fmus"))
   cp(fmu, datadir("sims", "fmus", modelName*".fmu"), force=true)
   df =  CSV.read(csvFiles[1], DataFrame; ntasks=1)
 
   # Save (filtered) data
   name = basename(csvFiles[1])
-  csvFile = datadir("exp_raw", split(name, ".")[1] * "_N$N." * split(name, ".")[2])
+  csvFile = datadir("exp_raw", split(name, ".")[1] * "_N$n." * split(name, ".")[2])
   mkpath(dirname(csvFile))
   CSV.write(csvFile, df)
 
   df_filtered = filter(row -> !isRight(row.s, row.r, row.y; b=b), df)
-  csvFileFiltered = datadir("exp_pro", split(name, ".")[1] * "_N$N." * split(name, ".")[2])
+  csvFileFiltered = datadir("exp_pro", split(name, ".")[1] * "_N$n." * split(name, ".")[2])
   mkpath(dirname(csvFileFiltered))
   CSV.write(csvFileFiltered, df_filtered)
 
@@ -62,7 +68,7 @@ function runExamples(N)
                            onnxFiles;
                            tempDir=tempDir)
 
-  cp(fmu_onnx, datadir("sims", "fmus", modelName*".onnx_N$N.fmu"), force=true)
+  cp(fmu_onnx, datadir("sims", "fmus", modelName*".onnx_N$n.fmu"), force=true)
 end
 
 # Run examples
