@@ -7,9 +7,14 @@ on:
     tags: '*'
   pull_request:
 
+env:
+  BUILD_TYPE: RelWithDebInfo
+
 jobs:
   test:
     runs-on: ${{ matrix.os }}
+    env:
+      ORT_DIR: '${{ github.workspace }}/${{ matrix.ort_dir }}'
     strategy:
       matrix:
         julia-version: ['1.10']
