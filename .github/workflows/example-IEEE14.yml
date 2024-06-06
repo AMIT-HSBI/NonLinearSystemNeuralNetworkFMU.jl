@@ -42,7 +42,7 @@ jobs:
 
       - name: Install Python packages
         run: |
-          pip install examples/IEEE14/requirements.txt
+          pip install -r examples/IEEE14/requirements.txt
 
       - name: Cache pip dependencies
         uses: actions/cache@v4
