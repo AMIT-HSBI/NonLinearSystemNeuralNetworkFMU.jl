@@ -16,10 +16,10 @@ moFiles = [(srcdir("simpleLoop.mo"))]
 b = -0.5
 
 """
-    runExample(N)
+    runExample(n)
 
-Run example for given number of data points N.
-  1. Generate N data points
+Run example for given number of data points n.
+  1. Generate n data points
   2. Train ANN on filtered data set.
   3. Include ONNX into FMU
 """

@@ -1,4 +1,4 @@
-name: Example Simple Loop
+name: Example Simple Loop Proximity
 
 on:
   push:
@@ -67,11 +67,11 @@ jobs:
         uses: julia-actions/cache@v2
 
       - name: Install dependencies
-        run: julia --project=examples/SimpleLoop -e 'using Pkg; Pkg.instantiate()'
+        run: julia --project=examples/SimpleLoop_proximity -e 'using Pkg; Pkg.instantiate()'
 
       - name: Build and deploy
         run: |
-          cd examples/SimpleLoop
+          cd examples/SimpleLoop_proximity
           julia --project=. scripts/runall.jl
 
       - name: Archive plots
