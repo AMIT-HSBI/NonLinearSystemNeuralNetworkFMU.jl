@@ -73,18 +73,20 @@ The resulting training data can be found in
 
 ### Train with Flux
 
-Run script [scripts/trainFlux.jl](scripts/trainFlux.jl) to train an ANN with Flux.jl.
+Run script [scripts/trainFlux.jl](scripts/trainFlux.jl) to train an ANN with
+Flux.jl.
 
 ```julia
 julia> include("scripts/trainFlux.jl")
 ```
 ### Train with Tensorflow
 
-Run script [scripts/trainTensorflow.jl](scripts/trainTensorflow.jl) to train an ANN with
-Tensorflow by calling a Python script.
+Run script [scripts/trainTensorflow.jl](scripts/trainTensorflow.jl) to train an
+ANN with Tensorflow by calling a Python script.
 
-You'll need to update `XLA_FLAGS` in [scripts/trainTensorflow.jl](scripts/trainTensorflow.jl)
-to point to your CUDA directory, e.g. `/usr/local/cuda-12.1`.
+You'll need to update `XLA_FLAGS` in
+[scripts/trainTensorflow.jl](scripts/trainTensorflow.jl) to point to your CUDA
+directory, e.g. `/usr/local/cuda-12.1`.
 
 ```julia
 julia> include("scripts/trainTensorflow.jl")

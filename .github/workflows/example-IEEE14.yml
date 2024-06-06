@@ -1,5 +1,4 @@
-name: Example Simple Loop
-
+name: Example IEEE14
 on:
   push:
     branches:
@@ -32,6 +31,25 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Setup Python 3
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Update pip
+        run: |
+          python -m pip install --upgrade pip
+
+      - name: Install Python packages
+        run: |
+          pip install examples/IEEE14/requirements.txt
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ matrix.os }}-pip
+
       - name: Setup CMake v3.21
         uses: jwlawson/actions-setup-cmake@v2
         with:
@@ -50,12 +68,11 @@ jobs:
           version: 'nightly'
           packages: |
             'omc'
-            'omsimulator'
+          libraries: |
+            'OpenIPSL 3.0.1'
       - run: |
           which omc
           omc --version
-          which OMSimulator
-          OMSimulator --version
 
       - name: Setup Julia
         uses: julia-actions/setup-julia@v2
@@ -67,15 +84,10 @@ jobs:
         uses: julia-actions/cache@v2
 
       - name: Install dependencies
-        run: julia --project=examples/SimpleLoop -e 'using Pkg; Pkg.instantiate()'
+        run: julia --project=examples/IEEE14 -e 'using Pkg; Pkg.instantiate()'
 
       - name: Run example
         run: |
-          cd examples/SimpleLoop
-          julia --project=. scripts/runall.jl
+          cd examples/IEEE14
+          julia --project=. -e 'include("scripts/genAllData.jl"); include("scripts/trainFlux.jl"); include("scripts/trainTensorflow.jl");'
 
-      - name: Archive plots
-        uses: actions/upload-artifact@v4
-        with:
-          name: plots
-          path: ./examples/SimpleLoop/plots

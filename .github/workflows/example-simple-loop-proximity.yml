@@ -69,13 +69,13 @@ jobs:
       - name: Install dependencies
         run: julia --project=examples/SimpleLoop_proximity -e 'using Pkg; Pkg.instantiate()'
 
-      - name: Build and deploy
+      - name: Run example
         run: |
           cd examples/SimpleLoop_proximity
-          julia --project=. scripts/runall.jl
+          julia --project=. scripts/runAll.jl
 
       - name: Archive plots
         uses: actions/upload-artifact@v4
         with:
           name: plots
-          path: ./examples/SimpleLoop/plots
+          path: ./examples/SimpleLoop_proximity/plots

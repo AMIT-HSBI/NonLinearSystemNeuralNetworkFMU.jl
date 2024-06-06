@@ -1,4 +1,5 @@
 name = "SimpleLoop_proximity"
+authors = ["Andreas Heuermann"]
 
 [deps]
 BSON = "fbb218c0-5317-5bc6-957e-2ee96dd4b1f0"
@@ -15,6 +16,7 @@ cuDNN = "02a925ec-e4fe-4b08-9a7e-0d78e3d38ccd"
 
 [compat]
 DrWatson = "2.15"
+FMI = "0.13"
 NaiveONNX = "0.2.1"
 NonLinearSystemNeuralNetworkFMU = "0.5.6"
 julia = "1.10"

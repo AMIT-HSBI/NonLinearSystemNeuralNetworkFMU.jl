@@ -7,8 +7,6 @@ import pandas as pd
 import numpy as  np
 
 import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import layers
 
 def scale(x, min, max, a, b):
   """
@@ -70,17 +68,17 @@ def train(eqName, workdir, nInputs, nOutputs, csvFile):
   test_dataset = test_dataset.shuffle(buffer_size=1024).batch(64)
 
   # Setup model
-  normalize = layers.Normalization()
+  normalize = tf.keras.layers.Normalization()
   normalize.adapt(x_train)
 
   model = tf.keras.Sequential([
     normalize,
-    layers.Dropout(0.02, input_shape=(nInputs,)),
-    layers.Dense(nInputs),
-    layers.Dense(100, activation="tanh"),
-    layers.Dense(nOutputs*10, activation="sigmoid"),
-    layers.Dense(nOutputs*4,   activation="tanh"),
-    layers.Dense(nOutputs)
+    tf.keras.layers.Dropout(0.02, input_shape=(nInputs,)),
+    tf.keras.layers.Dense(nInputs),
+    tf.keras.layers.Dense(100, activation="tanh"),
+    tf.keras.layers.Dense(nOutputs*10, activation="sigmoid"),
+    tf.keras.layers.Dense(nOutputs*4,   activation="tanh"),
+    tf.keras.layers.Dense(nOutputs)
   ])
 
   model.compile(loss = tf.keras.losses.MeanSquaredError(),
@@ -88,18 +86,18 @@ def train(eqName, workdir, nInputs, nOutputs, csvFile):
 
   # Train model
   callbacks = [
-    keras.callbacks.ModelCheckpoint(
+    tf.keras.callbacks.ModelCheckpoint(
       # Path where to save the model
       # The two parameters below mean that we will overwrite
       # the current checkpoint if and only if
       # the `val_loss` score has improved.
       # The saved model name will include the current epoch.
-      filepath=os.path.join(workdir, tf_model_name+"_{epoch}"),
+      filepath=os.path.join(workdir, tf_model_name+"_{epoch}.keras"),
       save_best_only=True,  # Only save a model if `val_loss` has improved.
       monitor="val_loss",
-      verbose=1,
+      verbose=False,
     ),
-    keras.callbacks.TensorBoard(
+    tf.keras.callbacks.TensorBoard(
       log_dir=os.path.join(workdir, "logs"),
       histogram_freq=0,  # How often to log histogram visualizations
       embeddings_freq=0,  # How often to log embedding visualizations
@@ -114,13 +112,13 @@ def train(eqName, workdir, nInputs, nOutputs, csvFile):
     validation_data=test_dataset
     )
 
-  model.save(os.path.join(workdir, eqName+"_final"))
+  model.save(os.path.join(workdir, eqName+"_final.keras"))
 
-def test_result(trainedModelPath):
+def test_result(trainedModelPath, x_test, y_test):
   """
   Compute model(x)-y of trained model.
   """
-  model = keras.models.load_model(trainedModelPath)
+  model = tf.keras.models.load_model(trainedModelPath)
 
   # Evaluate the model on the test data using `evaluate`
   print("Evaluate on test data")
