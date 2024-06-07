@@ -4,12 +4,12 @@
 using DrWatson
 @quickactivate "ScalableTranslationStatistics"
 
-sizes = [40]
+sizes = [5,10]
 
 begin
   include("genAllSurrogates.jl")
   #ENV["JULIA_DEBUG"] = NonLinearSystemNeuralNetworkFMU
-  genAllSurrogates(sizes, modelicaLib; n=5000, genData=true)
+  genAllSurrogates(sizes, modelicaLib; n=100, genData=true)
   logFile = plotsdir("LoopInfo.log")
   logProfilingInfo(sizes, logFile)
 end
@@ -20,7 +20,7 @@ begin
 end
 
 # Generate plots
-sizes = [5,10,20,40]
+sizes = [5,10]
 begin
   include("genAllPlots.jl")
   include("plotTrainData.jl")
@@ -33,4 +33,3 @@ begin
   include("plotSimTimeOverview.jl")
   plotSimTimes(sizes, csvFile; filetype="png")
 end
-
