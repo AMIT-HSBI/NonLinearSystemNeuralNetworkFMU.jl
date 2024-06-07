@@ -37,7 +37,7 @@ jobs:
         with:
           repository: 'ltx-simulation/ScalableTranslationStatistics'
           ref: '8a96bcb036fb9a6e56a3d1e369af8f36fcbc3c1e'
-          path: 'libs'
+          path: 'libs/ScalableTranslationStatistics'
 
       - name: Setup CMake v3.21
         uses: jwlawson/actions-setup-cmake@v2
