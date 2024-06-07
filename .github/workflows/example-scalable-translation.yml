@@ -15,7 +15,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       ORT_DIR: '${{ github.workspace }}/${{ matrix.ort_dir }}'
-      SCALABLETRANSLATIONSTATISTICS_ROOT: 'libs/ScalableTranslationStatistics'
+      SCALABLETRANSLATIONSTATISTICS_ROOT: '${{ github.workspace }}/libs/ScalableTranslationStatistics'
     strategy:
       matrix:
         julia-version: ['1.10']
