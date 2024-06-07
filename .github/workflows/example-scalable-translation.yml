@@ -58,6 +58,8 @@ jobs:
           packages: |
             'omc'
             'omsimulator'
+          libraries: |
+            'Modelica 4.0.0'
       - run: |
           which omc
           omc --version
