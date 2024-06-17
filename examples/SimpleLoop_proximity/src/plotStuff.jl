@@ -89,7 +89,7 @@ function SurrogateRefRes(modelName, N; fileType="svg", proximity=1)
 
   BSON.@load joinpath(workdir, "onnx", "eq_$(prof.eqInfo.id).onnx.bson") model
 
-  onnx_results = deepcopy(ref_results[!, vcat(prof.usingVars, prof.iterationVariables)])
+  onnx_results = deepcopy(ref_results[!, vcat("time", prof.usingVars, prof.iterationVariables)])
   onnx_results[proximity+1:end, prof.iterationVariables] .= NaN
 
   for (i, _) in enumerate(eachrow(onnx_results))
@@ -113,16 +113,4 @@ function SurrogateRefRes(modelName, N; fileType="svg", proximity=1)
   figure = plotTrainArea(prof.iterationVariables, ref_results; df_surrogate=onnx_results, title="ANN with inputs from ref sol, p=$(proximity)", epsilon=0.1, tspan=(t0, 0.98))
   savename = joinpath(plotdir, "surrWithRefInputs_out_prox_$(proximity).$(fileType)")
   save(savename, figure)
-
-  figure = plotTrainArea(prof.iterationVariables[2:5], ref_results; df_surrogate=onnx_results, title="ANN with inputs from reference solution, p=$(proximity)", epsilon=0.1, tspan=(t0, 0.98))
-  savename = joinpath(plotdir, "surrWithRefInputs_4_prox_$(proximity).$(fileType)")
-  save(savename, figure)
-
-  figure = plotTrainArea(prof.iterationVariables[2:5], ref_results; df_surrogate=onnx_results, title="ANN with inputs from reference solution, p=$(proximity)", epsilon=0.1, tspan=(0.8, 1.2))
-  savename = joinpath(plotdir, "surrWithRefInputs_event_prox_$(proximity).$(fileType)")
-  save(savename, figure)
-
-  #figure = plotTrainArea(prof.usingVars, ref_results; df_surrogate=onnx_results, title="ANN with inputs from reference solution, p=$(proximity)", epsilon=0.1, tspan=(t0, 0.98))
-  #savename = joinpath(plotdir, "surrWithRefInputs_in_prox_$(proximity).$(fileType)")
-  #save(savename, figure)
 end

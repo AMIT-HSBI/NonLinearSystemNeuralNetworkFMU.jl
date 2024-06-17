@@ -2,19 +2,21 @@
 
 This example for
 [NonLinearSystemNeuralNetworkFMU.jl](https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl)
-is using [DrWatson](https://juliadynamics.github.io/DrWatson.jl/stable/) to make a
-reproducible example named **ScalableTranslatonStatistics**.
+is using [DrWatson](https://juliadynamics.github.io/DrWatson.jl/stable/) to make
+a reproducible example named **ScalableTranslatonStatistics**.
 
 Authors: Andreas Heuermann.
 
-These scripts can be used to generate benchmarks for simulation times of the ONNX
-surrogate FMUs.
+These scripts can be used to generate benchmarks for simulation times of the
+ONNX surrogate FMUs.
 
 ## Dependencies
 
-  1. Get access to Modelica library ScalableTranslationStatistics.
-     Ask AnHeuermann if you don't have access to the GitLab with the library.
-     This example uses commit 166959e3b706230782cad741b02ee1adf3f2af3c.
+  1. Download
+     [ScalableTranslationStatistics](https://github.com/ltx-simulation/ScalableTranslationStatistics)
+     and create environment variable `SCALABLETRANSLATIONSTATISTICS_ROOT` that
+     points to it root directory.
+     This example uses commit 8a96bcb036fb9a6e56a3d1e369af8f36fcbc3c1e.
 
   2. Make sure you have local Julia package
      [NaiveONNX](https://github.com/AnHeuermann/NaiveONNX.jl) in [../NaiveONNX.jl](../NaiveONNX.jl).
@@ -47,8 +49,9 @@ surrogate FMUs.
   5. OpenModelica: Tested omc version v1.21.0-dev-288-g01b6764df5-cmake
      with OMSimulator version OMSimulator v2.1.1.post194-g75de4c6-linux-debug.
 
-This will install all necessary packages for you to be able to run the scripts and
-everything should work out of the box, including correctly finding local paths.
+This will install all necessary packages for you to be able to run the scripts
+and everything should work out of the box, including correctly finding local
+paths.
 
 You may notice that most scripts start with the commands:
 ```julia

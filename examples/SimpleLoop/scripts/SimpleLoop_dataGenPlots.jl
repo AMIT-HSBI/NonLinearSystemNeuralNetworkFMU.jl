@@ -9,7 +9,7 @@ include(srcdir("plotData.jl"))
 include(srcdir("isRight.jl"))
 
 # Model and plot parameters
-N = 100
+n = 100
 b = -0.5
 
 FH_Colors = ["#009BBB",
@@ -21,11 +21,17 @@ FH_Colors = ["#009BBB",
 # Genrate data for SimpleLoop
 modelName = "simpleLoop"
 moFiles = [abspath(srcdir(),"simpleLoop.mo")]
-workingDir = datadir("sims", modelName*"_$N")
-options = NonLinearSystemNeuralNetworkFMU.OMOptions(workingDir=workingDir)
+workingDir = datadir("sims", modelName*"_$n")
+omOptions = NonLinearSystemNeuralNetworkFMU.OMOptions(workingDir=workingDir)
+dataGenOptions = NonLinearSystemNeuralNetworkFMU.DataGenOptions(method=RandomMethod(), n=n)
 
 # Generate data
-(csvFiles, fmu, profilingInfo) = NonLinearSystemNeuralNetworkFMU.main(modelName, moFiles; options=options, reuseArtifacts=false, N=N)
+(csvFiles, fmu, profilingInfo) = NonLinearSystemNeuralNetworkFMU.main(
+  modelName,
+  moFiles;
+  omOptions=omOptions,
+  dataGenOptions=dataGenOptions,
+  reuseArtifacts=false)
 
 # Plot data and save svg
 df =  CSV.read(csvFiles[1], DataFrame; ntasks=1)

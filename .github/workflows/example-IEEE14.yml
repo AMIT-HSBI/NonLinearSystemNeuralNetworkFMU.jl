@@ -1,0 +1,93 @@
+name: Example IEEE14
+on:
+  push:
+    branches:
+      - main
+    tags: '*'
+  pull_request:
+
+env:
+  BUILD_TYPE: RelWithDebInfo
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    env:
+      ORT_DIR: '${{ github.workspace }}/${{ matrix.ort_dir }}'
+    strategy:
+      matrix:
+        julia-version: ['1.10']
+        julia-arch: [x64]
+        os: [ubuntu-latest]
+        include:
+          - os: ubuntu-latest
+            ort_url: 'https://github.com/microsoft/onnxruntime/releases/download/v1.12.1/onnxruntime-linux-x64-1.12.1.tgz'
+            ort_archieve_name: 'onnxruntime-linux-x64-1.12.1.tgz'
+            ort_dir: 'onnxruntime-linux-x64-1.12.1'
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Python 3
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Update pip
+        run: |
+          python -m pip install --upgrade pip
+
+      - name: Install Python packages
+        run: |
+          pip install -r examples/IEEE14/requirements.txt
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ matrix.os }}-pip
+
+      - name: Setup CMake v3.21
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: '3.21'
+      - run: cmake --version
+
+      - name: Download ONNX Runtime
+        run: |
+          wget -q ${{ matrix.ort_url }}
+          tar -xf ${{ matrix.ort_archieve_name }}
+          rm ${{ matrix.ort_archieve_name }}
+
+      - name: Setup OpenModelica
+        uses: OpenModelica/setup-openmodelica@v1
+        with:
+          version: 'nightly'
+          packages: |
+            'omc'
+          libraries: |
+            'OpenIPSL 3.0.1'
+      - run: |
+          which omc
+          omc --version
+
+      - name: Setup Julia
+        uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ matrix.julia-version }}
+          arch: ${{ matrix.julia-arch }}
+
+      - name: Cache Julia
+        uses: julia-actions/cache@v2
+
+      - name: Install dependencies
+        run: julia --project=examples/IEEE14 -e 'using Pkg; Pkg.instantiate()'
+
+      - name: Run example
+        run: |
+          cd examples/IEEE14
+          julia --project=. -e 'include("scripts/genAllData.jl"); include("scripts/trainFlux.jl"); include("scripts/trainTensorflow.jl");'
+

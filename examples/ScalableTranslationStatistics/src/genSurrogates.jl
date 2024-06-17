@@ -36,7 +36,7 @@ function genSurrogate(lib::String, modelName::String; n::Int=1000, genData::Bool
     push!(onnxFiles, onnxModel)
 
     #nInputs = length(prof.usingVars)
-    #nOutputs = length(prof.iterationVariables)  
+    #nOutputs = length(prof.iterationVariables)
     #model = Flux.Chain(Flux.Dense(nInputs,   nInputs*5, Flux.sigmoid),
     #                   Flux.Dense(nInputs*5, nOutputs))
     model = nothing
@@ -64,6 +64,7 @@ function genSurrogate(lib::String, modelName::String; n::Int=1000, genData::Bool
 end
 
 function logProfilingInfo(sizes, logFile)
+  mkpath(dirname(logFile))
   file = open(logFile, "w")
   for size in sizes
     (shortName, modelName) = getNames(size)

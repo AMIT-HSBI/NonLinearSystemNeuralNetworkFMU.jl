@@ -24,13 +24,8 @@ import CSV
 import DataFrames
 import Flux
 import InvertedIndices
-import ONNX
 import ONNXNaiveNASflux
 import StatsBase
-
-# Add Flux.sigmoid operation for ONNXNaiveNASflux
-Flux.sigmoid(pp::ONNXNaiveNASflux.AbstractProbe) = ONNXNaiveNASflux.attribfun(identity, "Sigmoid", pp)
-ONNXNaiveNASflux.refresh()
 
 """
     readData(filename, nInputs; ratio=0.8)

@@ -6,12 +6,12 @@ using DrWatson
 
 include(srcdir("genSurrogates.jl"))
 
-# Specify location of ScalableTranslationStatistics library
-rootDir = "/mnt/home/aheuermann/workdir/phymos/ScalableTranslationStatistics"
-modelicaLib = joinpath(rootDir, "02_SourceModel", "02_Model", "01_AuthoringModel", "ScalableTranslationStatistics", "package.mo")
-
+@assert haskey(ENV, "SCALABLETRANSLATIONSTATISTICS_ROOT") "Environment variable SCALABLETRANSLATIONSTATISTICS_ROOT not set!"
 @assert haskey(ENV, "ORT_DIR") "Environment variable ORT_DIR not set!"
 
+# Specify location of ScalableTranslationStatistics library
+rootDir = ENV["SCALABLETRANSLATIONSTATISTICS_ROOT"]
+modelicaLib = joinpath(rootDir, "package.mo")
 
 """
 Generate surroagate FMUs for Modelica model.

@@ -1,13 +1,12 @@
 name = "NonLinearSystemNeuralNetworkFMU"
 uuid = "cef0780c-fc83-4b94-9c0c-d964a51a3c65"
 authors = ["AnHeuermann <andreas.heuermann@hsbi.de>"]
-version = "0.5.5"
+version = "0.5.6"
 
 [deps]
 BSON = "fbb218c0-5317-5bc6-957e-2ee96dd4b1f0"
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
-Cbc = "9961bab8-2fa3-5c5a-9d89-47fab24efd76"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 FMI = "14a09403-18e3-468f-ad8a-74f8dda2d9ac"
@@ -18,8 +17,6 @@ InvertedIndices = "41ab1584-1d38-5bbf-9106-f11c6c58b48f"
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
 OMJulia = "0f4fe800-344e-11e9-2949-fb537ad918e1"
-ONNX = "d0dd6a25-fac6-55c0-abf7-829e0c774d20"
-ONNXNaiveNASflux = "2e935253-ba83-4645-9154-13ffeb13a688"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 Requires = "ae029012-a4dd-5104-9daa-d747884805df"
@@ -35,13 +32,11 @@ PlottingMakieExt = "CairoMakie"
 
 [compat]
 CairoMakie = "0.10"
-Cbc = "1.0.3"
 DataFrames = "0.19.4, 0.20, 0.21, 0.22, 1"
-OMJulia = "0.3.1"
-Requires = ">=1"
-julia = ">=1.10.0"
-FMIImport = ">=0.16"
 FMI = ">=0.13"
+FMIImport = ">=0.16"
+Requires = ">=1"
+julia = ">=1.9"
 
 [extra]
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
