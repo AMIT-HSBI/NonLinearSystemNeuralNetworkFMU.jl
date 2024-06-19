@@ -104,8 +104,7 @@ function getomc(omc::String="")
     end
     testOmcVersion(omc)
     return omc
-  catch e
-    rethrow(e)
+  catch
   end
   push!(searchedLocations, ENV["PATH"])
 
