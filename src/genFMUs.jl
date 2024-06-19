@@ -41,12 +41,25 @@ function omrun(cmd::Cmd; dir=pwd()::String, logFile=stdout, timeout=10*60::Integ
   env = copy(ENV)
   if Sys.iswindows()
     path = env["PATH"]
+    if !haskey(ENV, "OPENMODELICAHOME")
+      error("Environment variable `OPENMODELICAHOME` not set.")
+    end
+    local omdev_msys
     if haskey(ENV, "OMDEV_MSYS")
-      path *= ";" * abspath(joinpath(ENV["OMDEV_MSYS"], "ucrt64", "bin"))
-      path *= ";" * abspath(joinpath(ENV["OMDEV_MSYS"], "usr", "bin"))
+      omdev_msys = ENV["OMDEV_MSYS"]
     else
-      path *= ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "mingw64", "bin"))
-      path *= ";" * abspath(joinpath(ENV["OPENMODELICAHOME"], "tools", "msys", "usr", "bin"))
+      omdev_msys = joinpath(ENV["OPENMODELICAHOME"], "tools", "msys")
+    end
+    if !isdir(omdev_msys)
+      error("Couldn't find MSYS environment from OpenModelica. "
+            "Check if environment variable `OPENMODELICAHOME` is pointing to the correct location.")
+    end
+    if isdir(joinpath(omdev_msys, "ucrt64", "bin"))
+      path *= ";" * abspath(joinpath(omdev_msys, "ucrt64", "bin"))
+      path *= ";" * abspath(joinpath(omdev_msys, "usr", "bin"))
+    elseif isdir(joinpath(omdev_msys, "mingw64", "bin"))
+      path *= ";" * abspath(joinpath(omdev_msys, "mingw64", "bin"))
+      path *= ";" * abspath(joinpath(omdev_msys, "usr", "bin"))
     end
     env["PATH"] = path
     env["CLICOLOR"] = "0"
