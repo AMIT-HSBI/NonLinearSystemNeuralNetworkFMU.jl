@@ -51,8 +51,8 @@ function omrun(cmd::Cmd; dir=pwd()::String, logFile=stdout, timeout=10*60::Integ
       omdev_msys = joinpath(ENV["OPENMODELICAHOME"], "tools", "msys")
     end
     if !isdir(omdev_msys)
-      error("Couldn't find MSYS environment from OpenModelica. "
-            "Check if environment variable `OPENMODELICAHOME` is pointing to the correct location.")
+      error("Couldn't find MSYS environment from OpenModelica. 
+            Check if environment variable `OPENMODELICAHOME` is pointing to the correct location.")
     end
     if isdir(joinpath(omdev_msys, "ucrt64", "bin"))
       path *= ";" * abspath(joinpath(omdev_msys, "ucrt64", "bin"))
