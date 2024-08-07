@@ -219,12 +219,14 @@ fmi2Status myfmi2EvaluateJacobian(fmi2Component c, const size_t sysNumber, doubl
   DATA* data = comp->fmuData;
   threadData_t *threadData = comp->threadData;
   NONLINEAR_SYSTEM_DATA* nlsSystem = &(data->simulationInfo->nonlinearSystemData[sysNumber]);
+  DATA_HOMOTOPY* solverData;
+  int status;
 
   switch(nlsSystem->nlsMethod)
   {
     case NLS_HOMOTOPY:
-      DATA_HOMOTOPY* solverData = (DATA_HOMOTOPY*) nlsSystem->solverData;
-      int status = getAnalyticalJacobianHomotopy(solverData, jac);
+      solverData = (DATA_HOMOTOPY*) nlsSystem->solverData;
+      status = getAnalyticalJacobianHomotopy(solverData, jac);
       break;
     default:
       printf("Unknown NLS method  %d in myfmi2GetJac\n", (int)nlsSystem->nlsMethod);
