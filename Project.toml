@@ -1,6 +1,6 @@
 name = "NonLinearSystemNeuralNetworkFMU"
 uuid = "cef0780c-fc83-4b94-9c0c-d964a51a3c65"
-authors = ["AnHeuermann <andreas.heuermann@hsbi.de>"]
+authors = ["AnHeuermann"]
 version = "0.5.7"
 
 [deps]

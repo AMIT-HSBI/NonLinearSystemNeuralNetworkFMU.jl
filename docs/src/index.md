@@ -52,4 +52,4 @@ The package generates an FMU from a modelica file in 3 steps (+ 1 user step):
 
 ## Installation
 
-See [AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl README.md](https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl#nonlinearsystemneuralnetworkfmujl) for installation instructions.
+See [AMIT-HSBI/NonLinearSystemNeuralNetworkFMU.jl README.md](https://github.com/AMIT-HSBI/NonLinearSystemNeuralNetworkFMU.jl#nonlinearsystemneuralnetworkfmujl) for installation instructions.

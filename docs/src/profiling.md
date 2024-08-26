@@ -41,7 +41,7 @@ EqInfo
 
 ### Find Slowest Non-linear Equation Systems
 
-We have a Modelica model `SimpleLoop`, see [test/simpleLoop.mo](https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/blob/main/test/simpleLoop.mo) with some non-linear equation system
+We have a Modelica model `SimpleLoop`, see [test/simpleLoop.mo](https://github.com/AMIT-HSBI/NonLinearSystemNeuralNetworkFMU.jl/blob/main/test/simpleLoop.mo) with some non-linear equation system
 
 ```math
 \begin{align*}

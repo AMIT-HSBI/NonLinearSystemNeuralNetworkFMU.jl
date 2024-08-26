@@ -1,7 +1,7 @@
 # ScalableTranslationStatistics
 
 This example for
-[NonLinearSystemNeuralNetworkFMU.jl](https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl)
+[NonLinearSystemNeuralNetworkFMU.jl](https://github.com/AMIT-HSBI/NonLinearSystemNeuralNetworkFMU.jl)
 is using [DrWatson](https://juliadynamics.github.io/DrWatson.jl/stable/) to make
 a reproducible example named **ScalableTranslatonStatistics**.
 
@@ -19,7 +19,7 @@ ONNX surrogate FMUs.
      This example uses commit 8a96bcb036fb9a6e56a3d1e369af8f36fcbc3c1e.
 
   2. Make sure you have local Julia package
-     [NaiveONNX](https://github.com/AnHeuermann/NaiveONNX.jl) in [../NaiveONNX.jl](../NaiveONNX.jl).
+     [NaiveONNX](https://github.com/AMIT-HSBI/NaiveONNX.jl) in [../NaiveONNX.jl](../NaiveONNX.jl).
      If not update your git submodule with
 
      ```bash

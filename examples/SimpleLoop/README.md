@@ -1,7 +1,7 @@
 # SimpleLoop
 
 This example for
-[NonLinearSystemNeuralNetworkFMU.jl](https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl)
+[NonLinearSystemNeuralNetworkFMU.jl](https://github.com/AMIT-HSBI/NonLinearSystemNeuralNetworkFMU.jl)
 is using [DrWatson](https://juliadynamics.github.io/DrWatson.jl/stable/) to make a
 reproducible example named **SimpleLoop**.
 
@@ -27,7 +27,7 @@ at
 To (locally) reproduce this project, do the following:
 
   1. Make sure you have local Julia package
-     [NaiveONNX](https://github.com/AnHeuermann/NaiveONNX.jl) in [../NaiveONNX.jl](../NaiveONNX.jl).
+     [NaiveONNX](https://github.com/AMIT-HSBI/NaiveONNX.jl) in [../NaiveONNX.jl](../NaiveONNX.jl).
      If not update your git submodule with
 
      ```bash
