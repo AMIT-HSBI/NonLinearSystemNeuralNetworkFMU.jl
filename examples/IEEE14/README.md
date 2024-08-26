@@ -12,7 +12,7 @@ Authors: Andreas Heuermann.
 To (locally) reproduce this project, do the following:
 
   1. Make sure you have local Julia package
-     [NaiveONNX](https://github.com/AnHeuermann/NaiveONNX.jl) in [../NaiveONNX.jl](../NaiveONNX.jl).
+     [NaiveONNX](https://github.com/AMIT-HSBI/NaiveONNX.jl) in [../NaiveONNX.jl](../NaiveONNX.jl).
      If not update your git submodule with
 
      ```bash

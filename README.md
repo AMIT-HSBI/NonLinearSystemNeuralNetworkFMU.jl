@@ -11,7 +11,7 @@ This repository uses (private) submodules for the examples.
 Clone with `--recursive`:
 
 ```bash
-git clone git@github.com:AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl.git --recursive
+git clone git@github.com:AMIT-HSBI/NonLinearSystemNeuralNetworkFMU.jl.git --recursive
 ```
 
 To initialize or update your local git repository to use the latest submodules run:
@@ -127,9 +127,9 @@ supported by the German [Federal Ministry for Economic Affairs and Climate Actio
 with project number 19|200022G.
 
 [docs-dev-img]: https://img.shields.io/badge/docs-dev-blue.svg
-[docs-dev-url]: https://anheuermann.github.io/NonLinearSystemNeuralNetworkFMU.jl/dev/
+[docs-dev-url]: https://amit-hsbi.github.io/NonLinearSystemNeuralNetworkFMU.jl/dev/
 
-[GHA-img-linux]: https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/actions/workflows/base-tests-linux.yml/badge.svg?branch=main
-[GHA-url-linux]: https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/actions/workflows/base-tests-linux.yml
-[GHA-img-win]: https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/actions/workflows/base-tests-windows.yml/badge.svg?branch=main
-[GHA-url-win]: https://github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl/actions/workflows/base-tests-windows.yml
+[GHA-img-linux]: https://github.com/AMIT-HSBI/NonLinearSystemNeuralNetworkFMU.jl/actions/workflows/base-tests-linux.yml/badge.svg?branch=main
+[GHA-url-linux]: https://github.com/AMIT-HSBI/NonLinearSystemNeuralNetworkFMU.jl/actions/workflows/base-tests-linux.yml
+[GHA-img-win]: https://github.com/AMIT-HSBI/NonLinearSystemNeuralNetworkFMU.jl/actions/workflows/base-tests-windows.yml/badge.svg?branch=main
+[GHA-url-win]: https://github.com/AMIT-HSBI/NonLinearSystemNeuralNetworkFMU.jl/actions/workflows/base-tests-windows.yml

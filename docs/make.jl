@@ -19,6 +19,6 @@ makedocs(
 
 @info "Deploy the docs"
 deploydocs(
-  repo = "github.com/AnHeuermann/NonLinearSystemNeuralNetworkFMU.jl.git",
+  repo = "github.com/AMIT-HSBI/NonLinearSystemNeuralNetworkFMU.jl.git",
   devbranch = "main"
 )

@@ -8,7 +8,7 @@ This step has to be performed by the user.
 ## Example
 
 For a naive feed-forward neural network exported to ONNX see
-[AnHeuermann/NaiveONNX.jl](https://github.com/AnHeuermann/NaiveONNX.jl).
+[AMIT-HSBI/NaiveONNX.jl](https://github.com/AMIT-HSBI/NaiveONNX.jl).
 
 ```@example trainexample
 using NonLinearSystemNeuralNetworkFMU # hide
