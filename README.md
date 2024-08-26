@@ -140,3 +140,5 @@ with project number 19|200022G.
 [GHA-url-linux]: https://github.com/AMIT-HSBI/NonLinearSystemNeuralNetworkFMU.jl/actions/workflows/base-tests-linux.yml
 [GHA-img-win]: https://github.com/AMIT-HSBI/NonLinearSystemNeuralNetworkFMU.jl/actions/workflows/base-tests-windows.yml/badge.svg?branch=main
 [GHA-url-win]: https://github.com/AMIT-HSBI/NonLinearSystemNeuralNetworkFMU.jl/actions/workflows/base-tests-windows.yml
+
+[hsbi-link]: https://www.hsbi.de/ium
