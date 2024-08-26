@@ -120,6 +120,13 @@ NonLinearSystemNeuralNetworkFMU.jl uses, modifies and re-distributes source code
 by [OpenModelica](https://openmodelica.org/) which is provided under the terms of GNU AGPL
 v3 license or the [OSMC Public License (OSMC-PL) version 1.8](https://openmodelica.org/osmc-pl/osmc-pl-1.8.txt).
 
+## Development and contribution
+
+The development is organized by
+[Hochschule Bielefeld – University of Applied Sciences and Arts, Faculty of Engineering and Mathematics][hsbi-link].
+
+Contributor need to sign a contributor license agreement.
+
 ## Acknowledgments
 
 This package was developed as part of the [Proper Hybrid Models for Smarter Vehicles (PHyMoS)](https://phymos.de/en/) project,
