@@ -42,9 +42,9 @@ jobs:
           rm ${{ matrix.ort_archieve_name }}
 
       - name: Setup OpenModelica
-        uses: OpenModelica/setup-openmodelica@v1
+        uses: OpenModelica/setup-openmodelica@v1.0.2
         with:
-          version: 'nightly'
+          version: '1.23.1'
           packages: |
             'omc'
       - run: |
