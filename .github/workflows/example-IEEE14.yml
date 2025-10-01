@@ -65,7 +65,7 @@ jobs:
       - name: Setup OpenModelica
         uses: OpenModelica/setup-openmodelica@v1
         with:
-          version: 'nightly'
+          version: '1.23'
           packages: |
             'omc'
           libraries: |
@@ -90,4 +90,3 @@ jobs:
         run: |
           cd examples/IEEE14
           julia --project=. -e 'include("scripts/genAllData.jl"); include("scripts/trainFlux.jl"); include("scripts/trainTensorflow.jl");'
-

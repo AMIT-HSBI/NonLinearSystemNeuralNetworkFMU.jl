@@ -47,7 +47,7 @@ jobs:
       # Setup OpenModelica for OMJulia.jl
       - uses: OpenModelica/setup-openmodelica@v1
         with:
-          version: 'nightly'
+          version: '1.23'
       - run: |
           which omc
           omc --version
