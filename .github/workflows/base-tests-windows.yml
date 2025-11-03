@@ -45,7 +45,7 @@ jobs:
         shell: pwsh
 
       # Setup OpenModelica for OMJulia.jl
-      - uses: OpenModelica/setup-openmodelica@v1.0.2
+      - uses: OpenModelica/setup-openmodelica@v1.0.4
         with:
           version: '1.23.1'
       - run: |
