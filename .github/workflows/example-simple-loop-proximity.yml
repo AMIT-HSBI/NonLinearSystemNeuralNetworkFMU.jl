@@ -75,7 +75,7 @@ jobs:
           julia --project=. scripts/runAll.jl
 
       - name: Archive plots
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: plots
           path: ./examples/SimpleLoop_proximity/plots
