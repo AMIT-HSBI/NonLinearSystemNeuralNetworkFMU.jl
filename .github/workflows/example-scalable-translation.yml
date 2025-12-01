@@ -29,11 +29,11 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           repository: 'ltx-simulation/ScalableTranslationStatistics'
           ref: '8a96bcb036fb9a6e56a3d1e369af8f36fcbc3c1e'
