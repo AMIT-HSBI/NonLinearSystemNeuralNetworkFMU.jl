@@ -27,7 +27,7 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Setup CMake v3.21
         uses: jwlawson/actions-setup-cmake@v2
