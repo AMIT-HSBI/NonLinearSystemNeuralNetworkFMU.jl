@@ -75,7 +75,7 @@ jobs:
           julia --project=. scripts/runall.jl
 
       - name: Archive plots
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: plots
           path: ./examples/SimpleLoop/plots
