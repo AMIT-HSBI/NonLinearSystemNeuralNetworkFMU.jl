@@ -84,7 +84,7 @@ jobs:
           julia --project=. scripts/runAll.jl
 
       - name: Archive plots
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: plots
           path: ./examples/ScalableTranslationStatistics/plots
