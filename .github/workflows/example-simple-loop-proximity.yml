@@ -64,7 +64,7 @@ jobs:
           arch: ${{ matrix.julia-arch }}
 
       - name: Cache Julia
-        uses: julia-actions/cache@v2
+        uses: julia-actions/cache@v3
 
       - name: Install dependencies
         run: julia --project=examples/SimpleLoop_proximity -e 'using Pkg; Pkg.instantiate()'
